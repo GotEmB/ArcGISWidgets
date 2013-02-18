@@ -6,3 +6,8 @@ body {
   width: 100%;
   height: 100%;
 }
+#classifyWidgetContainer {
+  position: absolute;
+  right: 25px;
+  top: 75px;
+}
