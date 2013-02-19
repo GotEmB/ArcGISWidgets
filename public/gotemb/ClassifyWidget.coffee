@@ -29,6 +29,6 @@ define [
 			@_signaturesLayer = new esri.layers.FeatureLayer @_signaturesUrlInput.get "value"
 			dojo.connect @_signaturesLayer, "onLoad", =>
 				@map.addLayer @_signaturesLayer
-				console.log
-					currentExtent: @map.extent
-					signaturesWithinExtent: ()
+				#console.log
+				#	currentExtent: @map.extent
+				#	signaturesWithinExtent: ()

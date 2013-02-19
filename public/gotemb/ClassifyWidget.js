@@ -11,6 +11,9 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
     _signaturesLayer: null,
     _addImageServiceLayer: function() {
       var _this = this;
+      if (this._imageServiceLayer != null) {
+        this.map.removeLayer(this._imageServiceLayer);
+      }
       this._imageServiceLayer = new esri.layers.ArcGISImageServiceLayer(this._imageServiceUrlInput.get("value"));
       return dojo.connect(this._imageServiceLayer, "onLoad", function() {
         _this.map.addLayer(_this._imageServiceLayer);
@@ -21,7 +24,7 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
       var _this = this;
       this._signaturesLayer = new esri.layers.FeatureLayer(this._signaturesUrlInput.get("value"));
       return dojo.connect(this._signaturesLayer, "onLoad", function() {
-        return alert(".");
+        return _this.map.addLayer(_this._signaturesLayer);
       });
     }
   });
