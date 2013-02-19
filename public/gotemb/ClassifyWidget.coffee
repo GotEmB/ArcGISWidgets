@@ -34,6 +34,7 @@ define [
 			@_signaturesLayer = new esri.layers.FeatureLayer @_signaturesUrlInput.get "value"
 			dojo.connect @_signaturesLayer, "onLoad", =>
 				@_signaturesLayer.selectFeatures (extend new esri.tasks.Query(),
-						geometry: @map.extent
-						spatialRelationship: esri.tasks.Query.SPATIAL_REL_INTERSECTS
-				), esri.layers.FeatureLayer.SELECTION_NEW, => console.log arguments
+					geometry: @map.extent
+					spatialRelationship: esri.tasks.Query.SPATIAL_REL_INTERSECTS
+					outFields: ["shape"]
+				), esri.layers.FeatureLayer.SELECTION_NEW, (features) -> console.log features

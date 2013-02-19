@@ -36,9 +36,10 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
       return dojo.connect(this._signaturesLayer, "onLoad", function() {
         return _this._signaturesLayer.selectFeatures(extend(new esri.tasks.Query(), {
           geometry: _this.map.extent,
-          spatialRelationship: esri.tasks.Query.SPATIAL_REL_INTERSECTS
-        }), esri.layers.FeatureLayer.SELECTION_NEW, function() {
-          return console.log(arguments);
+          spatialRelationship: esri.tasks.Query.SPATIAL_REL_INTERSECTS,
+          outFields: ["shape"]
+        }), esri.layers.FeatureLayer.SELECTION_NEW, function(features) {
+          return console.log(features);
         });
       });
     }
