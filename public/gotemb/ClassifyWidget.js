@@ -32,12 +32,13 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
     },
     _getSignaturesForExtent: function() {
       var _this = this;
-      this._signaturesLayer = new esri.layers.FeatureLayer(this._signaturesUrlInput.get("value"));
+      this._signaturesLayer = new esri.layers.FeatureLayer(this._signaturesUrlInput.get("value"), {
+        outFields: ["FID", "SIGURL"]
+      });
       return dojo.connect(this._signaturesLayer, "onLoad", function() {
         return _this._signaturesLayer.selectFeatures(extend(new esri.tasks.Query(), {
           geometry: _this.map.extent,
-          spatialRelationship: esri.tasks.Query.SPATIAL_REL_INTERSECTS,
-          outFields: ["shape"]
+          spatialRelationship: esri.tasks.Query.SPATIAL_REL_INTERSECTS
         }), esri.layers.FeatureLayer.SELECTION_NEW, function(features) {
           return console.log(features);
         });

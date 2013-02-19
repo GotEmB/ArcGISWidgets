@@ -31,10 +31,9 @@ define [
 				@map.addLayer @_imageServiceLayer
 				@map.setExtent @_imageServiceLayer.initialExtent
 		_getSignaturesForExtent: ->
-			@_signaturesLayer = new esri.layers.FeatureLayer @_signaturesUrlInput.get "value"
+			@_signaturesLayer = new esri.layers.FeatureLayer (@_signaturesUrlInput.get "value"), outFields: ["FID", "SIGURL"]
 			dojo.connect @_signaturesLayer, "onLoad", =>
 				@_signaturesLayer.selectFeatures (extend new esri.tasks.Query(),
 					geometry: @map.extent
 					spatialRelationship: esri.tasks.Query.SPATIAL_REL_INTERSECTS
-					outFields: ["shape"]
 				), esri.layers.FeatureLayer.SELECTION_NEW, (features) -> console.log features
