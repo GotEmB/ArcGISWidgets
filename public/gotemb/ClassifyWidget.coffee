@@ -1,3 +1,7 @@
+extend = (obj, mixin) ->
+ 	obj[name] = method for name, method of mixin        
+ 	obj
+
 define [
 	"dojo/_base/declare"
 	"dijit/_WidgetBase"
@@ -10,6 +14,7 @@ define [
 	"dijit/form/Button"
 	"esri/map"
 	"esri/layers/FeatureLayer"
+	"esri/tasks/query"
 ], (declare, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template) ->
 	declare [_WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin],
 		templateString: template
@@ -28,7 +33,7 @@ define [
 		_getSignaturesForExtent: ->
 			@_signaturesLayer = new esri.layers.FeatureLayer @_signaturesUrlInput.get "value"
 			dojo.connect @_signaturesLayer, "onLoad", =>
-				@map.addLayer @_signaturesLayer
-				#console.log
-				#	currentExtent: @map.extent
-				#	signaturesWithinExtent: ()
+				@_signaturesLayer.selectFeatures (extend new esri.tasks.Query(),
+						geometry: @map.extent
+						spatialRelationship: esri.tasks.Query.SPATIAL_REL_INTERSECTS
+				), esri.layers.FeatureLayer.SELECTION_NEW, => console.log arguments
