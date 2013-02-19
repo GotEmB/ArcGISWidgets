@@ -5,9 +5,10 @@
 			<input type="text" data-dojo-type="dijit/form/TextBox" data-dojo-attach-point="_imageServiceUrlInput" name="imageurl" style="width: 200px">
 		</div>
 		<div>
-			<label for="featuresurl" style="width: 130px; display: inline-block; text-align: right">Feature Service URL</label>
-			<input type="text" data-dojo-type="dijit/form/TextBox" data-dojo-attach-point="_featureServiceUrlInput" name="featuresurl" style="width: 200px">
+			<label for="signaturesurl" style="width: 130px; display: inline-block; text-align: right">Signatures URL</label>
+			<input type="text" data-dojo-type="dijit/form/TextBox" data-dojo-attach-point="_signaturesUrlInput" name="signaturesurl" style="width: 200px">
 		</div>
-		<button data-dojo-type="dijit/form/Button" type="button" data-dojo-attach-event="onClick: _classify">Classify</button>
+		<button data-dojo-type="dijit/form/Button" type="button" data-dojo-attach-event="onClick: _addImageServiceLayer">Add ImageService Layer</button>
+		<button data-dojo-type="dijit/form/Button" type="button" data-dojo-attach-event="onClick: _getSignaturesForExtent">Get Signatures in Extent</button>
 	</div>
 </div>
