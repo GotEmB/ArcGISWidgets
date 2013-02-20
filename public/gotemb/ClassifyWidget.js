@@ -10,37 +10,75 @@ extend = function(obj, mixin) {
   return obj;
 };
 
-define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dijit/_WidgetsInTemplateMixin", "dojo/text!./ClassifyWidget/templates/ClassifyWidget.html", "dijit/layout/BorderContainer", "dijit/layout/ContentPane", "dijit/form/TextBox", "dijit/form/Button", "esri/map", "esri/layers/FeatureLayer", "esri/tasks/query"], function(declare, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template) {
+define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dijit/_WidgetsInTemplateMixin", "dojo/text!./ClassifyWidget/templates/ClassifyWidget.html", "dijit/layout/BorderContainer", "dijit/layout/ContentPane", "dijit/form/TextBox", "dijit/form/Button", "esri/map", "esri/layers/FeatureLayer", "esri/tasks/query", "esri/tasks/geometry"], function(declare, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template) {
   return declare([_WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin], {
     templateString: template,
     baseClass: "classifyWidget",
     map: null,
     _imageServiceUrlInput: null,
     _signaturesUrlInput: null,
+    _geometryServiceUrlInput: null,
     _imageServiceLayer: null,
-    _signaturesLayer: null,
-    _addImageServiceLayer: function() {
+    _setImageLayer: function(options, callback) {
       var _this = this;
       if (this._imageServiceLayer != null) {
         this.map.removeLayer(this._imageServiceLayer);
       }
-      this._imageServiceLayer = new esri.layers.ArcGISImageServiceLayer(this._imageServiceUrlInput.get("value"));
+      this._imageServiceLayer = new esri.layers.ArcGISImageServiceLayer(this._imageServiceUrlInput.get("value"), options);
       return dojo.connect(this._imageServiceLayer, "onLoad", function() {
         _this.map.addLayer(_this._imageServiceLayer);
+        return typeof callback === "function" ? callback() : void 0;
+      });
+    },
+    _addImageServiceLayer: function() {
+      var _this = this;
+      return this._setImageLayer(null, function() {
         return _this.map.setExtent(_this._imageServiceLayer.initialExtent);
       });
     },
-    _getSignaturesForExtent: function() {
-      var _this = this;
-      this._signaturesLayer = new esri.layers.FeatureLayer(this._signaturesUrlInput.get("value"), {
+    _clipImageToSignatureFeatures: function() {
+      var signaturesLayer,
+        _this = this;
+      signaturesLayer = new esri.layers.FeatureLayer(this._signaturesUrlInput.get("value"), {
         outFields: ["FID", "SIGURL"]
       });
-      return dojo.connect(this._signaturesLayer, "onLoad", function() {
-        return _this._signaturesLayer.selectFeatures(extend(new esri.tasks.Query(), {
+      return dojo.connect(signaturesLayer, "onLoad", function() {
+        return signaturesLayer.selectFeatures(extend(new esri.tasks.Query, {
           geometry: _this.map.extent,
           spatialRelationship: esri.tasks.Query.SPATIAL_REL_INTERSECTS
         }), esri.layers.FeatureLayer.SELECTION_NEW, function(features) {
-          return console.log(features);
+          var f, geometryService;
+          geometryService = new esri.tasks.GeometryService(_this._geometryServiceUrlInput.get("value"));
+          return geometryService.union((function() {
+            var _i, _len, _results;
+            _results = [];
+            for (_i = 0, _len = features.length; _i < _len; _i++) {
+              f = features[_i];
+              _results.push(f.geometry);
+            }
+            return _results;
+          })(), function(geo1) {
+            return geometryService.intersect([geo1], _this._imageServiceLayer.fullExtent, function(_arg) {
+              var geo2;
+              geo2 = _arg[0];
+              return geometryService.intersect([geo2], _this.map.extent, function(_arg1) {
+                var geo3;
+                geo3 = _arg1[0];
+                return _this._setImageLayer({
+                  imageServiceParameters: extend(new esri.layers.ImageServiceParameters, {
+                    renderingRule: extend(new esri.layers.RasterFunction, {
+                      functionName: "Clip",
+                      "arguments": {
+                        ClippingGeometry: geo3,
+                        ClippingType: 1
+                      },
+                      variableName: "Raster"
+                    })
+                  })
+                });
+              });
+            });
+          });
         });
       });
     }
