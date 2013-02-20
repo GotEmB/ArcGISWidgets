@@ -7,6 +7,7 @@ require [
 	"dijit/TitlePane"
 	"esri/map"
 	"esri/geometry"
+	"esri/dijit/Attribution"
 	"gotemb/ClassifyWidget"
 ], (registry, ready) ->
 	ready ->
