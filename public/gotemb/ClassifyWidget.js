@@ -10,7 +10,18 @@ extend = function(obj, mixin) {
   return obj;
 };
 
-define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dijit/_WidgetsInTemplateMixin", "dojo/text!./ClassifyWidget/templates/ClassifyWidget.html", "dijit/layout/BorderContainer", "dijit/layout/ContentPane", "dijit/form/TextBox", "dijit/form/Button", "esri/map", "esri/layers/FeatureLayer", "esri/tasks/query", "esri/tasks/geometry"], function(declare, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template) {
+define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dijit/_WidgetsInTemplateMixin", "dojo/text!./ClassifyWidget/templates/ClassifyWidget.html", "dijit/Dialog", "dijit/layout/BorderContainer", "dijit/layout/ContentPane", "dijit/form/TextBox", "dijit/form/DropDownButton", "dijit/DropDownMenu", "dijit/MenuItem", "dijit/MenuSeparator", "esri/map", "esri/layers/FeatureLayer", "esri/tasks/query", "esri/tasks/geometry"], function(declare, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template, Dialog) {
+  var showError;
+  showError = function(content) {
+    var errBox;
+    errBox = new Dialog({
+      title: "Error",
+      content: content
+    });
+    errBox.startup();
+    errBox.show();
+    return errBox;
+  };
   return declare([_WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin], {
     templateString: template,
     baseClass: "classifyWidget",
@@ -25,9 +36,12 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
         this.map.removeLayer(this._imageServiceLayer);
       }
       this._imageServiceLayer = new esri.layers.ArcGISImageServiceLayer(this._imageServiceUrlInput.get("value"), options);
-      return dojo.connect(this._imageServiceLayer, "onLoad", function() {
+      dojo.connect(this._imageServiceLayer, "onLoad", function() {
         _this.map.addLayer(_this._imageServiceLayer);
         return typeof callback === "function" ? callback() : void 0;
+      });
+      return dojo.connect(this._imageServiceLayer, "onError", function(error) {
+        return showError("ImageServiceLayer: " + error.message);
       });
     },
     _addImageServiceLayer: function() {
@@ -42,13 +56,19 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
       signaturesLayer = new esri.layers.FeatureLayer(this._signaturesUrlInput.get("value"), {
         outFields: ["FID", "SIGURL"]
       });
-      return dojo.connect(signaturesLayer, "onLoad", function() {
+      dojo.connect(signaturesLayer, "onLoad", function() {
         return signaturesLayer.selectFeatures(extend(new esri.tasks.Query, {
           geometry: _this.map.extent,
           spatialRelationship: esri.tasks.Query.SPATIAL_REL_INTERSECTS
         }), esri.layers.FeatureLayer.SELECTION_NEW, function(features) {
           var f, geometryService;
+          if (features.length === 0) {
+            return showError("No features found within current view extent.");
+          }
           geometryService = new esri.tasks.GeometryService(_this._geometryServiceUrlInput.get("value"));
+          dojo.connect(geometryService, "onError", function(error) {
+            return showError("GeometryService: " + error.message);
+          });
           return geometryService.union((function() {
             var _i, _len, _results;
             _results = [];
@@ -59,11 +79,17 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
             return _results;
           })(), function(geo1) {
             return geometryService.intersect([geo1], _this._imageServiceLayer.fullExtent, function(_arg) {
-              var geo2;
+              var geo2, _ref;
               geo2 = _arg[0];
+              if (!((geo2 != null ? (_ref = geo2.rings) != null ? _ref.length : void 0 : void 0) > 0)) {
+                return showError("No features found within ImageServiceLayer Extent.");
+              }
               return geometryService.intersect([geo2], _this.map.extent, function(_arg1) {
-                var geo3;
+                var geo3, _ref1;
                 geo3 = _arg1[0];
+                if (!((geo3 != null ? (_ref1 = geo3.rings) != null ? _ref1.length : void 0 : void 0) > 0)) {
+                  return showError("No features found within ImageServiceLayer and current view Extent.");
+                }
                 return _this._setImageLayer({
                   imageServiceParameters: extend(new esri.layers.ImageServiceParameters, {
                     renderingRule: extend(new esri.layers.RasterFunction, {
@@ -80,6 +106,9 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
             });
           });
         });
+      });
+      return dojo.connect(signaturesLayer, "onError", function(error) {
+        return showError("FeatureLayer: " + error.message);
       });
     },
     _getClassifiedImage: function() {

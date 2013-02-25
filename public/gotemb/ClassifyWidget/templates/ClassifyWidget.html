@@ -1,19 +1,43 @@
 <div data-dojo-type="dijit/layout/BorderContainer" style="width: 100%; height: 100%">
 	<div data-dojo-type="dijit/layout/ContentPane" data-dojo-props="region: 'center'">
-		<div>
-			<label for="imageurl" style="width: 180px; display: inline-block; text-align: right">Image Service URL</label>
-			<input type="text" data-dojo-type="dijit/form/TextBox" data-dojo-attach-point="_imageServiceUrlInput" name="imageurl" style="width: 200px" value="http://lamborghini:6080/arcgis/rest/services/Reproj_Clip_p033r032_7dt20020920_z13_MS1/ImageServer">
-		</div>
-		<div>
-			<label for="signaturesurl" style="width: 180px; display: inline-block; text-align: right">Signatures URL</label>
-			<input type="text" data-dojo-type="dijit/form/TextBox" data-dojo-attach-point="_signaturesUrlInput" name="signaturesurl" style="width: 200px" value="http://lamborghini:6080/arcgis/rest/services/Signatures/MapServer/0">
-		</div>
-		<div>
-			<label for="signaturesurl" style="width: 180px; display: inline-block; text-align: right">GeometryService URL</label>
-			<input type="text" data-dojo-type="dijit/form/TextBox" data-dojo-attach-point="_geometryServiceUrlInput" name="signaturesurl" style="width: 200px" value="http://lamborghini:6080/arcgis/rest/services/Utilities/Geometry/GeometryServer">
-		</div>
-		<button data-dojo-type="dijit/form/Button" type="button" data-dojo-attach-event="onClick: _addImageServiceLayer">Add ImageService Layer</button>
-		<button data-dojo-type="dijit/form/Button" type="button" data-dojo-attach-event="onClick: _clipImageToSignatureFeatures">Clip Image to Signature Features</button><br>
-		<button data-dojo-type="dijit/form/Button" type="button" data-dojo-attach-event="onClick: _getClassifiedImage">Clip Get Classified Image</button>
+		<table>
+			<tr>
+				<td style="text-align: right">
+					<label for="imageurl">Image Service URL:</label>
+				</td>
+				<td>
+					<input type="text" data-dojo-type="dijit/form/TextBox" data-dojo-attach-point="_imageServiceUrlInput" name="imageurl" style="width: 250px" value="http://eg1130:6080/arcgis/rest/services/Reproj_Clip_p033r032_7dt20020920_z13_MS1/ImageServer">
+				</td>
+			</tr>
+			<tr>
+				<td style="text-align: right">
+					<label for="signaturesurl">Signatures URL:</label>
+				</td>
+				<td>
+					<input type="text" data-dojo-type="dijit/form/TextBox" data-dojo-attach-point="_signaturesUrlInput" name="signaturesurl" style="width: 250px" value="http://eg1130:6080/arcgis/rest/services/Signatures/MapServer/0">
+				</td>
+			</tr>
+			<tr>
+				<td style="text-align: right">
+					<label for="signaturesurl">GeometryService URL:</label>
+				</td>
+				<td>
+					<input type="text" data-dojo-type="dijit/form/TextBox" data-dojo-attach-point="_geometryServiceUrlInput" name="signaturesurl" style="width: 250px" value="http://eg1130:6080/arcgis/rest/services/Utilities/Geometry/GeometryServer">
+				</td>
+			</tr>
+			<tr>
+				<td style="text-align: right" colspan="2">
+					<div data-dojo-type="dijit/form/DropDownButton">
+						<span>Tasks</span>
+						<div data-dojo-type="dijit/DropDownMenu">
+							<div data-dojo-type="dijit/MenuItem" data-dojo-attach-event="onClick: _addImageServiceLayer">Add ImageService Layer</div>
+							<div data-dojo-type="dijit/MenuItem" data-dojo-attach-event="onClick: _clipImageToSignatureFeatures">Clip Image to Signature Features</div>
+							<div data-dojo-type="dijit/MenuSeparator"></div>
+							<div data-dojo-type="dijit/MenuItem" data-dojo-attach-event="onClick: _getClassifiedImage">Get Classified Image</div>
+						</div>
+					</div>
+				</td>
+			</tr>
+		</table>
 	</div>
 </div>

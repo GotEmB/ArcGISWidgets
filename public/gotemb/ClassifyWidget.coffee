@@ -8,15 +8,24 @@ define [
 	"dijit/_TemplatedMixin"
 	"dijit/_WidgetsInTemplateMixin"
 	"dojo/text!./ClassifyWidget/templates/ClassifyWidget.html"
+	"dijit/Dialog"
 	"dijit/layout/BorderContainer"
 	"dijit/layout/ContentPane"
 	"dijit/form/TextBox"
-	"dijit/form/Button"
+	"dijit/form/DropDownButton"
+	"dijit/DropDownMenu"
+	"dijit/MenuItem"
+	"dijit/MenuSeparator"
 	"esri/map"
 	"esri/layers/FeatureLayer"
 	"esri/tasks/query"
 	"esri/tasks/geometry"
-], (declare, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template) ->
+], (declare, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template, Dialog) ->
+	showError = (content) ->
+		errBox = new Dialog title: "Error", content: content
+		errBox.startup()
+		errBox.show()
+		errBox
 	declare [_WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin],
 		templateString: template
 		baseClass: "classifyWidget"
@@ -31,6 +40,7 @@ define [
 			dojo.connect @_imageServiceLayer, "onLoad", =>
 				@map.addLayer @_imageServiceLayer
 				callback?()
+			dojo.connect @_imageServiceLayer, "onError", (error) -> showError "ImageServiceLayer: #{error.message}"
 		_addImageServiceLayer: ->
 			@_setImageLayer null, =>
 				@map.setExtent @_imageServiceLayer.initialExtent
@@ -41,10 +51,14 @@ define [
 					geometry: @map.extent
 					spatialRelationship: esri.tasks.Query.SPATIAL_REL_INTERSECTS
 				), esri.layers.FeatureLayer.SELECTION_NEW, (features) =>
+					return showError "No features found within current view extent." if features.length is 0
 					geometryService = new esri.tasks.GeometryService @_geometryServiceUrlInput.get "value"
+					dojo.connect geometryService, "onError", (error) -> showError "GeometryService: #{error.message}"
 					geometryService.union (f.geometry for f in features), (geo1) =>
 						geometryService.intersect [geo1], @_imageServiceLayer.fullExtent, ([geo2]) =>
+							return showError "No features found within ImageServiceLayer Extent." unless geo2?.rings?.length > 0
 							geometryService.intersect [geo2], @map.extent, ([geo3]) =>
+								return showError "No features found within ImageServiceLayer and current view Extent." unless geo3?.rings?.length > 0
 								@_setImageLayer
 									imageServiceParameters: (extend new esri.layers.ImageServiceParameters,
 										renderingRule: (extend new esri.layers.RasterFunction,
@@ -55,6 +69,7 @@ define [
 											variableName: "Raster"
 										)
 									)
+			dojo.connect signaturesLayer, "onError", (error) -> showError "FeatureLayer: #{error.message}"
 		_getClassifiedImage: ->
 			signaturesLayer = new esri.layers.FeatureLayer (@_signaturesUrlInput.get "value"), outFields: ["FID", "SIGURL"]
 			dojo.connect signaturesLayer, "onLoad", =>
