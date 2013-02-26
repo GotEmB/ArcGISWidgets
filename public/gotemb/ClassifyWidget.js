@@ -31,7 +31,11 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
     _geometryServiceUrlInput: null,
     _imageServiceLayer: null,
     _setImageLayer: function(options, callback) {
-      var _this = this;
+      var _ref,
+        _this = this;
+      if ((_ref = this._imageServiceUrlInput.get("value")) === "" || _ref === null || _ref === (void 0)) {
+        return showError("ImageServiceLayer: Service URL Required.");
+      }
       if (this._imageServiceLayer != null) {
         this.map.removeLayer(this._imageServiceLayer);
       }
@@ -45,14 +49,36 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
       });
     },
     _addImageServiceLayer: function() {
-      var _this = this;
+      var _ref,
+        _this = this;
+      if ((_ref = this._geometryServiceUrlInput.get("value")) === "" || _ref === null || _ref === (void 0)) {
+        return showError("GeometryService: Service URL Required.");
+      }
       return this._setImageLayer(null, function() {
-        return _this.map.setExtent(_this._imageServiceLayer.initialExtent);
+        var geometryService;
+        geometryService = new esri.tasks.GeometryService(_this._geometryServiceUrlInput.get("value"));
+        dojo.connect(geometryService, "onError", function(error) {
+          return showError("GeometryService: " + error.message);
+        });
+        return geometryService.project(extend(new esri.tasks.ProjectParameters, {
+          geometries: [_this._imageServiceLayer.initialExtent],
+          outSR: _this.map.extent.spatialReference
+        }), function(_arg) {
+          var extent;
+          extent = _arg[0];
+          return _this.map.setExtent(extent);
+        });
       });
     },
     _clipImageToSignatureFeatures: function() {
-      var signaturesLayer,
+      var signaturesLayer, _ref, _ref1,
         _this = this;
+      if ((_ref = this._signaturesUrlInput.get("value")) === "" || _ref === null || _ref === (void 0)) {
+        return showError("FeatureLayer: Service URL Required.");
+      }
+      if ((_ref1 = this._geometryServiceUrlInput.get("value")) === "" || _ref1 === null || _ref1 === (void 0)) {
+        return showError("GeometryService: Service URL Required.");
+      }
       signaturesLayer = new esri.layers.FeatureLayer(this._signaturesUrlInput.get("value"), {
         outFields: ["FID", "SIGURL"]
       });
@@ -79,15 +105,15 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
             return _results;
           })(), function(geo1) {
             return geometryService.intersect([geo1], _this._imageServiceLayer.fullExtent, function(_arg) {
-              var geo2, _ref;
+              var geo2, _ref2;
               geo2 = _arg[0];
-              if (!((geo2 != null ? (_ref = geo2.rings) != null ? _ref.length : void 0 : void 0) > 0)) {
+              if (!((geo2 != null ? (_ref2 = geo2.rings) != null ? _ref2.length : void 0 : void 0) > 0)) {
                 return showError("No features found within ImageServiceLayer Extent.");
               }
               return geometryService.intersect([geo2], _this.map.extent, function(_arg1) {
-                var geo3, _ref1;
+                var geo3, _ref3;
                 geo3 = _arg1[0];
-                if (!((geo3 != null ? (_ref1 = geo3.rings) != null ? _ref1.length : void 0 : void 0) > 0)) {
+                if (!((geo3 != null ? (_ref3 = geo3.rings) != null ? _ref3.length : void 0 : void 0) > 0)) {
                   return showError("No features found within ImageServiceLayer and current view Extent.");
                 }
                 return _this._setImageLayer({
@@ -112,8 +138,14 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
       });
     },
     _getClassifiedImage: function() {
-      var signaturesLayer,
+      var signaturesLayer, _ref, _ref1,
         _this = this;
+      if ((_ref = this._signaturesUrlInput.get("value")) === "" || _ref === null || _ref === (void 0)) {
+        return showError("FeatureLayer: Service URL Required.");
+      }
+      if ((_ref1 = this._geometryServiceUrlInput.get("value")) === "" || _ref1 === null || _ref1 === (void 0)) {
+        return showError("GeometryService: Service URL Required.");
+      }
       signaturesLayer = new esri.layers.FeatureLayer(this._signaturesUrlInput.get("value"), {
         outFields: ["FID", "SIGURL"]
       });

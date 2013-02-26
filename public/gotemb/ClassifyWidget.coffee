@@ -35,6 +35,7 @@ define [
 		_geometryServiceUrlInput: null
 		_imageServiceLayer: null
 		_setImageLayer: (options, callback) ->
+			return showError "ImageServiceLayer: Service URL Required." if @_imageServiceUrlInput.get("value") in ["", null, undefined]
 			@map.removeLayer @_imageServiceLayer if @_imageServiceLayer?
 			@_imageServiceLayer = new esri.layers.ArcGISImageServiceLayer (@_imageServiceUrlInput.get "value"), options
 			dojo.connect @_imageServiceLayer, "onLoad", =>
@@ -42,9 +43,18 @@ define [
 				callback?()
 			dojo.connect @_imageServiceLayer, "onError", (error) -> showError "ImageServiceLayer: #{error.message}"
 		_addImageServiceLayer: ->
+			return showError "GeometryService: Service URL Required." if @_geometryServiceUrlInput.get("value") in ["", null, undefined]
 			@_setImageLayer null, =>
-				@map.setExtent @_imageServiceLayer.initialExtent
+				geometryService = new esri.tasks.GeometryService @_geometryServiceUrlInput.get "value"
+				dojo.connect geometryService, "onError", (error) -> showError "GeometryService: #{error.message}"
+				geometryService.project (extend new esri.tasks.ProjectParameters,
+					geometries: [@_imageServiceLayer.initialExtent]
+					outSR: @map.extent.spatialReference
+				), ([extent]) =>
+					@map.setExtent extent
 		_clipImageToSignatureFeatures: ->
+			return showError "FeatureLayer: Service URL Required." if @_signaturesUrlInput.get("value") in ["", null, undefined]
+			return showError "GeometryService: Service URL Required." if @_geometryServiceUrlInput.get("value") in ["", null, undefined]
 			signaturesLayer = new esri.layers.FeatureLayer (@_signaturesUrlInput.get "value"), outFields: ["FID", "SIGURL"]
 			dojo.connect signaturesLayer, "onLoad", =>
 				signaturesLayer.selectFeatures (extend new esri.tasks.Query,
@@ -71,6 +81,8 @@ define [
 									)
 			dojo.connect signaturesLayer, "onError", (error) -> showError "FeatureLayer: #{error.message}"
 		_getClassifiedImage: ->
+			return showError "FeatureLayer: Service URL Required." if @_signaturesUrlInput.get("value") in ["", null, undefined]
+			return showError "GeometryService: Service URL Required." if @_geometryServiceUrlInput.get("value") in ["", null, undefined]
 			signaturesLayer = new esri.layers.FeatureLayer (@_signaturesUrlInput.get "value"), outFields: ["FID", "SIGURL"]
 			dojo.connect signaturesLayer, "onLoad", =>
 				signaturesLayer.selectFeatures (extend new esri.tasks.Query,
