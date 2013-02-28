@@ -2,6 +2,15 @@ extend = (obj, mixin) ->
  	obj[name] = method for name, method of mixin        
  	obj
 
+indexOfMax = (arr) ->
+	max = -Infinity
+	idx = -1
+	for a, i in arr
+		if a > max
+			max = a
+			idx = i
+	idx
+
 define [
 	"dojo/_base/declare"
 	"dijit/_WidgetBase"
@@ -101,16 +110,22 @@ define [
 								return showError "No features found within ImageServiceLayer Extent." unless geo2?.rings?.length > 0
 								geometryService.intersect [geo2], @map.extent, ([geo3]) =>
 									return showError "No features found within ImageServiceLayer and current view Extent." unless geo3?.rings?.length > 0
-									@_setImageLayer
-										imageServiceParameters: (extend new esri.layers.ImageServiceParameters,
-											renderingRule: (extend new esri.layers.RasterFunction,
-												functionName: "funchain1",
-												arguments:
-													ClippingGeometry: geo3
-													SignatureFile: features[0].attributes.SIGURL
-												variableName: "Raster"
-											)
-										)
+									geometryService.intersect (feature.geometry for feature in features), geo3, (featureGeosInExtent) =>
+										geometryService.areasAndLengths (extend new esri.tasks.AreasAndLengthsParameters,
+											calculationType: "planar"
+											polygons: featureGeosInExtent
+										), (areasAndLengths) =>
+											@_setImageLayer
+												imageServiceParameters: (extend new esri.layers.ImageServiceParameters,
+													renderingRule: (extend new esri.layers.RasterFunction,
+														functionName: "funchain1",
+														arguments:
+															ClippingGeometry: featureGeosInExtent[indexOfMax areasAndLengths.areas]
+															SignatureFile: features[indexOfMax areasAndLengths.areas].attributes.SIGURL
+														variableName: "Raster"
+													)
+												)
+											console.log features[indexOfMax areasAndLengths.areas].attributes.SIGURL
 				dojo.connect signaturesLayer, "onError", (error) -> showError "FeatureLayer: #{error.message}"
 			return fun1() if @imageServiceLayer?
 			@_setImageLayer null, fun1
