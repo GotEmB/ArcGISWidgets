@@ -24,7 +24,7 @@ indexOfMax = function(arr) {
   return idx;
 };
 
-define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dijit/_WidgetsInTemplateMixin", "dojo/text!./ClassifyWidget/templates/ClassifyWidget.html", "dijit/Dialog", "dijit/layout/BorderContainer", "dijit/layout/ContentPane", "dijit/form/TextBox", "dijit/form/DropDownButton", "dijit/DropDownMenu", "dijit/MenuItem", "dijit/MenuSeparator", "esri/map", "esri/layers/FeatureLayer", "esri/tasks/query", "esri/tasks/geometry"], function(declare, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template, Dialog) {
+define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dijit/_WidgetsInTemplateMixin", "dojo/text!./ClassifyWidget/templates/ClassifyWidget.html", "dijit/Dialog", "dijit/layout/BorderContainer", "dijit/layout/ContentPane", "dijit/form/TextBox", "dijit/form/Button", "dijit/form/CheckBox", "esri/map", "esri/layers/FeatureLayer", "esri/tasks/query", "esri/tasks/geometry"], function(declare, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template, Dialog) {
   var showError;
   showError = function(content) {
     var errBox;
@@ -34,6 +34,7 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
     });
     errBox.startup();
     errBox.show();
+    throw new Exception(content);
     return errBox;
   };
   return declare([_WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin], {
@@ -44,16 +45,23 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
     signaturesUrlInput: null,
     geometryServiceUrlInput: null,
     imageServiceLayer: null,
-    _setImageLayer: function(options, callback) {
+    state: {},
+    constructor: function() {
+      var _this = this;
+      return this.watch("map", function(attr, oldMap, newMap) {
+        return dojo.connect(newMap, "onExtentChange", _this.refresh.bind(_this));
+      });
+    },
+    setImageLayer: function(options, callback) {
       var _ref,
         _this = this;
-      if ((_ref = this.imageServiceUrlInput.get("value")) === "" || _ref === null || _ref === (void 0)) {
+      if ((_ref = this.state.imageServiceUrl) === "" || _ref === null || _ref === (void 0)) {
         return showError("ImageServiceLayer: Service URL Required.");
       }
       if (this.imageServiceLayer != null) {
         this.map.removeLayer(this.imageServiceLayer);
       }
-      this.imageServiceLayer = new esri.layers.ArcGISImageServiceLayer(this.imageServiceUrlInput.get("value"), options);
+      this.imageServiceLayer = new esri.layers.ArcGISImageServiceLayer(this.state.imageServiceUrl, options);
       dojo.connect(this.imageServiceLayer, "onLoad", function() {
         _this.map.addLayer(_this.imageServiceLayer);
         return typeof callback === "function" ? callback() : void 0;
@@ -62,191 +70,167 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
         return showError("ImageServiceLayer: " + error.message);
       });
     },
-    addImageServiceLayer: function() {
-      var _ref,
-        _this = this;
-      if ((_ref = this.geometryServiceUrlInput.get("value")) === "" || _ref === null || _ref === (void 0)) {
-        return showError("GeometryService: Service URL Required.");
+    setImageOrModifyRenderingRule: function(renderingRule) {
+      var _this = this;
+      if (renderingRule == null) {
+        renderingRule = new esri.layers.RasterFunction;
       }
-      return this._setImageLayer(null, function() {
-        var geometryService;
-        geometryService = new esri.tasks.GeometryService(_this.geometryServiceUrlInput.get("value"));
+      if (this.imageServiceLayer == null) {
+        return this.setImageLayer((function() {
+          if (renderingRule == null) {
+            return null;
+          }
+          return {
+            imageServiceParameters: extend(new esri.layers.ImageServiceParameters, {
+              renderingRule: renderingRule
+            })
+          };
+        })(), function() {
+          var geometryService;
+          geometryService = new esri.tasks.GeometryService(_this.state.geometryServiceUrl);
+          dojo.connect(geometryService, "onError", function(error) {
+            return showError("GeometryService: " + error.message);
+          });
+          return geometryService.project(extend(new esri.tasks.ProjectParameters, {
+            geometries: [_this.imageServiceLayer.initialExtent],
+            outSR: _this.map.extent.spatialReference
+          }), function(_arg) {
+            var extent;
+            extent = _arg[0];
+            return _this.map.setExtent(extent);
+          });
+        });
+      } else {
+        return this.imageServiceLayer.setRenderingRule(renderingRule);
+      }
+    },
+    refresh: function() {
+      var geometryService,
+        _this = this;
+      if (this.state.imageServiceUrl == null) {
+        return;
+      }
+      if (!this.state.classificationEnabled) {
+        if (!(this.imageServiceLayer != null) || (this.imageServiceLayer.renderingRule != null)) {
+          return this.setImageOrModifyRenderingRule();
+        }
+      } else {
+        geometryService = new esri.tasks.GeometryService(this.state.geometryServiceUrl);
         dojo.connect(geometryService, "onError", function(error) {
           return showError("GeometryService: " + error.message);
         });
-        return geometryService.project(extend(new esri.tasks.ProjectParameters, {
-          geometries: [_this.imageServiceLayer.initialExtent],
-          outSR: _this.map.extent.spatialReference
-        }), function(_arg) {
-          var extent;
-          extent = _arg[0];
-          return _this.map.setExtent(extent);
+        return geometryService.intersect(this.state.features, this.map.extent, function(featuresInExtent) {
+          return geometryService.areasAndLengths(extend(new esri.tasks.AreasAndLengthsParameters, {
+            calculationType: "planar",
+            polygons: featuresInExtent
+          }), function(areasAndLengths) {
+            if (_this.state.renderedFeatureIndex !== indexOfMax(areasAndLengths.areas)) {
+              _this.state.renderedFeatureIndex = indexOfMax(areasAndLengths.areas);
+              return _this.setImageOrModifyRenderingRule(extend(new esri.layers.RasterFunction, {
+                functionName: "funchain1",
+                "arguments": {
+                  ClippingGeometry: _this.state.features[_this.state.renderedFeatureIndex],
+                  SignatureFile: _this.state.signatures[_this.state.renderedFeatureIndex]
+                },
+                variableName: "Raster"
+              }));
+            }
+          });
         });
+      }
+    },
+    applyChanges: function() {
+      var fun1, _ref, _ref1, _ref2,
+        _this = this;
+      if (this.map == null) {
+        return showError("Widget not bound to an instance of 'esri/map'.");
+      }
+      if ((_ref = this.geometryServiceUrlInput.get("value")) === "" || _ref === null || _ref === (void 0)) {
+        return showError("GeometryService: Service URL Required.");
+      }
+      if ((_ref1 = this.imageServiceUrlInput.get("value")) === "" || _ref1 === null || _ref1 === (void 0)) {
+        return showError("ImageServiceLayer: Service URL Required.");
+      }
+      if (((_ref2 = this.signaturesUrlInput.get("value")) === "" || _ref2 === null || _ref2 === (void 0)) && !this.classificationEnabledInput.get("checked")) {
+        return showError("Signatures: Service URL Required.");
+      }
+      extend(this.state, {
+        imageServiceUrl: this.imageServiceUrlInput.get("value"),
+        signaturesUrl: this.signaturesUrlInput.get("value"),
+        geometryServiceUrl: this.geometryServiceUrlInput.get("value"),
+        classificationEnabled: this.classificationEnabledInput.get("checked"),
+        features: null,
+        signatures: null,
+        renderedFeatureIndex: null
       });
-    },
-    clipImageToSignatureFeatures: function() {
-      var fun1, _ref, _ref1,
-        _this = this;
-      if ((_ref = this.signaturesUrlInput.get("value")) === "" || _ref === null || _ref === (void 0)) {
-        return showError("FeatureLayer: Service URL Required.");
-      }
-      if ((_ref1 = this.geometryServiceUrlInput.get("value")) === "" || _ref1 === null || _ref1 === (void 0)) {
-        return showError("GeometryService: Service URL Required.");
-      }
-      fun1 = function() {
-        var signaturesLayer;
-        signaturesLayer = new esri.layers.FeatureLayer(_this.signaturesUrlInput.get("value"), {
-          outFields: ["FID", "SIGURL"]
-        });
-        dojo.connect(signaturesLayer, "onLoad", function() {
-          return signaturesLayer.selectFeatures(extend(new esri.tasks.Query, {
-            geometry: _this.map.extent,
-            spatialRelationship: esri.tasks.Query.SPATIAL_REL_INTERSECTS
-          }), esri.layers.FeatureLayer.SELECTION_NEW, function(features) {
-            var f, geometryService;
-            if (features.length === 0) {
-              return showError("No features found within current view extent.");
-            }
-            geometryService = new esri.tasks.GeometryService(_this.geometryServiceUrlInput.get("value"));
-            dojo.connect(geometryService, "onError", function(error) {
-              return showError("GeometryService: " + error.message);
-            });
-            return geometryService.union((function() {
-              var _i, _len, _results;
-              _results = [];
-              for (_i = 0, _len = features.length; _i < _len; _i++) {
-                f = features[_i];
-                _results.push(f.geometry);
+      if (this.state.classificationEnabled) {
+        fun1 = function() {
+          var signaturesLayer;
+          signaturesLayer = new esri.layers.FeatureLayer(_this.state.signaturesUrl, {
+            outFields: ["FID", "SIGURL"]
+          });
+          dojo.connect(signaturesLayer, "onLoad", function() {
+            return signaturesLayer.selectFeatures(extend(new esri.tasks.Query, {
+              geometry: _this.imageServiceLayer.fullExtent,
+              spatialRelationship: esri.tasks.Query.SPATIAL_REL_INTERSECTS
+            }), esri.layers.FeatureLayer.SELECTION_NEW, function(features) {
+              var f, geometryService;
+              if (features.length === 0) {
+                return showError("No features found within current view extent.");
               }
-              return _results;
-            })(), function(geo1) {
-              return geometryService.intersect([geo1], _this.imageServiceLayer.fullExtent, function(_arg) {
-                var geo2, _ref2;
-                geo2 = _arg[0];
-                if (!((geo2 != null ? (_ref2 = geo2.rings) != null ? _ref2.length : void 0 : void 0) > 0)) {
-                  return showError("No features found within ImageServiceLayer Extent.");
+              _this.state.signatures = (function() {
+                var _i, _len, _results;
+                _results = [];
+                for (_i = 0, _len = features.length; _i < _len; _i++) {
+                  f = features[_i];
+                  _results.push(f.attributes.SIGURL);
                 }
-                return geometryService.intersect([geo2], _this.map.extent, function(_arg1) {
-                  var geo3, _ref3;
-                  geo3 = _arg1[0];
-                  if (!((geo3 != null ? (_ref3 = geo3.rings) != null ? _ref3.length : void 0 : void 0) > 0)) {
-                    return showError("No features found within ImageServiceLayer and current view Extent.");
-                  }
-                  return _this._setImageLayer({
-                    imageServiceParameters: extend(new esri.layers.ImageServiceParameters, {
-                      renderingRule: extend(new esri.layers.RasterFunction, {
-                        functionName: "Clip",
-                        "arguments": {
-                          ClippingGeometry: geo3,
-                          ClippingType: 1
-                        },
-                        variableName: "Raster"
-                      })
-                    })
-                  });
-                });
+                return _results;
+              })();
+              geometryService = new esri.tasks.GeometryService(_this.state.geometryServiceUrl);
+              dojo.connect(geometryService, "onError", function(error) {
+                return showError("GeometryService: " + error.message);
+              });
+              return geometryService.intersect((function() {
+                var _i, _len, _results;
+                _results = [];
+                for (_i = 0, _len = features.length; _i < _len; _i++) {
+                  f = features[_i];
+                  _results.push(f.geometry);
+                }
+                return _results;
+              })(), _this.imageServiceLayer.fullExtent, function(boundedFeatures) {
+                _this.state.features = boundedFeatures;
+                return _this.refresh();
               });
             });
           });
-        });
-        return dojo.connect(signaturesLayer, "onError", function(error) {
-          return showError("FeatureLayer: " + error.message);
-        });
-      };
-      if (this.imageServiceLayer != null) {
-        return fun1();
-      }
-      return this._setImageLayer(null, fun1);
-    },
-    getClassifiedImage: function() {
-      var fun1, _ref, _ref1,
-        _this = this;
-      if ((_ref = this.signaturesUrlInput.get("value")) === "" || _ref === null || _ref === (void 0)) {
-        return showError("FeatureLayer: Service URL Required.");
-      }
-      if ((_ref1 = this.geometryServiceUrlInput.get("value")) === "" || _ref1 === null || _ref1 === (void 0)) {
-        return showError("GeometryService: Service URL Required.");
-      }
-      fun1 = function() {
-        var signaturesLayer;
-        signaturesLayer = new esri.layers.FeatureLayer(_this.signaturesUrlInput.get("value"), {
-          outFields: ["FID", "SIGURL"]
-        });
-        dojo.connect(signaturesLayer, "onLoad", function() {
-          return signaturesLayer.selectFeatures(extend(new esri.tasks.Query, {
-            geometry: _this.map.extent,
-            spatialRelationship: esri.tasks.Query.SPATIAL_REL_INTERSECTS
-          }), esri.layers.FeatureLayer.SELECTION_NEW, function(features) {
-            var f, geometryService;
-            if (features.length === 0) {
-              return showError("No features found within current view extent.");
-            }
-            geometryService = new esri.tasks.GeometryService(_this.geometryServiceUrlInput.get("value"));
-            dojo.connect(geometryService, "onError", function(error) {
-              return showError("GeometryService: " + error.message);
-            });
-            return geometryService.union((function() {
-              var _i, _len, _results;
-              _results = [];
-              for (_i = 0, _len = features.length; _i < _len; _i++) {
-                f = features[_i];
-                _results.push(f.geometry);
-              }
-              return _results;
-            })(), function(geo1) {
-              return geometryService.intersect([geo1], _this.imageServiceLayer.fullExtent, function(_arg) {
-                var geo2, _ref2;
-                geo2 = _arg[0];
-                if (!((geo2 != null ? (_ref2 = geo2.rings) != null ? _ref2.length : void 0 : void 0) > 0)) {
-                  return showError("No features found within ImageServiceLayer Extent.");
-                }
-                return geometryService.intersect([geo2], _this.map.extent, function(_arg1) {
-                  var feature, geo3, _ref3;
-                  geo3 = _arg1[0];
-                  if (!((geo3 != null ? (_ref3 = geo3.rings) != null ? _ref3.length : void 0 : void 0) > 0)) {
-                    return showError("No features found within ImageServiceLayer and current view Extent.");
-                  }
-                  return geometryService.intersect((function() {
-                    var _i, _len, _results;
-                    _results = [];
-                    for (_i = 0, _len = features.length; _i < _len; _i++) {
-                      feature = features[_i];
-                      _results.push(feature.geometry);
-                    }
-                    return _results;
-                  })(), geo3, function(featureGeosInExtent) {
-                    return geometryService.areasAndLengths(extend(new esri.tasks.AreasAndLengthsParameters, {
-                      calculationType: "planar",
-                      polygons: featureGeosInExtent
-                    }), function(areasAndLengths) {
-                      _this._setImageLayer({
-                        imageServiceParameters: extend(new esri.layers.ImageServiceParameters, {
-                          renderingRule: extend(new esri.layers.RasterFunction, {
-                            functionName: "funchain1",
-                            "arguments": {
-                              ClippingGeometry: featureGeosInExtent[indexOfMax(areasAndLengths.areas)],
-                              SignatureFile: features[indexOfMax(areasAndLengths.areas)].attributes.SIGURL
-                            },
-                            variableName: "Raster"
-                          })
-                        })
-                      });
-                      return console.log(features[indexOfMax(areasAndLengths.areas)].attributes.SIGURL);
-                    });
-                  });
-                });
-              });
-            });
+          return dojo.connect(signaturesLayer, "onError", function(error) {
+            return showError("FeatureLayer: " + error.message);
+          });
+        };
+        if (this.imageServiceLayer != null) {
+          return fun1();
+        }
+        return this.setImageLayer(null, function() {
+          var geometryService;
+          geometryService = new esri.tasks.GeometryService(_this.state.geometryServiceUrl);
+          dojo.connect(geometryService, "onError", function(error) {
+            return showError("GeometryService: " + error.message);
+          });
+          return geometryService.project(extend(new esri.tasks.ProjectParameters, {
+            geometries: [_this.imageServiceLayer.initialExtent],
+            outSR: _this.map.extent.spatialReference
+          }), function(_arg) {
+            var extent;
+            extent = _arg[0];
+            _this.map.setExtent(extent);
+            return fun1();
           });
         });
-        return dojo.connect(signaturesLayer, "onError", function(error) {
-          return showError("FeatureLayer: " + error.message);
-        });
-      };
-      if (this.imageServiceLayer != null) {
-        return fun1();
+      } else {
+        return this.refresh();
       }
-      return this._setImageLayer(null, fun1);
     }
   });
 });

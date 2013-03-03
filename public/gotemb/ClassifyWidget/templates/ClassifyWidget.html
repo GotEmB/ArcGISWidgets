@@ -26,16 +26,14 @@
 				</td>
 			</tr>
 			<tr>
-				<td style="text-align: right" colspan="2">
-					<div data-dojo-type="dijit/form/DropDownButton">
-						<span>Tasks</span>
-						<div data-dojo-type="dijit/DropDownMenu">
-							<div data-dojo-type="dijit/MenuItem" data-dojo-attach-event="onClick: addImageServiceLayer">Add ImageService Layer</div>
-							<div data-dojo-type="dijit/MenuItem" data-dojo-attach-event="onClick: clipImageToSignatureFeatures">Clip Image to Signature Features</div>
-							<div data-dojo-type="dijit/MenuSeparator"></div>
-							<div data-dojo-type="dijit/MenuItem" data-dojo-attach-event="onClick: getClassifiedImage">Get Classified Image</div>
-						</div>
-					</div>
+				<td colspan="2">
+					<input name="classificationEnabled" data-dojo-type="dijit/form/CheckBox" data-dojo-attach-point="classificationEnabledInput">
+					<label for="classificationEnabled">Enable Classification</label>
+				</td>
+			</tr>
+			<tr>
+				<td colspan="2">
+					<button data-dojo-type="dijit/form/Button" data-dojo-attach-event="onClick: applyChanges">Apply Changes</button>
 				</td>
 			</tr>
 		</table>
