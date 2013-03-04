@@ -53,7 +53,9 @@ define [
 			dojo.connect @imageServiceLayer, "onLoad", =>
 				@map.addLayer @imageServiceLayer
 				callback?()
-			dojo.connect @imageServiceLayer, "onError", (error) -> showError "ImageServiceLayer: #{error.message}"
+			dojo.connect @imageServiceLayer, "onError", (error) =>
+				showError "ImageServiceLayer: #{error.message}"
+				delete @imageServiceLayer
 		setImageOrModifyRenderingRule: (renderingRule = new esri.layers.RasterFunction) ->
 			unless @imageServiceLayer?
 				@setImageLayer do =>
@@ -76,7 +78,7 @@ define [
 			else
 				geometryService = new esri.tasks.GeometryService @state.geometryServiceUrl
 				dojo.connect geometryService, "onError", (error) -> showError "GeometryService: #{error.message}"
-				geometryService.intersect @state.features, @map.extent, (featuresInExtent) =>
+				geometryService.intersect @state.featureGeos, @map.extent, (featuresInExtent) =>
 					geometryService.areasAndLengths (extend new esri.tasks.AreasAndLengthsParameters,
 						calculationType: "planar"
 						polygons: featuresInExtent
@@ -86,14 +88,14 @@ define [
 							@setImageOrModifyRenderingRule extend new esri.layers.RasterFunction,
 								functionName: "funchain1",
 								arguments:
-									ClippingGeometry: @state.features[@state.renderedFeatureIndex]
+									ClippingGeometry: @state.featureGeos[@state.renderedFeatureIndex]
 									SignatureFile: @state.signatures[@state.renderedFeatureIndex]
 								variableName: "Raster"
 		applyChanges: ->
 			return showError "Widget not bound to an instance of 'esri/map'." unless @map?
 			return showError "GeometryService: Service URL Required." if @geometryServiceUrlInput.get("value") in ["", null, undefined]
 			return showError "ImageServiceLayer: Service URL Required." if @imageServiceUrlInput.get("value") in ["", null, undefined]
-			return showError "Signatures: Service URL Required." if @signaturesUrlInput.get("value") in ["", null, undefined] and not @classificationEnabledInput.get "checked"
+			return showError "Signatures: Service URL Required." if @signaturesUrlInput.get("value") in ["", null, undefined] and @classificationEnabledInput.get "checked"
 			extend @state,
 				imageServiceUrl: @imageServiceUrlInput.get "value"
 				signaturesUrl: @signaturesUrlInput.get "value"
@@ -114,9 +116,13 @@ define [
 							@state.signatures = (f.attributes.SIGURL for f in features)
 							geometryService = new esri.tasks.GeometryService @state.geometryServiceUrl
 							dojo.connect geometryService, "onError", (error) -> showError "GeometryService: #{error.message}"
-							geometryService.intersect (f.geometry for f in features), @imageServiceLayer.fullExtent, (boundedFeatures) =>
-								@state.features = boundedFeatures
-								@refresh()
+							geometryService.project (extend new esri.tasks.ProjectParameters,
+								geometries: (f.geometry for f in features)
+								outSR: @map.spatialReference
+							), (projectedGeos) =>
+								geometryService.intersect projectedGeos, @imageServiceLayer.fullExtent, (boundedGeos) =>
+									@state.featureGeos = boundedGeos
+									@refresh()
 					dojo.connect signaturesLayer, "onError", (error) -> showError "FeatureLayer: #{error.message}"
 				return fun1() if @imageServiceLayer?
 				@setImageLayer null, =>
