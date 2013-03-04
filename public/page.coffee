@@ -4,7 +4,6 @@ require [
 	"dojo/parser"
 	"dijit/layout/BorderContainer"
 	"dijit/layout/ContentPane"
-	"dijit/TitlePane"
 	"esri/map"
 	"esri/geometry"
 	"esri/dijit/Attribution"
