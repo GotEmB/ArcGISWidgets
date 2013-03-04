@@ -78,7 +78,7 @@ define [
 			else
 				geometryService = new esri.tasks.GeometryService @state.geometryServiceUrl
 				dojo.connect geometryService, "onError", (error) -> showError "GeometryService: #{error.message}"
-				geometryService.intersect @state.features, @map.extent, (featuresInExtent) =>
+				geometryService.intersect @state.featureGeos, @map.extent, (featuresInExtent) =>
 					geometryService.areasAndLengths (extend new esri.tasks.AreasAndLengthsParameters,
 						calculationType: "planar"
 						polygons: featuresInExtent
@@ -88,7 +88,7 @@ define [
 							@setImageOrModifyRenderingRule extend new esri.layers.RasterFunction,
 								functionName: "funchain1",
 								arguments:
-									ClippingGeometry: @state.features[@state.renderedFeatureIndex]
+									ClippingGeometry: @state.featureGeos[@state.renderedFeatureIndex]
 									SignatureFile: @state.signatures[@state.renderedFeatureIndex]
 								variableName: "Raster"
 		applyChanges: ->
@@ -116,9 +116,13 @@ define [
 							@state.signatures = (f.attributes.SIGURL for f in features)
 							geometryService = new esri.tasks.GeometryService @state.geometryServiceUrl
 							dojo.connect geometryService, "onError", (error) -> showError "GeometryService: #{error.message}"
-							geometryService.intersect (f.geometry for f in features), @imageServiceLayer.fullExtent, (boundedFeatures) =>
-								@state.features = boundedFeatures
-								@refresh()
+							geometryService.project (extend new esri.tasks.ProjectParameters,
+								geometries: (f.geometry for f in features)
+								outSR: @map.spatialReference
+							), (projectedGeos) =>
+								geometryService.intersect projectedGeos, @imageServiceLayer.fullExtent, (boundedGeos) =>
+									@state.featureGeos = boundedGeos
+									@refresh()
 					dojo.connect signaturesLayer, "onError", (error) -> showError "FeatureLayer: #{error.message}"
 				return fun1() if @imageServiceLayer?
 				@setImageLayer null, =>
