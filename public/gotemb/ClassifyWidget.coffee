@@ -104,7 +104,7 @@ define [
 				renderedFeatureIndex: null
 			if @state.classificationEnabled
 				fun1 = =>
-					signaturesLayer = new esri.layers.FeatureLayer @state.signaturesUrl, outFields: ["FID", "SIGURL"]
+					signaturesLayer = new esri.layers.FeatureLayer @state.signaturesUrl, outFields: ["SIGURL"]
 					dojo.connect signaturesLayer, "onLoad", =>
 						signaturesLayer.selectFeatures (extend new esri.tasks.Query,
 							geometry: @imageServiceLayer.fullExtent
