@@ -15,15 +15,13 @@ require(["dijit/registry", "dojo/ready", "dojo/dom", "dojox/layout/FloatingPane"
         return map.centerAndZoom(new esri.geometry.Point(coords.longitude, coords.latitude), 8);
       });
     }
-    classifyWidget = new ClassifyWidget;
     classifyWidgetContainer = new FloatingPane({
       title: "Classify Widget",
       resizable: false,
       dockable: false,
       closable: false,
-      id: "classifyWidgetContainer",
       style: "height: 160px; width: 390px",
-      content: classifyWidget.domNode
+      content: (classifyWidget = new ClassifyWidget).domNode
     }, dom.byId("classifyWidgetContainer"));
     classifyWidgetContainer.startup();
     return classifyWidget.set("map", map);
