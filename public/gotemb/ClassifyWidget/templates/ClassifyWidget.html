@@ -1,41 +1,41 @@
-<div data-dojo-type="dijit/layout/BorderContainer" style="width: 100%; height: 100%">
-	<div data-dojo-type="dijit/layout/ContentPane" data-dojo-props="region: 'center'">
-		<table>
-			<tr>
-				<td style="text-align: right">
-					<label for="imageurl">Image Service URL:</label>
-				</td>
-				<td>
-					<input type="text" data-dojo-type="dijit/form/TextBox" data-dojo-attach-point="imageServiceUrlInput" name="imageurl" style="width: 250px" value="http://lamborghini:6080/arcgis/rest/services/Reproj_Clip_p033r032_7dt20020920_z13_MS1/ImageServer">
-				</td>
-			</tr>
-			<tr>
-				<td style="text-align: right">
-					<label for="signaturesurl">Signatures URL:</label>
-				</td>
-				<td>
-					<input type="text" data-dojo-type="dijit/form/TextBox" data-dojo-attach-point="signaturesUrlInput" name="signaturesurl" style="width: 250px" value="http://lamborghini:6080/arcgis/rest/services/Signatures/MapServer/0">
-				</td>
-			</tr>
-			<tr>
-				<td style="text-align: right">
-					<label for="signaturesurl">GeometryService URL:</label>
-				</td>
-				<td>
-					<input type="text" data-dojo-type="dijit/form/TextBox" data-dojo-attach-point="geometryServiceUrlInput" name="signaturesurl" style="width: 250px" value="http://lamborghini:6080/arcgis/rest/services/Utilities/Geometry/GeometryServer">
-				</td>
-			</tr>
-			<tr>
-				<td colspan="2">
-					<input name="classificationEnabled" data-dojo-type="dijit/form/CheckBox" data-dojo-attach-point="classificationEnabledInput">
-					<label for="classificationEnabled">Enable Classification</label>
-				</td>
-			</tr>
-			<tr>
-				<td colspan="2">
-					<button data-dojo-type="dijit/form/Button" data-dojo-attach-event="onClick: applyChanges">Apply Changes</button>
-				</td>
-			</tr>
-		</table>
-	</div>
+<div>
+	<table>
+		<tr>
+			<td style="text-align: right; height: 25px; vertical-align: middle">
+				<label for="imageurl">Image Service URL:</label>
+			</td>
+			<td style="height: 25px; vertical-align: middle">
+				<input type="text" data-dojo-type="dijit/form/TextBox" data-dojo-attach-point="imageServiceUrlInput" name="imageurl" style="width: 250px" value="http://lamborghini:6080/arcgis/rest/services/Reproj_Clip_p033r032_7dt20020920_z13_MS1/ImageServer">
+			</td>
+		</tr>
+		<tr>
+			<td style="text-align: right; height: 25px; vertical-align: middle">
+				<label for="signaturesurl">Signatures URL:</label>
+			</td>
+			<td style="height: 25px; vertical-align: middle">
+				<input type="text" data-dojo-type="dijit/form/TextBox" data-dojo-attach-point="signaturesUrlInput" name="signaturesurl" style="width: 250px" value="http://lamborghini:6080/arcgis/rest/services/Signatures/MapServer/0">
+			</td>
+		</tr>
+		<tr>
+			<td style="text-align: right; height: 25px; vertical-align: middle">
+				<label for="signaturesurl">GeometryService URL:</label>
+			</td>
+			<td style="height: 25px; vertical-align: middle">
+				<input type="text" data-dojo-type="dijit/form/TextBox" data-dojo-attach-point="geometryServiceUrlInput" name="signaturesurl" style="width: 250px" value="http://lamborghini:6080/arcgis/rest/services/Utilities/Geometry/GeometryServer">
+			</td>
+		</tr>
+		<tr>
+			<td style="text-align: right; height: 25px; vertical-align: middle">
+				<label for="classificationEnabled">Enable Classification:</label>
+			</td>
+			<td style="height: 25px; vertical-align: middle">
+				<input name="classificationEnabled" data-dojo-type="dijit/form/CheckBox" data-dojo-attach-point="classificationEnabledInput" style="height: 25px">
+			</td>
+		</tr>
+		<tr>
+			<td colspan="2" style="height: 25px; vertical-align: middle">
+				<button data-dojo-type="dijit/form/Button" data-dojo-attach-event="onClick: applyChanges">Apply Changes</button>
+			</td>
+		</tr>
+	</table>
 </div>
