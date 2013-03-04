@@ -67,7 +67,8 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
         return typeof callback === "function" ? callback() : void 0;
       });
       return dojo.connect(this.imageServiceLayer, "onError", function(error) {
-        return showError("ImageServiceLayer: " + error.message);
+        showError("ImageServiceLayer: " + error.message);
+        return delete _this.imageServiceLayer;
       });
     },
     setImageOrModifyRenderingRule: function(renderingRule) {
@@ -119,7 +120,7 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
         dojo.connect(geometryService, "onError", function(error) {
           return showError("GeometryService: " + error.message);
         });
-        return geometryService.intersect(this.state.features, this.map.extent, function(featuresInExtent) {
+        return geometryService.intersect(this.state.featureGeos, this.map.extent, function(featuresInExtent) {
           return geometryService.areasAndLengths(extend(new esri.tasks.AreasAndLengthsParameters, {
             calculationType: "planar",
             polygons: featuresInExtent
@@ -129,7 +130,7 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
               return _this.setImageOrModifyRenderingRule(extend(new esri.layers.RasterFunction, {
                 functionName: "funchain1",
                 "arguments": {
-                  ClippingGeometry: _this.state.features[_this.state.renderedFeatureIndex],
+                  ClippingGeometry: _this.state.featureGeos[_this.state.renderedFeatureIndex],
                   SignatureFile: _this.state.signatures[_this.state.renderedFeatureIndex]
                 },
                 variableName: "Raster"
@@ -151,7 +152,7 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
       if ((_ref1 = this.imageServiceUrlInput.get("value")) === "" || _ref1 === null || _ref1 === (void 0)) {
         return showError("ImageServiceLayer: Service URL Required.");
       }
-      if (((_ref2 = this.signaturesUrlInput.get("value")) === "" || _ref2 === null || _ref2 === (void 0)) && !this.classificationEnabledInput.get("checked")) {
+      if (((_ref2 = this.signaturesUrlInput.get("value")) === "" || _ref2 === null || _ref2 === (void 0)) && this.classificationEnabledInput.get("checked")) {
         return showError("Signatures: Service URL Required.");
       }
       extend(this.state, {
@@ -191,17 +192,22 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
               dojo.connect(geometryService, "onError", function(error) {
                 return showError("GeometryService: " + error.message);
               });
-              return geometryService.intersect((function() {
-                var _i, _len, _results;
-                _results = [];
-                for (_i = 0, _len = features.length; _i < _len; _i++) {
-                  f = features[_i];
-                  _results.push(f.geometry);
-                }
-                return _results;
-              })(), _this.imageServiceLayer.fullExtent, function(boundedFeatures) {
-                _this.state.features = boundedFeatures;
-                return _this.refresh();
+              return geometryService.project(extend(new esri.tasks.ProjectParameters, {
+                geometries: (function() {
+                  var _i, _len, _results;
+                  _results = [];
+                  for (_i = 0, _len = features.length; _i < _len; _i++) {
+                    f = features[_i];
+                    _results.push(f.geometry);
+                  }
+                  return _results;
+                })(),
+                outSR: _this.map.spatialReference
+              }), function(projectedGeos) {
+                return geometryService.intersect(projectedGeos, _this.imageServiceLayer.fullExtent, function(boundedGeos) {
+                  _this.state.featureGeos = boundedGeos;
+                  return _this.refresh();
+                });
               });
             });
           });
