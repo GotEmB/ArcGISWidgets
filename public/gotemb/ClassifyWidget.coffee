@@ -53,7 +53,9 @@ define [
 			dojo.connect @imageServiceLayer, "onLoad", =>
 				@map.addLayer @imageServiceLayer
 				callback?()
-			dojo.connect @imageServiceLayer, "onError", (error) -> showError "ImageServiceLayer: #{error.message}"
+			dojo.connect @imageServiceLayer, "onError", (error) =>
+				showError "ImageServiceLayer: #{error.message}"
+				delete @imageServiceLayer
 		setImageOrModifyRenderingRule: (renderingRule = new esri.layers.RasterFunction) ->
 			unless @imageServiceLayer?
 				@setImageLayer do =>
@@ -93,7 +95,7 @@ define [
 			return showError "Widget not bound to an instance of 'esri/map'." unless @map?
 			return showError "GeometryService: Service URL Required." if @geometryServiceUrlInput.get("value") in ["", null, undefined]
 			return showError "ImageServiceLayer: Service URL Required." if @imageServiceUrlInput.get("value") in ["", null, undefined]
-			return showError "Signatures: Service URL Required." if @signaturesUrlInput.get("value") in ["", null, undefined] and not @classificationEnabledInput.get "checked"
+			return showError "Signatures: Service URL Required." if @signaturesUrlInput.get("value") in ["", null, undefined] and @classificationEnabledInput.get "checked"
 			extend @state,
 				imageServiceUrl: @imageServiceUrlInput.get "value"
 				signaturesUrl: @signaturesUrlInput.get "value"

@@ -67,7 +67,8 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
         return typeof callback === "function" ? callback() : void 0;
       });
       return dojo.connect(this.imageServiceLayer, "onError", function(error) {
-        return showError("ImageServiceLayer: " + error.message);
+        showError("ImageServiceLayer: " + error.message);
+        return delete _this.imageServiceLayer;
       });
     },
     setImageOrModifyRenderingRule: function(renderingRule) {
@@ -151,7 +152,7 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
       if ((_ref1 = this.imageServiceUrlInput.get("value")) === "" || _ref1 === null || _ref1 === (void 0)) {
         return showError("ImageServiceLayer: Service URL Required.");
       }
-      if (((_ref2 = this.signaturesUrlInput.get("value")) === "" || _ref2 === null || _ref2 === (void 0)) && !this.classificationEnabledInput.get("checked")) {
+      if (((_ref2 = this.signaturesUrlInput.get("value")) === "" || _ref2 === null || _ref2 === (void 0)) && this.classificationEnabledInput.get("checked")) {
         return showError("Signatures: Service URL Required.");
       }
       extend(this.state, {
