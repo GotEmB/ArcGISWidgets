@@ -167,7 +167,7 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
         fun1 = function() {
           var signaturesLayer;
           signaturesLayer = new esri.layers.FeatureLayer(_this.state.signaturesUrl, {
-            outFields: ["FID", "SIGURL"]
+            outFields: ["SIGURL"]
           });
           dojo.connect(signaturesLayer, "onLoad", function() {
             return signaturesLayer.selectFeatures(extend(new esri.tasks.Query, {
