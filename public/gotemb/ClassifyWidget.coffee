@@ -96,6 +96,10 @@ define [
 			return showError "GeometryService: Service URL Required." if @geometryServiceUrlInput.get("value") in ["", null, undefined]
 			return showError "ImageServiceLayer: Service URL Required." if @imageServiceUrlInput.get("value") in ["", null, undefined]
 			return showError "Signatures: Service URL Required." if @signaturesUrlInput.get("value") in ["", null, undefined] and @classificationEnabledInput.get "checked"
+			if @state.imageServiceUrl isnt @imageServiceUrlInput.get "value"
+					if @imageServiceLayer?
+						@map.removeLayer @imageServiceLayer
+						delete @imageServiceLayer
 			extend @state,
 				imageServiceUrl: @imageServiceUrlInput.get "value"
 				signaturesUrl: @signaturesUrlInput.get "value"
