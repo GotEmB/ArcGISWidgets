@@ -155,6 +155,12 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
       if (((_ref2 = this.signaturesUrlInput.get("value")) === "" || _ref2 === null || _ref2 === (void 0)) && this.classificationEnabledInput.get("checked")) {
         return showError("Signatures: Service URL Required.");
       }
+      if (this.state.imageServiceUrl !== this.imageServiceUrlInput.get("value")) {
+        if (this.imageServiceLayer != null) {
+          this.map.removeLayer(this.imageServiceLayer);
+          delete this.imageServiceLayer;
+        }
+      }
       extend(this.state, {
         imageServiceUrl: this.imageServiceUrlInput.get("value"),
         signaturesUrl: this.signaturesUrlInput.get("value"),
