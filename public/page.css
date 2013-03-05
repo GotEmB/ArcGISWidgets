@@ -10,6 +10,22 @@ body {
 }
 #classifyWidgetContainer {
   position: absolute;
-  right: 35px;
-  top: 56px;
+  right: 20px;
+  top: 59px;
+  padding: 0;
+  border: none;
+}
+#classifyWidgetContainer > div {
+  margin: 8px;
+}
+#dock {
+  position: absolute;
+  top: 11px;
+  right: 11px;
+  background: none;
+  border: none;
+}
+#dock ul li {
+  -webkit-border-radius: 0;
+  border-radius: 0;
 }
