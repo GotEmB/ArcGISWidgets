@@ -13,3 +13,6 @@ body {
   right: 35px;
   top: 75px;
 }
+#title {
+  font-weight: bold;
+}
