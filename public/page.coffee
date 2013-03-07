@@ -1,3 +1,7 @@
+###
+# Author: Gautham Badhrinathan (gbadhrinathan@esri.com)
+###
+
 require [
 	"dijit/registry"
 	"dojo/ready"
@@ -15,6 +19,7 @@ require [
 ], (registry, ready, dom, Dock, FloatingPane, ClassifyWidget) ->
 	ready ->
 		map = new esri.Map "map", center: [-56.049, 38.485], zoom: 3, basemap: "streets"
+		# Using HTML5 Geolocation API
 		navigator.geolocation?.getCurrentPosition ({coords}) -> map.centerAndZoom new esri.geometry.Point(coords.longitude, coords.latitude), 8
 		dock = new Dock (id: "dock"), dom.byId "dock"
 		classifyWidgetContainer = new FloatingPane
