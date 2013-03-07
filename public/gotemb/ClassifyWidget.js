@@ -25,7 +25,7 @@ indexOfMax = function(arr) {
 };
 
 define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dijit/_WidgetsInTemplateMixin", "dojo/text!./ClassifyWidget/templates/ClassifyWidget.html", "dijit/Dialog", "dijit/layout/BorderContainer", "dijit/layout/ContentPane", "dijit/form/TextBox", "dijit/form/Button", "dijit/form/CheckBox", "esri/map", "esri/layers/FeatureLayer", "esri/tasks/query", "esri/tasks/geometry"], function(declare, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template, Dialog) {
-  var showError;
+  var extentToPolygon, showError;
   showError = function(content) {
     var errBox;
     errBox = new Dialog({
@@ -34,8 +34,14 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
     });
     errBox.startup();
     errBox.show();
-    throw new Exception(content);
+    throw new Error(content);
     return errBox;
+  };
+  extentToPolygon = function(extent) {
+    var polygon;
+    polygon = new esri.geometry.Polygon(extent.spatialReference);
+    polygon.addRing([[extent.xmin, extent.ymin], [extent.xmin, extent.ymax], [extent.xmax, extent.ymax], [extent.xmax, extent.ymin], [extent.xmin, extent.ymin]]);
+    return polygon;
   };
   return declare([_WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin], {
     templateString: template,
@@ -45,12 +51,17 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
     signaturesUrlInput: null,
     geometryServiceUrlInput: null,
     imageServiceLayer: null,
+    classificationEnabledInput: null,
+    clipToSignaturePolygonsInput: null,
     state: {},
     constructor: function() {
       var _this = this;
       return this.watch("map", function(attr, oldMap, newMap) {
         return dojo.connect(newMap, "onExtentChange", _this.refresh.bind(_this));
       });
+    },
+    classificationEnabledInputValueChanged: function(value) {
+      return this.clipToSignaturePolygonsInput.set("disabled", !value);
     },
     setImageLayer: function(options, callback) {
       var _ref,
@@ -125,12 +136,12 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
             calculationType: "planar",
             polygons: featuresInExtent
           }), function(areasAndLengths) {
-            if (_this.state.renderedFeatureIndex !== indexOfMax(areasAndLengths.areas)) {
+            if (_this.state.renderedFeatureIndex !== indexOfMax(areasAndLengths.areas && _this.state.clippedImageToSignaturePolygons === _this.state.clipToSignaturePolygons)) {
               _this.state.renderedFeatureIndex = indexOfMax(areasAndLengths.areas);
               return _this.setImageOrModifyRenderingRule(extend(new esri.layers.RasterFunction, {
                 functionName: "funchain1",
                 "arguments": {
-                  ClippingGeometry: _this.state.featureGeos[_this.state.renderedFeatureIndex],
+                  ClippingGeometry: _this.state.clipToSignaturePolygons ? _this.state.featureGeos[_this.state.renderedFeatureIndex] : extentToPolygon(_this.imageServiceLayer.fullExtent),
                   SignatureFile: _this.state.signatures[_this.state.renderedFeatureIndex]
                 },
                 variableName: "Raster"
@@ -166,9 +177,11 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
         signaturesUrl: this.signaturesUrlInput.get("value"),
         geometryServiceUrl: this.geometryServiceUrlInput.get("value"),
         classificationEnabled: this.classificationEnabledInput.get("checked"),
+        clipToSignaturePolygons: this.clipToSignaturePolygonsInput.get("checked"),
         features: null,
         signatures: null,
-        renderedFeatureIndex: null
+        renderedFeatureIndex: null,
+        clippedImageToSignaturePolygons: null
       });
       if (this.state.classificationEnabled) {
         fun1 = function() {
