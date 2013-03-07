@@ -29,7 +29,15 @@
 				<label for="classificationEnabled">Enable Classification:</label>
 			</td>
 			<td style="height: 25px; vertical-align: middle">
-				<input name="classificationEnabled" data-dojo-type="dijit/form/CheckBox" data-dojo-attach-point="classificationEnabledInput" style="height: 25px">
+				<input name="classificationEnabled" data-dojo-type="dijit/form/CheckBox" data-dojo-attach-point="classificationEnabledInput" style="height: 25px" data-dojo-attach-event="onChange: classificationEnabledInputValueChanged">
+			</td>
+		</tr>
+		<tr>
+			<td style="text-align: right; height: 25px; vertical-align: middle; width: 175px">
+				<label for="clipToSignaturePolygons">Clip to Signature Polygons:</label>
+			</td>
+			<td style="height: 25px; vertical-align: middle">
+				<input name="clipToSignaturePolygons" data-dojo-type="dijit/form/CheckBox" data-dojo-attach-point="clipToSignaturePolygonsInput" style="height: 25px" disabled>
 			</td>
 		</tr>
 		<tr>

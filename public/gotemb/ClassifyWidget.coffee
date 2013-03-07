@@ -32,8 +32,18 @@ define [
 		errBox = new Dialog title: "Error", content: content
 		errBox.startup()
 		errBox.show()
-		throw new Exception content
+		throw new Error content
 		errBox
+	extentToPolygon = (extent) ->
+		polygon = new esri.geometry.Polygon extent.spatialReference
+		polygon.addRing [
+			[extent.xmin, extent.ymin]
+			[extent.xmin, extent.ymax]
+			[extent.xmax, extent.ymax]
+			[extent.xmax, extent.ymin]
+			[extent.xmin, extent.ymin]
+		]
+		polygon
 	declare [_WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin],
 		templateString: template
 		baseClass: "classifyWidget"
@@ -42,10 +52,14 @@ define [
 		signaturesUrlInput: null
 		geometryServiceUrlInput: null
 		imageServiceLayer: null
+		classificationEnabledInput: null
+		clipToSignaturePolygonsInput: null
 		state: {}
 		constructor: ->
 			this.watch "map", (attr, oldMap, newMap) =>
 				dojo.connect newMap, "onExtentChange", @refresh.bind @
+		classificationEnabledInputValueChanged: (value) ->
+			@clipToSignaturePolygonsInput.set "disabled", not value
 		setImageLayer: (options, callback) ->
 			return showError "ImageServiceLayer: Service URL Required." if @state.imageServiceUrl in ["", null, undefined]
 			@map.removeLayer @imageServiceLayer if @imageServiceLayer?
@@ -83,12 +97,12 @@ define [
 						calculationType: "planar"
 						polygons: featuresInExtent
 					), (areasAndLengths) =>
-						unless @state.renderedFeatureIndex is indexOfMax areasAndLengths.areas
+						unless @state.renderedFeatureIndex is indexOfMax areasAndLengths.areas and @state.clippedImageToSignaturePolygons is @state.clipToSignaturePolygons
 							@state.renderedFeatureIndex = indexOfMax areasAndLengths.areas
 							@setImageOrModifyRenderingRule extend new esri.layers.RasterFunction,
 								functionName: "funchain1",
 								arguments:
-									ClippingGeometry: @state.featureGeos[@state.renderedFeatureIndex]
+									ClippingGeometry: if @state.clipToSignaturePolygons then @state.featureGeos[@state.renderedFeatureIndex] else extentToPolygon @imageServiceLayer.fullExtent
 									SignatureFile: @state.signatures[@state.renderedFeatureIndex]
 								variableName: "Raster"
 		applyChanges: ->
@@ -105,9 +119,11 @@ define [
 				signaturesUrl: @signaturesUrlInput.get "value"
 				geometryServiceUrl: @geometryServiceUrlInput.get "value"
 				classificationEnabled: @classificationEnabledInput.get "checked"
+				clipToSignaturePolygons: @clipToSignaturePolygonsInput.get "checked"
 				features: null
 				signatures: null
 				renderedFeatureIndex: null
+				clippedImageToSignaturePolygons: null
 			if @state.classificationEnabled
 				fun1 = =>
 					signaturesLayer = new esri.layers.FeatureLayer @state.signaturesUrl, outFields: ["SIGURL"]
