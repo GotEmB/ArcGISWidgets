@@ -38,7 +38,7 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
     });
     errBox.startup();
     errBox.show();
-    throw new Error(content);
+    console.error(new Error(content));
     return errBox;
   };
   extentToPolygon = function(extent) {
@@ -52,11 +52,12 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
     baseClass: "classifyWidget",
     map: null,
     imageServiceUrlInput: null,
-    signaturesUrlInput: null,
     geometryServiceUrlInput: null,
     imageServiceLayer: null,
     classificationEnabledInput: null,
     clipToSignaturePolygonsInput: null,
+    signaturesBox: null,
+    signaturesUrlInput: null,
     state: {},
     constructor: function() {
       var _this = this;
@@ -157,7 +158,7 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
       }
     },
     applyChanges: function() {
-      var fun1, _ref, _ref1, _ref2,
+      var fun1, _ref, _ref1,
         _this = this;
       if (this.map == null) {
         return showError("Widget not bound to an instance of 'esri/map'.");
@@ -168,9 +169,6 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
       if ((_ref1 = this.imageServiceUrlInput.get("value")) === "" || _ref1 === null || _ref1 === (void 0)) {
         return showError("ImageServiceLayer: Service URL Required.");
       }
-      if (((_ref2 = this.signaturesUrlInput.get("value")) === "" || _ref2 === null || _ref2 === (void 0)) && this.classificationEnabledInput.get("checked")) {
-        return showError("Signatures: Service URL Required.");
-      }
       if (this.state.imageServiceUrl !== this.imageServiceUrlInput.get("value")) {
         if (this.imageServiceLayer != null) {
           this.map.removeLayer(this.imageServiceLayer);
@@ -179,7 +177,6 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
       }
       extend(this.state, {
         imageServiceUrl: this.imageServiceUrlInput.get("value"),
-        signaturesUrl: this.signaturesUrlInput.get("value"),
         geometryServiceUrl: this.geometryServiceUrlInput.get("value"),
         classificationEnabled: this.classificationEnabledInput.get("checked"),
         clipToSignaturePolygons: this.clipToSignaturePolygonsInput.get("checked"),
@@ -201,7 +198,7 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
             }), esri.layers.FeatureLayer.SELECTION_NEW, function(features) {
               var f, geometryService;
               if (features.length === 0) {
-                return showError("No features found within current view extent.");
+                return showError("No features found within image service extent.");
               }
               _this.state.signatures = (function() {
                 var _i, _len, _results;
@@ -249,18 +246,47 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
             return showError("GeometryService: " + error.message);
           });
           return geometryService.project(extend(new esri.tasks.ProjectParameters, {
-            geometries: [_this.imageServiceLayer.initialExtent],
+            geometries: [_this.imageServiceLayer.fullExtent, _this.imageServiceLayer.initialExtent],
             outSR: _this.map.extent.spatialReference
           }), function(_arg) {
-            var extent;
-            extent = _arg[0];
-            _this.map.setExtent(extent);
+            var fullExtent, initialExtent;
+            fullExtent = _arg[0], initialExtent = _arg[1];
+            _this.map.setExtent(initialExtent);
+            _this.state.imageServiceExtent = fullExtent;
             return fun1();
           });
         });
       } else {
         return this.refresh();
       }
+    },
+    openSignaturesBox: function() {
+      return this.signaturesBox.show();
+    },
+    loadSignatures: function() {
+      var signaturesLayer, _ref,
+        _this = this;
+      if (((_ref = this.signaturesUrlInput.get("value")) === "" || _ref === null || _ref === (void 0)) && this.classificationEnabledInput.get("checked")) {
+        return showError("Signatures: Service URL Required.");
+      }
+      signaturesLayer = new esri.layers.FeatureLayer(this.signaturesUrlInput.get("value"), {
+        outFields: ["SIGURL"]
+      });
+      return dojo.connect(signaturesLayer, "onLoad", function() {
+        return signaturesLayer.selectFeatures(extend(new esri.tasks.Query, {
+          geometry: signaturesLayer.fullExtent,
+          spatialRelationship: esri.tasks.Query.SPATIAL_REL_INTERSECTS
+        }), esri.layers.FeatureLayer.SELECTION_NEW, function(features) {
+          if (features.length === 0) {
+            return showError("No features found within image service extent.");
+          }
+          _this.state.signaturesUrl = _this.signaturesUrlInput.get("value");
+          return _this.classificationEnabledInput.set("disabled", false);
+        });
+      });
+    },
+    dismissSignaturesBox: function() {
+      return this.signaturesBox.hide();
     }
   });
 });

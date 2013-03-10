@@ -1,4 +1,22 @@
 <div style="width: 100%">
+	<div data-dojo-type="dijit/Dialog" data-dojo-attach-point="signaturesBox" title="Signatures">
+		<table class="dijitDialogPaneContentArea">
+			<tr>
+				<td>
+					<label for="signaturesurl">Signatures URL:</label>
+				</td>
+				<td style="height: 25px; vertical-align: middle">
+					<input type="text" data-dojo-type="dijit/form/TextBox" data-dojo-attach-point="signaturesUrlInput" name="signaturesurl" style="min-width: 250px; width: 100%" value="http://lamborghini:6080/arcgis/rest/services/Signatures/MapServer/0">
+				</td>
+				<td>
+					<button data-dojo-type="dijit/form/Button" data-dojo-attach-event="onClick: loadSignatures">Load</button>
+				</td>
+			</tr>
+		</table>
+		<div class="dijitDialogPaneActionBar">
+			<button data-dojo-type="dijit/form/Button" data-dojo-attach-event="onClick: dismissSignaturesBox">OK</button>
+		</div>
+	</div>
 	<table style="width: 100%">
 		<tr>
 			<td style="text-align: right; height: 25px; vertical-align: middle; width: 140px">
@@ -10,18 +28,18 @@
 		</tr>
 		<tr>
 			<td style="text-align: right; height: 25px; vertical-align: middle; width: 145px">
-				<label for="signaturesurl">Signatures URL:</label>
+				<label for="geometryurl">GeometryService URL:</label>
 			</td>
 			<td style="height: 25px; vertical-align: middle">
-				<input type="text" data-dojo-type="dijit/form/TextBox" data-dojo-attach-point="signaturesUrlInput" name="signaturesurl" style="min-width: 250px; width: 100%" value="http://lamborghini:6080/arcgis/rest/services/Signatures/MapServer/0">
+				<input type="text" data-dojo-type="dijit/form/TextBox" data-dojo-attach-point="geometryServiceUrlInput" name="geometryurl" style="min-width: 250px; width: 100%" value="http://lamborghini:6080/arcgis/rest/services/Utilities/Geometry/GeometryServer">
 			</td>
 		</tr>
 		<tr>
 			<td style="text-align: right; height: 25px; vertical-align: middle; width: 145px">
-				<label for="signaturesurl">GeometryService URL:</label>
+				<label for="signaturesurl">Signature Service:</label>
 			</td>
 			<td style="height: 25px; vertical-align: middle">
-				<input type="text" data-dojo-type="dijit/form/TextBox" data-dojo-attach-point="geometryServiceUrlInput" name="signaturesurl" style="min-width: 250px; width: 100%" value="http://lamborghini:6080/arcgis/rest/services/Utilities/Geometry/GeometryServer">
+				<button data-dojo-type="dijit/form/Button" data-dojo-attach-event="onClick: openSignaturesBox">Select and Customize</button>
 			</td>
 		</tr>
 		<tr>
@@ -29,7 +47,7 @@
 				<label for="classificationEnabled">Enable Classification:</label>
 			</td>
 			<td style="height: 25px; vertical-align: middle">
-				<input name="classificationEnabled" data-dojo-type="dijit/form/CheckBox" data-dojo-attach-point="classificationEnabledInput" style="height: 25px" data-dojo-attach-event="onChange: classificationEnabledInputValueChanged">
+				<input name="classificationEnabled" data-dojo-type="dijit/form/CheckBox" data-dojo-attach-point="classificationEnabledInput" style="height: 25px" data-dojo-attach-event="onChange: classificationEnabledInputValueChanged" disabled>
 			</td>
 		</tr>
 		<tr>

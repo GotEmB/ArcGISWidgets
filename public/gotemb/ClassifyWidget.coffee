@@ -39,7 +39,7 @@ define [
 		errBox = new Dialog title: "Error", content: content
 		errBox.startup()
 		errBox.show()
-		throw new Error content
+		console.error new Error content
 		errBox
 	# Convert an `esri.geometry.extent` to an `esri.geometry.polygon`
 	extentToPolygon = (extent) ->
@@ -59,12 +59,15 @@ define [
 		map: null # should be bound to an `esri.Map` instance before using the widget
 		# Widget Inputs
 		imageServiceUrlInput: null
-		signaturesUrlInput: null
 		geometryServiceUrlInput: null
 		imageServiceLayer: null
 		classificationEnabledInput: null
 		clipToSignaturePolygonsInput: null
-		state: {} # Contains the widget's current state
+		# SignaturesBox Related
+		signaturesBox: null
+		signaturesUrlInput: null
+		# Contains the widget's current state
+		state: {}
 		constructor: ->
 			# Bind the @refresh function to the Map's onExtentChange event
 			this.watch "map", (attr, oldMap, newMap) =>
@@ -132,7 +135,6 @@ define [
 			return showError "Widget not bound to an instance of 'esri/map'." unless @map?
 			return showError "GeometryService: Service URL Required." if @geometryServiceUrlInput.get("value") in ["", null, undefined]
 			return showError "ImageServiceLayer: Service URL Required." if @imageServiceUrlInput.get("value") in ["", null, undefined]
-			return showError "Signatures: Service URL Required." if @signaturesUrlInput.get("value") in ["", null, undefined] and @classificationEnabledInput.get "checked"
 			# Remove ImageServiceLayer if Url has changed
 			if @state.imageServiceUrl isnt @imageServiceUrlInput.get "value"
 					if @imageServiceLayer?
@@ -141,7 +143,6 @@ define [
 			# Set State Params
 			extend @state,
 				imageServiceUrl: @imageServiceUrlInput.get "value"
-				signaturesUrl: @signaturesUrlInput.get "value"
 				geometryServiceUrl: @geometryServiceUrlInput.get "value"
 				classificationEnabled: @classificationEnabledInput.get "checked"
 				clipToSignaturePolygons: @clipToSignaturePolygonsInput.get "checked"
@@ -158,7 +159,7 @@ define [
 							geometry: @imageServiceLayer.fullExtent
 							spatialRelationship: esri.tasks.Query.SPATIAL_REL_INTERSECTS
 						), esri.layers.FeatureLayer.SELECTION_NEW, (features) =>
-							return showError "No features found within current view extent." if features.length is 0
+							return showError "No features found within image service extent." if features.length is 0
 							@state.signatures = (f.attributes.SIGURL for f in features)
 							geometryService = new esri.tasks.GeometryService @state.geometryServiceUrl
 							dojo.connect geometryService, "onError", (error) -> showError "GeometryService: #{error.message}"
@@ -176,11 +177,28 @@ define [
 				@setImageLayer null, => # ImageServiceLayer does not exist. Create New
 					geometryService = new esri.tasks.GeometryService @state.geometryServiceUrl
 					dojo.connect geometryService, "onError", (error) -> showError "GeometryService: #{error.message}"
+					# Project the ImageService extents to Map's SR
 					geometryService.project (extend new esri.tasks.ProjectParameters,
-						geometries: [@imageServiceLayer.initialExtent]
+						geometries: [@imageServiceLayer.fullExtent, @imageServiceLayer.initialExtent]
 						outSR: @map.extent.spatialReference
-					), ([extent]) =>
-						@map.setExtent extent
+					), ([fullExtent, initialExtent]) =>
+						@map.setExtent initialExtent
+						@state.imageServiceExtent = fullExtent
 						fun1()
 			else # Classification Disabled
 				@refresh() # Call refresh()
+		openSignaturesBox: ->
+			@signaturesBox.show()
+		loadSignatures: ->
+			return showError "Signatures: Service URL Required." if @signaturesUrlInput.get("value") in ["", null, undefined] and @classificationEnabledInput.get "checked"
+			signaturesLayer = new esri.layers.FeatureLayer @signaturesUrlInput.get("value"), outFields: ["SIGURL"]
+			dojo.connect signaturesLayer, "onLoad", =>
+				signaturesLayer.selectFeatures (extend new esri.tasks.Query,
+					geometry: signaturesLayer.fullExtent
+					spatialRelationship: esri.tasks.Query.SPATIAL_REL_INTERSECTS
+				), esri.layers.FeatureLayer.SELECTION_NEW, (features) =>
+					return showError "No features found within image service extent." if features.length is 0
+					@state.signaturesUrl = @signaturesUrlInput.get "value"
+					@classificationEnabledInput.set "disabled", false
+		dismissSignaturesBox: ->
+			@signaturesBox.hide()
