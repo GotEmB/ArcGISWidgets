@@ -1,39 +1,48 @@
 <div style="width: 100%">
 	<table style="width: 100%">
 		<tr>
-			<td style="text-align: right; height: 25px; vertical-align: middle; width: 140px">
+			<td style="text-align: right; height: 25px; vertical-align: middle; width: 1; white-space: nowrap">
 				<label for="imageurl">Image Service URL:</label>
 			</td>
-			<td style="height: 25px; vertical-align: middle">
+			<td style="height: 25px; vertical-align: middle" colspan="2">
 				<input type="text" data-dojo-type="dijit/form/TextBox" data-dojo-attach-point="imageServiceUrlInput" name="imageurl" style="min-width: 250px; width: 100%" value="http://lamborghini:6080/arcgis/rest/services/Reproj_Clip_p033r032_7dt20020920_z13_MS1/ImageServer">
 			</td>
 		</tr>
 		<tr>
-			<td style="text-align: right; height: 25px; vertical-align: middle; width: 145px">
+			<td style="text-align: right; height: 25px; vertical-align: middle; width: 1; white-space: nowrap">
+				<label for="geometryurl">GeometryService URL:</label>
+			</td>
+			<td style="height: 25px; vertical-align: middle" colspan="2">
+				<input type="text" data-dojo-type="dijit/form/TextBox" data-dojo-attach-point="geometryServiceUrlInput" name="geometryurl" style="min-width: 250px; width: 100%" value="http://lamborghini:6080/arcgis/rest/services/Utilities/Geometry/GeometryServer">
+			</td>
+		</tr>
+		<tr>
+			<td style="width: 110px; text-align: right">
 				<label for="signaturesurl">Signatures URL:</label>
 			</td>
 			<td style="height: 25px; vertical-align: middle">
-				<input type="text" data-dojo-type="dijit/form/TextBox" data-dojo-attach-point="signaturesUrlInput" name="signaturesurl" style="min-width: 250px; width: 100%" value="http://lamborghini:6080/arcgis/rest/services/Signatures/MapServer/0">
+				<input type="text" data-dojo-type="dijit/form/TextBox" data-dojo-attach-point="signaturesUrlInput" data-dojo-attach-event="onChange: signaturesUrlInputValueChanged" name="signaturesurl" style="min-width: 250px; width: 100%" value="http://lamborghini:6080/arcgis/rest/services/Signatures/MapServer/0">
+			</td>
+			<td style="width: 1px">
+				<button data-dojo-type="dijit/form/Button" data-dojo-attach-point="loadSignaturesButton" data-dojo-attach-event="onClick: loadSignatures" style="margin-top: 0; margin-bottom: 0; margin-right: 0">Load</button>
 			</td>
 		</tr>
 		<tr>
-			<td style="text-align: right; height: 25px; vertical-align: middle; width: 145px">
-				<label for="signaturesurl">GeometryService URL:</label>
-			</td>
-			<td style="height: 25px; vertical-align: middle">
-				<input type="text" data-dojo-type="dijit/form/TextBox" data-dojo-attach-point="geometryServiceUrlInput" name="signaturesurl" style="min-width: 250px; width: 100%" value="http://lamborghini:6080/arcgis/rest/services/Utilities/Geometry/GeometryServer">
-			</td>
-		</tr>
-		<tr>
-			<td style="text-align: right; height: 25px; vertical-align: middle; width: 145px">
+			<td style="text-align: right; height: 25px; vertical-align: middle; width: 1; white-space: nowrap">
 				<label for="classificationEnabled">Enable Classification:</label>
 			</td>
 			<td style="height: 25px; vertical-align: middle">
-				<input name="classificationEnabled" data-dojo-type="dijit/form/CheckBox" data-dojo-attach-point="classificationEnabledInput" style="height: 25px" data-dojo-attach-event="onChange: classificationEnabledInputValueChanged">
+				<input name="classificationEnabled" data-dojo-type="dijit/form/CheckBox" data-dojo-attach-point="classificationEnabledInput" style="height: 25px" data-dojo-attach-event="onChange: classificationEnabledInputValueChanged" disabled>
+				<div data-dojo-type="dijit/form/DropDownButton" data-dojo-attach-point="customizeClassesButton" style="margin-top: 0; margin-bottom: 0; margin-right: 0" disabled>
+					<span>Customize</span>
+					<div data-dojo-type="dijit/TooltipDialog" data-dojo-attach-event="onOpen: openSignaturesBox, onClose: closeSignaturesBox">
+						<div data-dojo-type="dgrid/Grid" data-dojo-attach-point="signaturesGrid" style="height: 150px; width: 300px"></div>
+					</div>
+				</div>
 			</td>
 		</tr>
 		<tr>
-			<td style="text-align: right; height: 25px; vertical-align: middle; width: 175px">
+			<td style="text-align: right; height: 25px; vertical-align: middle; width: 1; white-space: nowrap">
 				<label for="clipToSignaturePolygons">Clip to Signature Polygons:</label>
 			</td>
 			<td style="height: 25px; vertical-align: middle">
@@ -41,8 +50,8 @@
 			</td>
 		</tr>
 		<tr>
-			<td colspan="2" style="height: 25px; vertical-align: middle; text-align: right">
-				<button data-dojo-type="dijit/form/Button" data-dojo-attach-event="onClick: applyChanges">Apply Changes</button>
+			<td colspan="3" style="height: 25px; vertical-align: middle; text-align: right">
+				<button data-dojo-type="dijit/form/Button" data-dojo-attach-event="onClick: applyChanges" style="margin-top: 0; margin-bottom: 0; margin-right: 0">Apply Changes</button>
 			</td>
 		</tr>
 	</table>
