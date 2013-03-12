@@ -24,8 +24,8 @@ define [
 	"dijit/_WidgetsInTemplateMixin"
 	"dojo/text!./ClassifyWidget/templates/ClassifyWidget.html"
 	"dijit/Dialog"
-	"./ClassifyWidget/SignatureClassRow"
-	"./ClassifyWidget/signatureFileParser"
+	"gotemb/ClassifyWidget/SignatureClassRow"
+	"gotemb/ClassifyWidget/signatureFileParser"
 	"dojox/color"
 	"dijit/form/TextBox"
 	"dijit/form/Button"
@@ -34,7 +34,7 @@ define [
 	"esri/layers/FeatureLayer"
 	"esri/tasks/query"
 	"esri/tasks/geometry"
-	"dgrid/Grid"
+	"gotemb/ClassifyWidget/Grid"
 	"dijit/form/DropDownButton"
 	"dijit/TooltipDialog"
 ], (declare, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template, Dialog, SignatureClassRow, signatureFileParser, color) ->
@@ -136,6 +136,7 @@ define [
 				@setImageOrModifyRenderingRule() if not @imageServiceLayer? or @imageServiceLayer.renderingRule?
 				callback?()
 			else # Classification Enabled
+				return unless @state.featureGeos?
 				geometryService = new esri.tasks.GeometryService @state.geometryServiceUrl
 				dojo.connect geometryService, "onError", (error) -> showError "GeometryService: #{error.message}"
 				# Crop Feature Polygons to lie within Map's current view extent
@@ -213,7 +214,7 @@ define [
 					), ([fullExtent, initialExtent]) =>
 						@map.setExtent initialExtent
 						@state.imageServiceExtent = fullExtent
-						fun1()
+						setTimeout fun1, 500
 			else # Classification Disabled
 				@refresh false, callback # Call refresh()
 		# Enable / Disable the ClipToSignaturePolygonsInput checkbox
@@ -229,7 +230,6 @@ define [
 				@signaturesGrid.renderArray data
 			return fun1() if @state.classificationEnabled
 			@applyChanges fun1
-			@signaturesGrid.resize()
 		# On Close Signatures Dialog
 		closeSignaturesBox: ->
 			@signaturesGrid.refresh()
