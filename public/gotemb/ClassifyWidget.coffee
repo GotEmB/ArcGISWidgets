@@ -79,7 +79,6 @@ define [
 			# Bind the @refresh function to the Map's onExtentChange event
 			@watch "map", (attr, oldMap, newMap) =>
 				dojo.connect newMap, "onExtentChange", @refresh.bind @
-			@watch
 		postCreate: ->
 			# Setup Signatures dGrid
 			@signaturesGrid.set "columns",
@@ -91,6 +90,14 @@ define [
 				color:
 					label: "Color"
 					renderCell: (object) -> object.domNode
+			# UI Chain-reaction
+			@classificationEnabledInput.watch "disabled", (attr, oldValue, newValue) =>
+				@classificationEnabledInput.set "checked", false if newValue is true
+			@classificationEnabledInput.watch "checked", (attr, oldValue, newValue) =>
+				@clipToSignaturePolygonsInput.set "disabled", not newValue
+				@customizeClassesButton.set "disabled", not newValue
+			@clipToSignaturePolygonsInput.watch "disabled", (attr, oldValue, newValue) =>
+				@clipToSignaturePolygonsInput.set "checked", false if newValue is true
 		# Sets the ImageServiceLayer with the url stored in the State
 		setImageLayer: (options, callback) ->
 			return showError "ImageServiceLayer: Service URL Required." if @state.imageServiceUrl in ["", null, undefined]
@@ -231,7 +238,6 @@ define [
 			return if value is @state.signaturesUrl
 			@loadSignaturesButton.set "disabled", false
 			@classificationEnabledInput.set "disabled", true
-			@clipToSignaturePolygonsInput.set "disabled", true
 		# Load Classes from Signature Files
 		loadSignatures: ->
 			return showError "Signatures: Service URL Required." if @signaturesUrlInput.get("value") in ["", null, undefined] and @classificationEnabledInput.get "checked"
@@ -245,8 +251,6 @@ define [
 					@state.signaturesUrl = @signaturesUrlInput.get "value"
 					@loadSignaturesButton.set "disabled", true
 					@classificationEnabledInput.set "disabled", false
-					@clipToSignaturePolygonsInput.set "disabled", false if @classificationEnabledInput.get "value"
-					@customizeClassesButton.set "disabled", false if @classificationEnabledInput.get "value"
 					# Create SignatureClassRows
 					parsedClasses = []
 					for f in features then do (f) =>
