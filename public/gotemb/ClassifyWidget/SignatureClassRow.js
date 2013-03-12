@@ -11,10 +11,12 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
     sigColor: "",
     sigValue: NaN,
     sigFile: "",
+    onColorChanged: null,
     constructor: function() {
       var _this = this;
       return this.watch("sigColor", function(attr, oldValue, newValue) {
-        return domStyle.set(query(".colorPreview", _this.domNode)[0], "background", newValue);
+        domStyle.set(query(".colorPreview", _this.domNode)[0], "background", newValue);
+        return typeof _this.onColorChanged === "function" ? _this.onColorChanged() : void 0;
       });
     },
     postCreate: function() {

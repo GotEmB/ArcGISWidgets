@@ -20,9 +20,11 @@ define [
 		sigColor: ""
 		sigValue: NaN
 		sigFile: ""
+		onColorChanged: null
 		constructor: ->
-			this.watch "sigColor", (attr, oldValue, newValue) =>
+			@watch "sigColor", (attr, oldValue, newValue) =>
 				domStyle.set query(".colorPreview", @domNode)[0], "background", newValue
+				@onColorChanged?()
 		postCreate: ->
 			domStyle.set query(".colorPreview", @domNode)[0], "background", @sigColor
 		colorChanged: (value) ->

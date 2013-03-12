@@ -1,16 +1,4 @@
 <div style="width: 100%">
-	<div data-dojo-type="dijit/Dialog" data-dojo-attach-point="signaturesBox" title="Signatures">
-		<table class="dijitDialogPaneContentArea">
-			<tr>
-				<td style="width: 300px">
-					<div data-dojo-type="dgrid/Grid" data-dojo-attach-point="signaturesGrid" style="height: 150px"></div>
-				</td>
-			</tr>
-		</table>
-		<div class="dijitDialogPaneActionBar">
-			<button data-dojo-type="dijit/form/Button" data-dojo-attach-event="onClick: dismissSignaturesBox">OK</button>
-		</div>
-	</div>
 	<table style="width: 100%">
 		<tr>
 			<td style="text-align: right; height: 25px; vertical-align: middle; width: 1; white-space: nowrap">
@@ -45,7 +33,12 @@
 			</td>
 			<td style="height: 25px; vertical-align: middle">
 				<input name="classificationEnabled" data-dojo-type="dijit/form/CheckBox" data-dojo-attach-point="classificationEnabledInput" style="height: 25px" data-dojo-attach-event="onChange: classificationEnabledInputValueChanged" disabled>
-				<button data-dojo-type="dijit/form/Button" data-dojo-attach-point="customizeClassesButton" data-dojo-attach-event="onClick: openSignaturesBox" style="margin-top: 0; margin-bottom: 0; margin-right: 0" disabled>Customize</button>
+				<div data-dojo-type="dijit/form/DropDownButton" data-dojo-attach-point="customizeClassesButton" style="margin-top: 0; margin-bottom: 0; margin-right: 0" disabled>
+					<span>Customize</span>
+					<div data-dojo-type="dijit/TooltipDialog" data-dojo-attach-event="onOpen: openSignaturesBox, onClose: closeSignaturesBox">
+						<div data-dojo-type="dgrid/Grid" data-dojo-attach-point="signaturesGrid" style="height: 150px; width: 300px"></div>
+					</div>
+				</div>
 			</td>
 		</tr>
 		<tr>

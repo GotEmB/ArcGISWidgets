@@ -28,7 +28,7 @@ indexOfMax = function(arr) {
   return idx;
 };
 
-define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dijit/_WidgetsInTemplateMixin", "dojo/text!./ClassifyWidget/templates/ClassifyWidget.html", "dijit/Dialog", "./ClassifyWidget/SignatureClassRow", "./ClassifyWidget/signatureFileParser", "dojox/color", "dijit/form/TextBox", "dijit/form/Button", "dijit/form/CheckBox", "esri/map", "esri/layers/FeatureLayer", "esri/tasks/query", "esri/tasks/geometry", "dgrid/Grid"], function(declare, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template, Dialog, SignatureClassRow, signatureFileParser, color) {
+define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dijit/_WidgetsInTemplateMixin", "dojo/text!./ClassifyWidget/templates/ClassifyWidget.html", "dijit/Dialog", "./ClassifyWidget/SignatureClassRow", "./ClassifyWidget/signatureFileParser", "dojox/color", "dijit/form/TextBox", "dijit/form/Button", "dijit/form/CheckBox", "esri/map", "esri/layers/FeatureLayer", "esri/tasks/query", "esri/tasks/geometry", "dgrid/Grid", "dijit/form/DropDownButton", "dijit/TooltipDialog"], function(declare, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template, Dialog, SignatureClassRow, signatureFileParser, color) {
   var extentToPolygon, showError;
   showError = function(content) {
     var errBox;
@@ -64,9 +64,10 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
     state: {},
     constructor: function() {
       var _this = this;
-      return this.watch("map", function(attr, oldMap, newMap) {
+      this.watch("map", function(attr, oldMap, newMap) {
         return dojo.connect(newMap, "onExtentChange", _this.refresh.bind(_this));
       });
+      return this.watch;
     },
     postCreate: function() {
       return this.signaturesGrid.set("columns", {
@@ -139,19 +140,20 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
         return this.imageServiceLayer.setRenderingRule(renderingRule);
       }
     },
-    refresh: function(force) {
+    refresh: function(force, callback) {
       var geometryService,
         _this = this;
       if (force == null) {
         force = false;
       }
       if (this.state.imageServiceUrl == null) {
-        return;
+        return typeof callback === "function" ? callback() : void 0;
       }
       if (!this.state.classificationEnabled) {
         if ((this.imageServiceLayer == null) || (this.imageServiceLayer.renderingRule != null)) {
-          return this.setImageOrModifyRenderingRule();
+          this.setImageOrModifyRenderingRule();
         }
+        return typeof callback === "function" ? callback() : void 0;
       } else {
         geometryService = new esri.tasks.GeometryService(this.state.geometryServiceUrl);
         dojo.connect(geometryService, "onError", function(error) {
@@ -186,20 +188,8 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
                 },
                 variableName: "Raster"
               }));
-              _this.signaturesGrid.refresh();
-              return _this.signaturesGrid.renderArray((function() {
-                var _i, _len, _ref, _results;
-                _ref = state.signatureClasses;
-                _results = [];
-                for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-                  cls = _ref[_i];
-                  if (cls.get("sigFile") === state.signatures[state.renderedFeatureIndex]) {
-                    _results.push(cls);
-                  }
-                }
-                return _results;
-              })());
             }
+            return typeof callback === "function" ? callback() : void 0;
           });
         });
       }
@@ -274,8 +264,7 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
               }), function(projectedGeos) {
                 return geometryService.intersect(projectedGeos, _this.imageServiceLayer.fullExtent, function(boundedGeos) {
                   _this.state.featureGeos = boundedGeos;
-                  _this.refresh();
-                  return typeof callback === "function" ? callback() : void 0;
+                  return _this.refresh(false, callback);
                 });
               });
             });
@@ -305,8 +294,7 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
           });
         });
       } else {
-        this.refresh();
-        return typeof callback === "function" ? callback() : void 0;
+        return this.refresh(false, callback);
       }
     },
     classificationEnabledInputValueChanged: function(value) {
@@ -317,13 +305,30 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
       var fun1,
         _this = this;
       fun1 = function() {
-        _this.signaturesBox.show();
-        return _this.signaturesGrid.resize();
+        var cls, data, state;
+        state = _this.state;
+        data = (function() {
+          var _i, _len, _ref, _results;
+          _ref = state.signatureClasses;
+          _results = [];
+          for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+            cls = _ref[_i];
+            if (cls.get("sigFile") === state.signatures[state.renderedFeatureIndex]) {
+              _results.push(cls);
+            }
+          }
+          return _results;
+        })();
+        return _this.signaturesGrid.renderArray(data);
       };
-      if (this.classificationEnabled) {
+      if (this.state.classificationEnabled) {
         return fun1();
       }
-      return this.applyChanges(fun1);
+      this.applyChanges(fun1);
+      return this.signaturesGrid.resize();
+    },
+    closeSignaturesBox: function() {
+      return this.signaturesGrid.refresh();
     },
     signaturesUrlInputValueChanged: function(value) {
       if (value === this.state.signaturesUrl) {
@@ -342,7 +347,7 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
       signaturesLayer = new esri.layers.FeatureLayer(this.signaturesUrlInput.get("value"), {
         outFields: ["SIGURL"]
       });
-      return dojo.connect(signaturesLayer, "onLoad", function() {
+      dojo.connect(signaturesLayer, "onLoad", function() {
         return signaturesLayer.selectFeatures(extend(new esri.tasks.Query, {
           geometry: signaturesLayer.fullExtent,
           spatialRelationship: esri.tasks.Query.SPATIAL_REL_INTERSECTS
@@ -381,7 +386,10 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
                         sigClass: cls.classname,
                         sigColor: color.fromHsv((classes.length === 1 ? 180 : i / classes.length * 360), 80, 80).toHex(),
                         sigValue: cls.value,
-                        sigFile: file
+                        sigFile: file,
+                        onColorChanged: function() {
+                          return _this.refresh(true);
+                        }
                       }));
                       d.startup();
                     }
@@ -394,10 +402,9 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
           return _results;
         });
       });
-    },
-    dismissSignaturesBox: function() {
-      this.signaturesBox.hide();
-      return this.refresh(true);
+      return dojo.connect(signaturesLayer, "onError", function(error) {
+        return showError("FeatureLayer: " + error.message);
+      });
     }
   });
 });

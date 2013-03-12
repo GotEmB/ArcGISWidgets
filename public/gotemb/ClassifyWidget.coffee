@@ -35,6 +35,8 @@ define [
 	"esri/tasks/query"
 	"esri/tasks/geometry"
 	"dgrid/Grid"
+	"dijit/form/DropDownButton"
+	"dijit/TooltipDialog"
 ], (declare, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template, Dialog, SignatureClassRow, signatureFileParser, color) ->
 	# Show an error box and log it to console
 	showError = (content) ->
@@ -75,8 +77,9 @@ define [
 		state: {}
 		constructor: ->
 			# Bind the @refresh function to the Map's onExtentChange event
-			this.watch "map", (attr, oldMap, newMap) =>
+			@watch "map", (attr, oldMap, newMap) =>
 				dojo.connect newMap, "onExtentChange", @refresh.bind @
+			@watch
 		postCreate: ->
 			# Setup Signatures dGrid
 			@signaturesGrid.set "columns",
@@ -120,10 +123,11 @@ define [
 			else # ImageServiceLayer exists
 				@imageServiceLayer.setRenderingRule renderingRule # Modify the ImageServiceLayer's Rendering Rule
 		# Called everytime a Pan / Zoom occurs in the Map
-		refresh: (force = false) ->
-			return unless @state.imageServiceUrl? # Do nothing if there isn't an ImageServiceUrl specified
+		refresh: (force = false, callback) ->
+			return callback?() unless @state.imageServiceUrl? # Do nothing if there isn't an ImageServiceUrl specified
 			unless @state.classificationEnabled # Classification Disabled
 				@setImageOrModifyRenderingRule() if not @imageServiceLayer? or @imageServiceLayer.renderingRule?
+				callback?()
 			else # Classification Enabled
 				geometryService = new esri.tasks.GeometryService @state.geometryServiceUrl
 				dojo.connect geometryService, "onError", (error) -> showError "GeometryService: #{error.message}"
@@ -146,8 +150,7 @@ define [
 										for cls in state.signatureClasses when cls.get("sigFile") is state.signatures[state.renderedFeatureIndex]
 											[cls.get "sigValue"].concat color.fromHex(cls.get "sigColor").toRgb()
 								variableName: "Raster"
-							@signaturesGrid.refresh()
-							@signaturesGrid.renderArray (cls for cls in state.signatureClasses when cls.get("sigFile") is state.signatures[state.renderedFeatureIndex])
+						callback?()
 		# Called when Apply Changes button is clicked
 		applyChanges: (callback) ->
 			#Handle Errors
@@ -190,8 +193,7 @@ define [
 								# Crop the Projected Polygons to ImageService's extent
 								geometryService.intersect projectedGeos, @imageServiceLayer.fullExtent, (boundedGeos) =>
 									@state.featureGeos = boundedGeos
-									@refresh() # Finally call refresh()
-									callback?()
+									@refresh false, callback # Finally call refresh()
 					dojo.connect signaturesLayer, "onError", (error) -> showError "FeatureLayer: #{error.message}"
 				return fun1() if @imageServiceLayer? # ImageServiceLayer exists
 				@setImageLayer null, => # ImageServiceLayer does not exist. Create New
@@ -206,19 +208,24 @@ define [
 						@state.imageServiceExtent = fullExtent
 						fun1()
 			else # Classification Disabled
-				@refresh() # Call refresh()
-				callback?()
+				@refresh false, callback # Call refresh()
 		# Enable / Disable the ClipToSignaturePolygonsInput checkbox
 		classificationEnabledInputValueChanged: (value) ->
 			@clipToSignaturePolygonsInput.set "disabled", not value
 			@customizeClassesButton.set "disabled", not value
-		# Show Signatures Dialog
+		# On Show Signatures Dialog
 		openSignaturesBox: ->
 			fun1 = =>
-				@signaturesBox.show()
-				@signaturesGrid.resize()
-			return fun1() if @classificationEnabled
+				state = @state
+				data = for cls in state.signatureClasses when cls.get("sigFile") is state.signatures[state.renderedFeatureIndex]
+					cls
+				@signaturesGrid.renderArray data
+			return fun1() if @state.classificationEnabled
 			@applyChanges fun1
+			@signaturesGrid.resize()
+		# On Close Signatures Dialog
+		closeSignaturesBox: ->
+			@signaturesGrid.refresh()
 		# Enable / Disable Signatures Related Controls
 		signaturesUrlInputValueChanged: (value) ->
 			return if value is @state.signaturesUrl
@@ -254,9 +261,7 @@ define [
 											sigColor: color.fromHsv((if classes.length is 1 then 180 else i / classes.length * 360), 80, 80).toHex()
 											sigValue: cls.value
 											sigFile: file
+											onColorChanged: => @refresh true
 										d.startup()
 								@state.signatureClasses = data
-		# Hide Signatures Dialog
-		dismissSignaturesBox: ->
-			@signaturesBox.hide()
-			@refresh true
+			dojo.connect signaturesLayer, "onError", (error) -> showError "FeatureLayer: #{error.message}"
