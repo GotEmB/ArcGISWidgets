@@ -372,6 +372,7 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
           _this.state.signaturesUrl = _this.signaturesUrlInput.get("value");
           _this.loadSignaturesButton.set("disabled", true);
           _this.classificationEnabledInput.set("disabled", false);
+          _this.classificationEnabledInput.set("checked", true);
           parsedClasses = [];
           _results = [];
           for (_i = 0, _len = features.length; _i < _len; _i++) {

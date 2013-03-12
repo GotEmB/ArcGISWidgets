@@ -251,6 +251,7 @@ define [
 					@state.signaturesUrl = @signaturesUrlInput.get "value"
 					@loadSignaturesButton.set "disabled", true
 					@classificationEnabledInput.set "disabled", false
+					@classificationEnabledInput.set "checked", true
 					# Create SignatureClassRows
 					parsedClasses = []
 					for f in features then do (f) =>
