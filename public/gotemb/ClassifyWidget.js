@@ -28,7 +28,7 @@ indexOfMax = function(arr) {
   return idx;
 };
 
-define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dijit/_WidgetsInTemplateMixin", "dojo/text!./ClassifyWidget/templates/ClassifyWidget.html", "dijit/Dialog", "./ClassifyWidget/SignatureClassRow", "./ClassifyWidget/signatureFileParser", "dojox/color", "dijit/form/TextBox", "dijit/form/Button", "dijit/form/CheckBox", "esri/map", "esri/layers/FeatureLayer", "esri/tasks/query", "esri/tasks/geometry", "dgrid/Grid", "dijit/form/DropDownButton", "dijit/TooltipDialog"], function(declare, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template, Dialog, SignatureClassRow, signatureFileParser, color) {
+define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dijit/_WidgetsInTemplateMixin", "dojo/text!./ClassifyWidget/templates/ClassifyWidget.html", "dijit/Dialog", "gotemb/ClassifyWidget/SignatureClassRow", "gotemb/ClassifyWidget/signatureFileParser", "dojox/color", "dijit/form/TextBox", "dijit/form/Button", "dijit/form/CheckBox", "esri/map", "esri/layers/FeatureLayer", "esri/tasks/query", "esri/tasks/geometry", "gotemb/ClassifyWidget/Grid", "dijit/form/DropDownButton", "dijit/TooltipDialog"], function(declare, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template, Dialog, SignatureClassRow, signatureFileParser, color) {
   var extentToPolygon, showError;
   showError = function(content) {
     var errBox;
@@ -169,6 +169,9 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
         }
         return typeof callback === "function" ? callback() : void 0;
       } else {
+        if (this.state.featureGeos == null) {
+          return;
+        }
         geometryService = new esri.tasks.GeometryService(this.state.geometryServiceUrl);
         dojo.connect(geometryService, "onError", function(error) {
           return showError("GeometryService: " + error.message);
@@ -304,7 +307,7 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
             fullExtent = _arg[0], initialExtent = _arg[1];
             _this.map.setExtent(initialExtent);
             _this.state.imageServiceExtent = fullExtent;
-            return fun1();
+            return setTimeout(fun1, 500);
           });
         });
       } else {
@@ -338,8 +341,7 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
       if (this.state.classificationEnabled) {
         return fun1();
       }
-      this.applyChanges(fun1);
-      return this.signaturesGrid.resize();
+      return this.applyChanges(fun1);
     },
     closeSignaturesBox: function() {
       return this.signaturesGrid.refresh();
