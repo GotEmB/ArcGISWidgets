@@ -64,13 +64,13 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
     state: {},
     constructor: function() {
       var _this = this;
-      this.watch("map", function(attr, oldMap, newMap) {
+      return this.watch("map", function(attr, oldMap, newMap) {
         return dojo.connect(newMap, "onExtentChange", _this.refresh.bind(_this));
       });
-      return this.watch;
     },
     postCreate: function() {
-      return this.signaturesGrid.set("columns", {
+      var _this = this;
+      this.signaturesGrid.set("columns", {
         "class": {
           label: "Signature Class",
           renderCell: function(object, value, node) {
@@ -83,6 +83,20 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
           renderCell: function(object) {
             return object.domNode;
           }
+        }
+      });
+      this.classificationEnabledInput.watch("disabled", function(attr, oldValue, newValue) {
+        if (newValue === true) {
+          return _this.classificationEnabledInput.set("checked", false);
+        }
+      });
+      this.classificationEnabledInput.watch("checked", function(attr, oldValue, newValue) {
+        _this.clipToSignaturePolygonsInput.set("disabled", !newValue);
+        return _this.customizeClassesButton.set("disabled", !newValue);
+      });
+      return this.clipToSignaturePolygonsInput.watch("disabled", function(attr, oldValue, newValue) {
+        if (newValue === true) {
+          return _this.clipToSignaturePolygonsInput.set("checked", false);
         }
       });
     },
@@ -335,8 +349,7 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
         return;
       }
       this.loadSignaturesButton.set("disabled", false);
-      this.classificationEnabledInput.set("disabled", true);
-      return this.clipToSignaturePolygonsInput.set("disabled", true);
+      return this.classificationEnabledInput.set("disabled", true);
     },
     loadSignatures: function() {
       var signaturesLayer, _ref,
@@ -359,12 +372,6 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
           _this.state.signaturesUrl = _this.signaturesUrlInput.get("value");
           _this.loadSignaturesButton.set("disabled", true);
           _this.classificationEnabledInput.set("disabled", false);
-          if (_this.classificationEnabledInput.get("value")) {
-            _this.clipToSignaturePolygonsInput.set("disabled", false);
-          }
-          if (_this.classificationEnabledInput.get("value")) {
-            _this.customizeClassesButton.set("disabled", false);
-          }
           parsedClasses = [];
           _results = [];
           for (_i = 0, _len = features.length; _i < _len; _i++) {
