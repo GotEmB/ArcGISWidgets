@@ -1,3 +1,5 @@
 http://lamborghini:6080/arcgis/rest/services/Reproj_Clip_p033r032_7dt20020920_z13_MS1/ImageServer
 http://lamborghini:6080/arcgis/rest/services/Signatures/MapServer/0
 http://lamborghini:6080/arcgis/rest/services/Utilities/Geometry/GeometryServer
+
+(?=^(?!#|\/\/).+$)(^.*$)
