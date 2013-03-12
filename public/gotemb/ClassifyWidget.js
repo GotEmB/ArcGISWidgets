@@ -28,7 +28,7 @@ indexOfMax = function(arr) {
   return idx;
 };
 
-define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dijit/_WidgetsInTemplateMixin", "dojo/text!./ClassifyWidget/templates/ClassifyWidget.html", "dijit/Dialog", "./ClassifyWidget/SignatureClassRow", "./ClassifyWidget/signatureFileParser", "dijit/form/TextBox", "dijit/form/Button", "dijit/form/CheckBox", "esri/map", "esri/layers/FeatureLayer", "esri/tasks/query", "esri/tasks/geometry", "dgrid/Grid"], function(declare, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template, Dialog, SignatureClassRow, signatureFileParser) {
+define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dijit/_WidgetsInTemplateMixin", "dojo/text!./ClassifyWidget/templates/ClassifyWidget.html", "dijit/Dialog", "./ClassifyWidget/SignatureClassRow", "./ClassifyWidget/signatureFileParser", "dojox/color", "dijit/form/TextBox", "dijit/form/Button", "dijit/form/CheckBox", "esri/map", "esri/layers/FeatureLayer", "esri/tasks/query", "esri/tasks/geometry", "dgrid/Grid"], function(declare, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template, Dialog, SignatureClassRow, signatureFileParser, color) {
   var extentToPolygon, showError;
   showError = function(content) {
     var errBox;
@@ -139,9 +139,12 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
         return this.imageServiceLayer.setRenderingRule(renderingRule);
       }
     },
-    refresh: function() {
+    refresh: function(force) {
       var geometryService,
         _this = this;
+      if (force == null) {
+        force = false;
+      }
       if (this.state.imageServiceUrl == null) {
         return;
       }
@@ -160,19 +163,30 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
             polygons: featuresInExtent
           }), function(areasAndLengths) {
             var cls, state;
-            if (_this.state.renderedFeatureIndex !== indexOfMax(areasAndLengths.areas && _this.state.clippedImageToSignaturePolygons === _this.state.clipToSignaturePolygons)) {
+            if (_this.state.renderedFeatureIndex !== indexOfMax(areasAndLengths.areas && _this.state.clippedImageToSignaturePolygons === _this.state.clipToSignaturePolygons && force === false)) {
               _this.state.renderedFeatureIndex = indexOfMax(areasAndLengths.areas);
+              state = _this.state;
               _this.setImageOrModifyRenderingRule(extend(new esri.layers.RasterFunction, {
                 functionName: "funchain2",
                 "arguments": {
                   ClippingGeometry: _this.state.clipToSignaturePolygons ? _this.state.featureGeos[_this.state.renderedFeatureIndex] : extentToPolygon(_this.state.imageServiceExtent),
                   SignatureFile: _this.state.signatures[_this.state.renderedFeatureIndex],
-                  Colormap: [[0, 255, 0, 0], [1, 0, 255, 0], [2, 0, 0, 255], [3, 255, 255, 0], [4, 255, 0, 255], [5, 0, 255, 255]]
+                  Colormap: (function() {
+                    var _i, _len, _ref, _results;
+                    _ref = state.signatureClasses;
+                    _results = [];
+                    for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+                      cls = _ref[_i];
+                      if (cls.get("sigFile") === state.signatures[state.renderedFeatureIndex]) {
+                        _results.push([cls.get("sigValue")].concat(color.fromHex(cls.get("sigColor")).toRgb()));
+                      }
+                    }
+                    return _results;
+                  })()
                 },
                 variableName: "Raster"
               }));
               _this.signaturesGrid.refresh();
-              state = _this.state;
               return _this.signaturesGrid.renderArray((function() {
                 var _i, _len, _ref, _results;
                 _ref = state.signatureClasses;
@@ -352,7 +366,7 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
             f = features[_i];
             _results.push((function(f) {
               return signatureFileParser.getClasses(f.attributes.SIGURL, function(sigClasses) {
-                var classes, cls, d, data, file, _j, _k, _len1, _len2, _ref1;
+                var classes, cls, d, data, file, i, _j, _k, _len1, _len2, _ref1;
                 parsedClasses.push({
                   file: f.attributes.SIGURL,
                   classes: sigClasses
@@ -361,11 +375,11 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
                   data = [];
                   for (_j = 0, _len1 = parsedClasses.length; _j < _len1; _j++) {
                     _ref1 = parsedClasses[_j], file = _ref1.file, classes = _ref1.classes;
-                    for (_k = 0, _len2 = classes.length; _k < _len2; _k++) {
-                      cls = classes[_k];
+                    for (i = _k = 0, _len2 = classes.length; _k < _len2; i = ++_k) {
+                      cls = classes[i];
                       data.push(d = new SignatureClassRow({
                         sigClass: cls.classname,
-                        sigColor: "green",
+                        sigColor: color.fromHsv((classes.length === 1 ? 180 : i / classes.length * 360), 80, 80).toHex(),
                         sigValue: cls.value,
                         sigFile: file
                       }));
@@ -382,7 +396,8 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
       });
     },
     dismissSignaturesBox: function() {
-      return this.signaturesBox.hide();
+      this.signaturesBox.hide();
+      return this.refresh(true);
     }
   });
 });

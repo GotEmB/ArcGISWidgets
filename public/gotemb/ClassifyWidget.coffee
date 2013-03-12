@@ -26,6 +26,7 @@ define [
 	"dijit/Dialog"
 	"./ClassifyWidget/SignatureClassRow"
 	"./ClassifyWidget/signatureFileParser"
+	"dojox/color"
 	"dijit/form/TextBox"
 	"dijit/form/Button"
 	"dijit/form/CheckBox"
@@ -34,7 +35,7 @@ define [
 	"esri/tasks/query"
 	"esri/tasks/geometry"
 	"dgrid/Grid"
-], (declare, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template, Dialog, SignatureClassRow, signatureFileParser) ->
+], (declare, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template, Dialog, SignatureClassRow, signatureFileParser, color) ->
 	# Show an error box and log it to console
 	showError = (content) ->
 		errBox = new Dialog title: "Error", content: content
@@ -119,7 +120,7 @@ define [
 			else # ImageServiceLayer exists
 				@imageServiceLayer.setRenderingRule renderingRule # Modify the ImageServiceLayer's Rendering Rule
 		# Called everytime a Pan / Zoom occurs in the Map
-		refresh: ->
+		refresh: (force = false) ->
 			return unless @state.imageServiceUrl? # Do nothing if there isn't an ImageServiceUrl specified
 			unless @state.classificationEnabled # Classification Disabled
 				@setImageOrModifyRenderingRule() if not @imageServiceLayer? or @imageServiceLayer.renderingRule?
@@ -133,24 +134,19 @@ define [
 						polygons: featuresInExtent
 					), (areasAndLengths) =>
 						# Select the signature that corresponds to a feature polygon that has the most common area with the Map's current view extent
-						unless @state.renderedFeatureIndex is indexOfMax areasAndLengths.areas and @state.clippedImageToSignaturePolygons is @state.clipToSignaturePolygons
+						unless @state.renderedFeatureIndex is indexOfMax areasAndLengths.areas and @state.clippedImageToSignaturePolygons is @state.clipToSignaturePolygons and force is false
 							@state.renderedFeatureIndex = indexOfMax areasAndLengths.areas
+							state = @state
 							@setImageOrModifyRenderingRule extend new esri.layers.RasterFunction,
 								functionName: "funchain2",
 								arguments:
 									ClippingGeometry: if @state.clipToSignaturePolygons then @state.featureGeos[@state.renderedFeatureIndex] else extentToPolygon @state.imageServiceExtent
 									SignatureFile: @state.signatures[@state.renderedFeatureIndex]
-									Colormap: [
-										[0, 255, 0, 0]
-										[1, 0, 255, 0]
-										[2, 0, 0, 255]
-										[3, 255, 255, 0]
-										[4, 255, 0, 255]
-										[5, 0, 255, 255]
-									]
+									Colormap:
+										for cls in state.signatureClasses when cls.get("sigFile") is state.signatures[state.renderedFeatureIndex]
+											[cls.get "sigValue"].concat color.fromHex(cls.get "sigColor").toRgb()
 								variableName: "Raster"
 							@signaturesGrid.refresh()
-							state = @state
 							@signaturesGrid.renderArray (cls for cls in state.signatureClasses when cls.get("sigFile") is state.signatures[state.renderedFeatureIndex])
 		# Called when Apply Changes button is clicked
 		applyChanges: (callback) ->
@@ -252,10 +248,10 @@ define [
 							if parsedClasses.length is features.length
 								data = []
 								for {file, classes} in parsedClasses
-									for cls in classes
+									for cls, i in classes
 										data.push d = new SignatureClassRow
 											sigClass: cls.classname
-											sigColor: "green"
+											sigColor: color.fromHsv((if classes.length is 1 then 180 else i / classes.length * 360), 80, 80).toHex()
 											sigValue: cls.value
 											sigFile: file
 										d.startup()
@@ -263,3 +259,4 @@ define [
 		# Hide Signatures Dialog
 		dismissSignaturesBox: ->
 			@signaturesBox.hide()
+			@refresh true
