@@ -71,7 +71,6 @@ define [
 		signaturesBox: null
 		signaturesUrlInput: null
 		signaturesGrid: null
-		loadSignaturesButton: null
 		customizeClassesButton: null
 		# Contains the widget's current state
 		state: {}
@@ -91,11 +90,8 @@ define [
 					label: "Color"
 					renderCell: (object) -> object.domNode
 			# UI Chain-reaction
-			@classificationEnabledInput.watch "disabled", (attr, oldValue, newValue) =>
-				@classificationEnabledInput.set "checked", false if newValue is true
 			@classificationEnabledInput.watch "checked", (attr, oldValue, newValue) =>
 				@clipToSignaturePolygonsInput.set "disabled", not newValue
-				@customizeClassesButton.set "disabled", not newValue
 			@clipToSignaturePolygonsInput.watch "disabled", (attr, oldValue, newValue) =>
 				@clipToSignaturePolygonsInput.set "checked", false if newValue is true
 		# Sets the ImageServiceLayer with the url stored in the State
@@ -180,28 +176,53 @@ define [
 				signatures: null
 				renderedFeatureIndex: null
 				clippedImageToSignaturePolygons: null
+			# Enable / Disable Customize Classes Button
+			@customizeClassesButton.set "disabled", not @state.classificationEnabled
 			if @state.classificationEnabled
 				fun1 = => # Portion invoked in sync or async. See below
 					# Fetch Signatures and Polygons from feature layer
-					signaturesLayer = new esri.layers.FeatureLayer @state.signaturesUrl, outFields: ["SIGURL"]
+					signaturesLayer = new esri.layers.FeatureLayer @signaturesUrlInput.get("value"), outFields: ["SIGURL"]
 					dojo.connect signaturesLayer, "onLoad", =>
 						signaturesLayer.selectFeatures (extend new esri.tasks.Query,
 							geometry: @imageServiceLayer.fullExtent
 							spatialRelationship: esri.tasks.Query.SPATIAL_REL_INTERSECTS
 						), esri.layers.FeatureLayer.SELECTION_NEW, (features) =>
 							return showError "No features found within image service extent." if features.length is 0
-							@state.signatures = (f.attributes.SIGURL for f in features)
-							geometryService = new esri.tasks.GeometryService @state.geometryServiceUrl
-							dojo.connect geometryService, "onError", (error) -> showError "GeometryService: #{error.message}"
-							# Project Polygons to ImageService's SR
-							geometryService.project (extend new esri.tasks.ProjectParameters,
-								geometries: (f.geometry for f in features)
-								outSR: @map.spatialReference
-							), (projectedGeos) =>
-								# Crop the Projected Polygons to ImageService's extent
-								geometryService.intersect projectedGeos, @imageServiceLayer.fullExtent, (boundedGeos) =>
-									@state.featureGeos = boundedGeos
-									@refresh false, callback # Finally call refresh()
+							fun2 = =>
+								@state.signatures = (f.attributes.SIGURL for f in features)
+								geometryService = new esri.tasks.GeometryService @state.geometryServiceUrl
+								dojo.connect geometryService, "onError", (error) -> showError "GeometryService: #{error.message}"
+								# Project Polygons to ImageService's SR
+								geometryService.project (extend new esri.tasks.ProjectParameters,
+									geometries: (f.geometry for f in features)
+									outSR: @map.spatialReference
+								), (projectedGeos) =>
+									# Crop the Projected Polygons to ImageService's extent
+									geometryService.intersect projectedGeos, @imageServiceLayer.fullExtent, (boundedGeos) =>
+										@state.featureGeos = boundedGeos
+										@refresh false, callback # Finally call refresh()
+							return fun2() if @state.signaturesUrl is @signaturesUrlInput.get "value"
+							@state.signaturesUrl = @signaturesUrlInput.get "value"
+							@classificationEnabledInput.set "disabled", false
+							@classificationEnabledInput.set "checked", true
+							# Create SignatureClassRows
+							parsedClasses = []
+							for f in features then do (f) =>
+								signatureFileParser.getClasses f.attributes.SIGURL, (sigClasses) =>
+									parsedClasses.push file: f.attributes.SIGURL, classes: sigClasses
+									if parsedClasses.length is features.length
+										data = []
+										for {file, classes} in parsedClasses
+											for cls, i in classes
+												data.push d = new SignatureClassRow
+													sigClass: cls.classname
+													sigColor: color.fromHsv((if classes.length is 1 then 180 else i / classes.length * 360), 80, 80).toHex()
+													sigValue: cls.value
+													sigFile: file
+													onColorChanged: => @refresh true
+												d.startup()
+										@state.signatureClasses = data
+										fun2()
 					dojo.connect signaturesLayer, "onError", (error) -> showError "FeatureLayer: #{error.message}"
 				return fun1() if @imageServiceLayer? # ImageServiceLayer exists
 				@setImageLayer null, => # ImageServiceLayer does not exist. Create New
@@ -220,7 +241,6 @@ define [
 		# Enable / Disable the ClipToSignaturePolygonsInput checkbox
 		classificationEnabledInputValueChanged: (value) ->
 			@clipToSignaturePolygonsInput.set "disabled", not value
-			@customizeClassesButton.set "disabled", not value
 		# On Show Signatures Dialog
 		openSignaturesBox: ->
 			fun1 = =>
@@ -233,40 +253,3 @@ define [
 		# On Close Signatures Dialog
 		closeSignaturesBox: ->
 			@signaturesGrid.refresh()
-		# Enable / Disable Signatures Related Controls
-		signaturesUrlInputValueChanged: (value) ->
-			return if value is @state.signaturesUrl
-			@loadSignaturesButton.set "disabled", false
-			@classificationEnabledInput.set "disabled", true
-		# Load Classes from Signature Files
-		loadSignatures: ->
-			return showError "Signatures: Service URL Required." if @signaturesUrlInput.get("value") in ["", null, undefined] and @classificationEnabledInput.get "checked"
-			signaturesLayer = new esri.layers.FeatureLayer @signaturesUrlInput.get("value"), outFields: ["SIGURL"]
-			dojo.connect signaturesLayer, "onLoad", =>
-				signaturesLayer.selectFeatures (extend new esri.tasks.Query,
-					geometry: signaturesLayer.fullExtent
-					spatialRelationship: esri.tasks.Query.SPATIAL_REL_INTERSECTS
-				), esri.layers.FeatureLayer.SELECTION_NEW, (features) =>
-					return showError "No features found within image service extent." if features.length is 0
-					@state.signaturesUrl = @signaturesUrlInput.get "value"
-					@loadSignaturesButton.set "disabled", true
-					@classificationEnabledInput.set "disabled", false
-					@classificationEnabledInput.set "checked", true
-					# Create SignatureClassRows
-					parsedClasses = []
-					for f in features then do (f) =>
-						signatureFileParser.getClasses f.attributes.SIGURL, (sigClasses) =>
-							parsedClasses.push file: f.attributes.SIGURL, classes: sigClasses
-							if parsedClasses.length is features.length
-								data = []
-								for {file, classes} in parsedClasses
-									for cls, i in classes
-										data.push d = new SignatureClassRow
-											sigClass: cls.classname
-											sigColor: color.fromHsv((if classes.length is 1 then 180 else i / classes.length * 360), 80, 80).toHex()
-											sigValue: cls.value
-											sigFile: file
-											onColorChanged: => @refresh true
-										d.startup()
-								@state.signatureClasses = data
-			dojo.connect signaturesLayer, "onError", (error) -> showError "FeatureLayer: #{error.message}"
