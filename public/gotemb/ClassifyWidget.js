@@ -59,7 +59,6 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
     signaturesBox: null,
     signaturesUrlInput: null,
     signaturesGrid: null,
-    loadSignaturesButton: null,
     customizeClassesButton: null,
     state: {},
     constructor: function() {
@@ -85,14 +84,8 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
           }
         }
       });
-      this.classificationEnabledInput.watch("disabled", function(attr, oldValue, newValue) {
-        if (newValue === true) {
-          return _this.classificationEnabledInput.set("checked", false);
-        }
-      });
       this.classificationEnabledInput.watch("checked", function(attr, oldValue, newValue) {
-        _this.clipToSignaturePolygonsInput.set("disabled", !newValue);
-        return _this.customizeClassesButton.set("disabled", !newValue);
+        return _this.clipToSignaturePolygonsInput.set("disabled", !newValue);
       });
       return this.clipToSignaturePolygonsInput.watch("disabled", function(attr, oldValue, newValue) {
         if (newValue === true) {
@@ -239,10 +232,11 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
         renderedFeatureIndex: null,
         clippedImageToSignaturePolygons: null
       });
+      this.customizeClassesButton.set("disabled", !this.state.classificationEnabled);
       if (this.state.classificationEnabled) {
         fun1 = function() {
           var signaturesLayer;
-          signaturesLayer = new esri.layers.FeatureLayer(_this.state.signaturesUrl, {
+          signaturesLayer = new esri.layers.FeatureLayer(_this.signaturesUrlInput.get("value"), {
             outFields: ["SIGURL"]
           });
           dojo.connect(signaturesLayer, "onLoad", function() {
@@ -250,40 +244,85 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
               geometry: _this.imageServiceLayer.fullExtent,
               spatialRelationship: esri.tasks.Query.SPATIAL_REL_INTERSECTS
             }), esri.layers.FeatureLayer.SELECTION_NEW, function(features) {
-              var f, geometryService;
+              var f, fun2, parsedClasses, _i, _len, _results;
               if (features.length === 0) {
                 return showError("No features found within image service extent.");
               }
-              _this.state.signatures = (function() {
-                var _i, _len, _results;
-                _results = [];
-                for (_i = 0, _len = features.length; _i < _len; _i++) {
-                  f = features[_i];
-                  _results.push(f.attributes.SIGURL);
-                }
-                return _results;
-              })();
-              geometryService = new esri.tasks.GeometryService(_this.state.geometryServiceUrl);
-              dojo.connect(geometryService, "onError", function(error) {
-                return showError("GeometryService: " + error.message);
-              });
-              return geometryService.project(extend(new esri.tasks.ProjectParameters, {
-                geometries: (function() {
+              fun2 = function() {
+                var f, geometryService;
+                _this.state.signatures = (function() {
                   var _i, _len, _results;
                   _results = [];
                   for (_i = 0, _len = features.length; _i < _len; _i++) {
                     f = features[_i];
-                    _results.push(f.geometry);
+                    _results.push(f.attributes.SIGURL);
                   }
                   return _results;
-                })(),
-                outSR: _this.map.spatialReference
-              }), function(projectedGeos) {
-                return geometryService.intersect(projectedGeos, _this.imageServiceLayer.fullExtent, function(boundedGeos) {
-                  _this.state.featureGeos = boundedGeos;
-                  return _this.refresh(false, callback);
+                })();
+                geometryService = new esri.tasks.GeometryService(_this.state.geometryServiceUrl);
+                dojo.connect(geometryService, "onError", function(error) {
+                  return showError("GeometryService: " + error.message);
                 });
-              });
+                return geometryService.project(extend(new esri.tasks.ProjectParameters, {
+                  geometries: (function() {
+                    var _i, _len, _results;
+                    _results = [];
+                    for (_i = 0, _len = features.length; _i < _len; _i++) {
+                      f = features[_i];
+                      _results.push(f.geometry);
+                    }
+                    return _results;
+                  })(),
+                  outSR: _this.map.spatialReference
+                }), function(projectedGeos) {
+                  return geometryService.intersect(projectedGeos, _this.imageServiceLayer.fullExtent, function(boundedGeos) {
+                    _this.state.featureGeos = boundedGeos;
+                    return _this.refresh(false, callback);
+                  });
+                });
+              };
+              if (_this.state.signaturesUrl === _this.signaturesUrlInput.get("value")) {
+                return fun2();
+              }
+              _this.state.signaturesUrl = _this.signaturesUrlInput.get("value");
+              _this.classificationEnabledInput.set("disabled", false);
+              _this.classificationEnabledInput.set("checked", true);
+              parsedClasses = [];
+              _results = [];
+              for (_i = 0, _len = features.length; _i < _len; _i++) {
+                f = features[_i];
+                _results.push((function(f) {
+                  return signatureFileParser.getClasses(f.attributes.SIGURL, function(sigClasses) {
+                    var classes, cls, d, data, file, i, _j, _k, _len1, _len2, _ref2;
+                    parsedClasses.push({
+                      file: f.attributes.SIGURL,
+                      classes: sigClasses
+                    });
+                    if (parsedClasses.length === features.length) {
+                      data = [];
+                      for (_j = 0, _len1 = parsedClasses.length; _j < _len1; _j++) {
+                        _ref2 = parsedClasses[_j], file = _ref2.file, classes = _ref2.classes;
+                        for (i = _k = 0, _len2 = classes.length; _k < _len2; i = ++_k) {
+                          cls = classes[i];
+                          data.push(d = new SignatureClassRow({
+                            sigClass: cls.classname,
+                            sigColor: color.fromHsv((classes.length === 1 ? 180 : i / classes.length * 360), 80, 80).toHex(),
+                            sigValue: cls.value,
+                            sigFile: file,
+                            onColorChanged: function() {
+                              return _this.refresh(true);
+                            }
+                          }));
+                          d.startup();
+                        }
+                      }
+                      _this.state.signatureClasses = data;
+                      return fun2();
+                    }
+                  });
+                })(f));
+              }
+              return _results;
             });
           });
           return dojo.connect(signaturesLayer, "onError", function(error) {
@@ -315,8 +354,7 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
       }
     },
     classificationEnabledInputValueChanged: function(value) {
-      this.clipToSignaturePolygonsInput.set("disabled", !value);
-      return this.customizeClassesButton.set("disabled", !value);
+      return this.clipToSignaturePolygonsInput.set("disabled", !value);
     },
     openSignaturesBox: function() {
       var fun1,
@@ -345,76 +383,6 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
     },
     closeSignaturesBox: function() {
       return this.signaturesGrid.refresh();
-    },
-    signaturesUrlInputValueChanged: function(value) {
-      if (value === this.state.signaturesUrl) {
-        return;
-      }
-      this.loadSignaturesButton.set("disabled", false);
-      return this.classificationEnabledInput.set("disabled", true);
-    },
-    loadSignatures: function() {
-      var signaturesLayer, _ref,
-        _this = this;
-      if (((_ref = this.signaturesUrlInput.get("value")) === "" || _ref === null || _ref === (void 0)) && this.classificationEnabledInput.get("checked")) {
-        return showError("Signatures: Service URL Required.");
-      }
-      signaturesLayer = new esri.layers.FeatureLayer(this.signaturesUrlInput.get("value"), {
-        outFields: ["SIGURL"]
-      });
-      dojo.connect(signaturesLayer, "onLoad", function() {
-        return signaturesLayer.selectFeatures(extend(new esri.tasks.Query, {
-          geometry: signaturesLayer.fullExtent,
-          spatialRelationship: esri.tasks.Query.SPATIAL_REL_INTERSECTS
-        }), esri.layers.FeatureLayer.SELECTION_NEW, function(features) {
-          var f, parsedClasses, _i, _len, _results;
-          if (features.length === 0) {
-            return showError("No features found within image service extent.");
-          }
-          _this.state.signaturesUrl = _this.signaturesUrlInput.get("value");
-          _this.loadSignaturesButton.set("disabled", true);
-          _this.classificationEnabledInput.set("disabled", false);
-          _this.classificationEnabledInput.set("checked", true);
-          parsedClasses = [];
-          _results = [];
-          for (_i = 0, _len = features.length; _i < _len; _i++) {
-            f = features[_i];
-            _results.push((function(f) {
-              return signatureFileParser.getClasses(f.attributes.SIGURL, function(sigClasses) {
-                var classes, cls, d, data, file, i, _j, _k, _len1, _len2, _ref1;
-                parsedClasses.push({
-                  file: f.attributes.SIGURL,
-                  classes: sigClasses
-                });
-                if (parsedClasses.length === features.length) {
-                  data = [];
-                  for (_j = 0, _len1 = parsedClasses.length; _j < _len1; _j++) {
-                    _ref1 = parsedClasses[_j], file = _ref1.file, classes = _ref1.classes;
-                    for (i = _k = 0, _len2 = classes.length; _k < _len2; i = ++_k) {
-                      cls = classes[i];
-                      data.push(d = new SignatureClassRow({
-                        sigClass: cls.classname,
-                        sigColor: color.fromHsv((classes.length === 1 ? 180 : i / classes.length * 360), 80, 80).toHex(),
-                        sigValue: cls.value,
-                        sigFile: file,
-                        onColorChanged: function() {
-                          return _this.refresh(true);
-                        }
-                      }));
-                      d.startup();
-                    }
-                  }
-                  return _this.state.signatureClasses = data;
-                }
-              });
-            })(f));
-          }
-          return _results;
-        });
-      });
-      return dojo.connect(signaturesLayer, "onError", function(error) {
-        return showError("FeatureLayer: " + error.message);
-      });
     }
   });
 });
