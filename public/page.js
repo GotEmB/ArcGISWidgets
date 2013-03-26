@@ -3,21 +3,29 @@
 # Author: Gautham Badhrinathan (gbadhrinathan@esri.com)
 */
 
-require(["dijit/registry", "dojo/ready", "dojo/parser", "dijit/layout/BorderContainer", "dijit/layout/ContentPane", "esri/map", "esri/geometry", "esri/dijit/Attribution", "gotemb/ClassifyWidget"], function(registry, ready) {
+var featureServiceUrl, geometryServiceUrl, imageServiceUrl;
+
+geometryServiceUrl = "http://lamborghini:6080/arcgis/rest/services/Utilities/Geometry/GeometryServer";
+
+imageServiceUrl = "http://lamborghini:6080/arcgis/rest/services/Reproj_Clip_p033r032_7dt20020920_z13_MS1/ImageServer";
+
+featureServiceUrl = "http://lamborghini:6080/arcgis/rest/services/Signatures/MapServer/0";
+
+require(["dojo/ready", "esri/geometry", "esri/layers/FeatureLayer"], function(ready) {
   return ready(function() {
-    var map, _ref;
-    map = new esri.Map("map", {
-      center: [-56.049, 38.485],
-      zoom: 3,
-      basemap: "streets"
+    var featureLayer,
+      _this = this;
+    featureLayer = new esri.layers.FeatureLayer(featureServiceUrl, {
+      outFields: ["SIGURL"]
     });
-    if ((_ref = navigator.geolocation) != null) {
-      _ref.getCurrentPosition(function(_arg) {
-        var coords;
-        coords = _arg.coords;
-        return map.centerAndZoom(new esri.geometry.Point(coords.longitude, coords.latitude), 8);
+    return dojo.connect(featureLayer, "onLoad", function() {
+      var query;
+      query = new esri.tasks.Query;
+      query.geometry = featureLayer.fullExtent;
+      query.spatialRelationship = esri.tasks.Query.SPATIAL_REL_INTERSECTS;
+      return featureLayer.selectFeatures(query, esri.layers.FeatureLayer.SELECTION_NEW, function(features) {
+        return console.log(features);
       });
-    }
-    return registry.byId("classifyWidget").set("map", map);
+    });
   });
 });
