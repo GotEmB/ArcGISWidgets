@@ -5,7 +5,7 @@ define(["dojo/request"], function(request) {
     getClasses: function(filePath, callback) {
       return request.get(filePath, {
         headers: {
-          "X-Requested-With": ""
+          "X-Requested-With": null
         }
       }).then(function(gsg) {
         var lines, nLayers;

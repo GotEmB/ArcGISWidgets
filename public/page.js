@@ -3,10 +3,10 @@
 # Author: Gautham Badhrinathan (gbadhrinathan@esri.com)
 */
 
-require(["dijit/registry", "dojo/ready", "dojo/dom", "dojox/layout/Dock", "dojox/layout/FloatingPane", "gotemb/ClassifyWidget", "dojo/parser", "dijit/layout/BorderContainer", "dijit/layout/ContentPane", "dijit/TitlePane", "esri/map", "esri/geometry", "esri/dijit/Attribution"], function(registry, ready, dom, Dock, FloatingPane, ClassifyWidget) {
+require(["dojo/ready", "esri/map", "esri/geometry/Point", "dojo/dom", "dojox/layout/Dock", "dojox/layout/FloatingPane", "gotemb/ClassifyWidget", "dojo/parser", "dijit/layout/BorderContainer", "dijit/layout/ContentPane", "dijit/TitlePane", "esri/map", "esri/geometry", "esri/dijit/Attribution"], function(ready, Map, Point, dom, Dock, FloatingPane, ClassifyWidget) {
   return ready(function() {
     var classifyWidget, classifyWidgetContainer, dock, map, _ref;
-    map = new esri.Map("map", {
+    map = new Map("map", {
       center: [-56.049, 38.485],
       zoom: 3,
       basemap: "streets"
@@ -15,7 +15,7 @@ require(["dijit/registry", "dojo/ready", "dojo/dom", "dojox/layout/Dock", "dojox
       _ref.getCurrentPosition(function(_arg) {
         var coords;
         coords = _arg.coords;
-        return map.centerAndZoom(new esri.geometry.Point(coords.longitude, coords.latitude), 8);
+        return map.centerAndZoom(new Point(coords.longitude, coords.latitude), 8);
       });
     }
     dock = new Dock({
