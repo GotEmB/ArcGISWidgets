@@ -28,8 +28,9 @@ indexOfMax = function(arr) {
   return idx;
 };
 
-define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dijit/_WidgetsInTemplateMixin", "dojo/text!./ClassifyWidget/templates/ClassifyWidget.html", "dijit/Dialog", "gotemb/ClassifyWidget/SignatureClassRow", "gotemb/ClassifyWidget/signatureFileParser", "dojox/color", "dijit/form/TextBox", "dijit/form/Button", "dijit/form/CheckBox", "esri/map", "esri/layers/FeatureLayer", "esri/tasks/query", "esri/tasks/geometry", "gotemb/ClassifyWidget/Grid", "dijit/form/DropDownButton", "dijit/TooltipDialog"], function(declare, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template, Dialog, SignatureClassRow, signatureFileParser, color) {
-  var extentToPolygon, showError;
+define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dijit/_WidgetsInTemplateMixin", "dojo/text!./ClassifyWidget/templates/ClassifyWidget.html", "dojo/_base/connect", "dijit/Dialog", "gotemb/ClassifyWidget/SignatureClassRow", "gotemb/ClassifyWidget/signatureFileParser", "dojox/color", "esri/geometry/Polygon", "esri/layers/ArcGISImageServiceLayer", "esri/layers/RasterFunction", "esri/layers/ImageServiceParameters", "esri/tasks/GeometryService", "esri/tasks/ProjectParameters", "esri/tasks/AreasAndLengthsParameters", "esri/layers/FeatureLayer", "esri/tasks/query", "dijit/form/TextBox", "dijit/form/Button", "dijit/form/CheckBox", "gotemb/ClassifyWidget/Grid", "dijit/form/DropDownButton", "dijit/TooltipDialog"], function(declare, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template, _arg, Dialog, SignatureClassRow, signatureFileParser, color, Polygon, ArcGISImageServiceLayer, RasterFunction, ImageServiceParameters, GeometryService, ProjectParameters, AreasAndLengthsParameters, FeatureLayer, Query) {
+  var connect, extentToPolygon, showError;
+  connect = _arg.connect;
   showError = function(content) {
     var errBox;
     errBox = new Dialog({
@@ -43,7 +44,7 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
   };
   extentToPolygon = function(extent) {
     var polygon;
-    polygon = new esri.geometry.Polygon(extent.spatialReference);
+    polygon = new Polygon(extent.spatialReference);
     polygon.addRing([[extent.xmin, extent.ymin], [extent.xmin, extent.ymax], [extent.xmax, extent.ymax], [extent.xmax, extent.ymin], [extent.xmin, extent.ymin]]);
     return polygon;
   };
@@ -64,7 +65,7 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
     constructor: function() {
       var _this = this;
       return this.watch("map", function(attr, oldMap, newMap) {
-        return dojo.connect(newMap, "onExtentChange", _this.refresh.bind(_this));
+        return connect(newMap, "onExtentChange", _this.refresh.bind(_this));
       });
     },
     postCreate: function() {
@@ -102,12 +103,12 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
       if (this.imageServiceLayer != null) {
         this.map.removeLayer(this.imageServiceLayer);
       }
-      this.imageServiceLayer = new esri.layers.ArcGISImageServiceLayer(this.state.imageServiceUrl, options);
-      dojo.connect(this.imageServiceLayer, "onLoad", function() {
+      this.imageServiceLayer = new ArcGISImageServiceLayer(this.state.imageServiceUrl, options);
+      connect(this.imageServiceLayer, "onLoad", function() {
         _this.map.addLayer(_this.imageServiceLayer);
         return typeof callback === "function" ? callback() : void 0;
       });
-      return dojo.connect(this.imageServiceLayer, "onError", function(error) {
+      return connect(this.imageServiceLayer, "onError", function(error) {
         showError("ImageServiceLayer: " + error.message);
         return delete _this.imageServiceLayer;
       });
@@ -115,7 +116,7 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
     setImageOrModifyRenderingRule: function(renderingRule) {
       var _this = this;
       if (renderingRule == null) {
-        renderingRule = new esri.layers.RasterFunction;
+        renderingRule = new RasterFunction;
       }
       if (this.imageServiceLayer == null) {
         return this.setImageLayer((function() {
@@ -123,22 +124,22 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
             return null;
           }
           return {
-            imageServiceParameters: extend(new esri.layers.ImageServiceParameters, {
+            imageServiceParameters: extend(new ImageServiceParameters, {
               renderingRule: renderingRule
             })
           };
         })(), function() {
           var geometryService;
-          geometryService = new esri.tasks.GeometryService(_this.state.geometryServiceUrl);
-          dojo.connect(geometryService, "onError", function(error) {
+          geometryService = new GeometryService(_this.state.geometryServiceUrl);
+          connect(geometryService, "onError", function(error) {
             return showError("GeometryService: " + error.message);
           });
-          return geometryService.project(extend(new esri.tasks.ProjectParameters, {
+          return geometryService.project(extend(new ProjectParameters, {
             geometries: [_this.imageServiceLayer.fullExtent, _this.imageServiceLayer.initialExtent],
             outSR: _this.map.extent.spatialReference
-          }), function(_arg) {
+          }), function(_arg1) {
             var fullExtent, initialExtent;
-            fullExtent = _arg[0], initialExtent = _arg[1];
+            fullExtent = _arg1[0], initialExtent = _arg1[1];
             _this.map.setExtent(initialExtent);
             return _this.state.imageServiceExtent = fullExtent;
           });
@@ -165,12 +166,12 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
         if (this.state.featureGeos == null) {
           return;
         }
-        geometryService = new esri.tasks.GeometryService(this.state.geometryServiceUrl);
-        dojo.connect(geometryService, "onError", function(error) {
+        geometryService = new GeometryService(this.state.geometryServiceUrl);
+        connect(geometryService, "onError", function(error) {
           return showError("GeometryService: " + error.message);
         });
         return geometryService.intersect(this.state.featureGeos, this.map.extent, function(featuresInExtent) {
-          return geometryService.areasAndLengths(extend(new esri.tasks.AreasAndLengthsParameters, {
+          return geometryService.areasAndLengths(extend(new AreasAndLengthsParameters, {
             calculationType: "planar",
             polygons: featuresInExtent
           }), function(areasAndLengths) {
@@ -178,7 +179,7 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
             if (_this.state.renderedFeatureIndex !== indexOfMax(areasAndLengths.areas && _this.state.clippedImageToSignaturePolygons === _this.state.clipToSignaturePolygons && force === false)) {
               _this.state.renderedFeatureIndex = indexOfMax(areasAndLengths.areas);
               state = _this.state;
-              _this.setImageOrModifyRenderingRule(extend(new esri.layers.RasterFunction, {
+              _this.setImageOrModifyRenderingRule(extend(new RasterFunction, {
                 functionName: "funchain2",
                 "arguments": {
                   ClippingGeometry: _this.state.clipToSignaturePolygons ? _this.state.featureGeos[_this.state.renderedFeatureIndex] : extentToPolygon(_this.state.imageServiceExtent),
@@ -208,7 +209,7 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
       var fun1, _ref, _ref1,
         _this = this;
       if (this.map == null) {
-        return showError("Widget not bound to an instance of 'esri/map'.");
+        return showError("Widget not bound to an instance of 'Map'.");
       }
       if ((_ref = this.geometryServiceUrlInput.get("value")) === "" || _ref === null || _ref === (void 0)) {
         return showError("GeometryService: Service URL Required.");
@@ -236,14 +237,14 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
       if (this.state.classificationEnabled) {
         fun1 = function() {
           var signaturesLayer;
-          signaturesLayer = new esri.layers.FeatureLayer(_this.signaturesUrlInput.get("value"), {
+          signaturesLayer = new FeatureLayer(_this.signaturesUrlInput.get("value"), {
             outFields: ["SIGURL"]
           });
-          dojo.connect(signaturesLayer, "onLoad", function() {
-            return signaturesLayer.selectFeatures(extend(new esri.tasks.Query, {
+          connect(signaturesLayer, "onLoad", function() {
+            return signaturesLayer.selectFeatures(extend(new Query, {
               geometry: _this.imageServiceLayer.fullExtent,
-              spatialRelationship: esri.tasks.Query.SPATIAL_REL_INTERSECTS
-            }), esri.layers.FeatureLayer.SELECTION_NEW, function(features) {
+              spatialRelationship: Query.SPATIAL_REL_INTERSECTS
+            }), FeatureLayer.SELECTION_NEW, function(features) {
               var f, fun2, parsedClasses, _i, _len, _results;
               if (features.length === 0) {
                 return showError("No features found within image service extent.");
@@ -259,11 +260,11 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
                   }
                   return _results;
                 })();
-                geometryService = new esri.tasks.GeometryService(_this.state.geometryServiceUrl);
-                dojo.connect(geometryService, "onError", function(error) {
+                geometryService = new GeometryService(_this.state.geometryServiceUrl);
+                connect(geometryService, "onError", function(error) {
                   return showError("GeometryService: " + error.message);
                 });
-                return geometryService.project(extend(new esri.tasks.ProjectParameters, {
+                return geometryService.project(extend(new ProjectParameters, {
                   geometries: (function() {
                     var _i, _len, _results;
                     _results = [];
@@ -325,7 +326,7 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
               return _results;
             });
           });
-          return dojo.connect(signaturesLayer, "onError", function(error) {
+          return connect(signaturesLayer, "onError", function(error) {
             return showError("FeatureLayer: " + error.message);
           });
         };
@@ -334,16 +335,16 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
         }
         return this.setImageLayer(null, function() {
           var geometryService;
-          geometryService = new esri.tasks.GeometryService(_this.state.geometryServiceUrl);
-          dojo.connect(geometryService, "onError", function(error) {
+          geometryService = new GeometryService(_this.state.geometryServiceUrl);
+          connect(geometryService, "onError", function(error) {
             return showError("GeometryService: " + error.message);
           });
-          return geometryService.project(extend(new esri.tasks.ProjectParameters, {
+          return geometryService.project(extend(new ProjectParameters, {
             geometries: [_this.imageServiceLayer.fullExtent, _this.imageServiceLayer.initialExtent],
             outSR: _this.map.extent.spatialReference
-          }), function(_arg) {
+          }), function(_arg1) {
             var fullExtent, initialExtent;
-            fullExtent = _arg[0], initialExtent = _arg[1];
+            fullExtent = _arg1[0], initialExtent = _arg1[1];
             _this.map.setExtent(initialExtent);
             _this.state.imageServiceExtent = fullExtent;
             return setTimeout(fun1, 500);
