@@ -3,10 +3,10 @@
 # Author: Gautham Badhrinathan (gbadhrinathan@esri.com)
 */
 
-require(["dijit/registry", "dojo/ready", "dojo/parser", "dijit/layout/BorderContainer", "dijit/layout/ContentPane", "dijit/TitlePane", "esri/map", "esri/geometry", "esri/dijit/Attribution", "gotemb/ClassifyWidget"], function(registry, ready) {
+require(["dijit/registry", "dojo/ready", "esri/map", "esri/geometry/Point", "dojo/parser", "dijit/layout/BorderContainer", "dijit/layout/ContentPane", "dijit/TitlePane", "esri/dijit/Attribution", "gotemb/ClassifyWidget"], function(registry, ready, Map, Point) {
   return ready(function() {
     var map, _ref;
-    map = new esri.Map("map", {
+    map = new Map("map", {
       center: [-56.049, 38.485],
       zoom: 3,
       basemap: "streets"
@@ -15,7 +15,7 @@ require(["dijit/registry", "dojo/ready", "dojo/parser", "dijit/layout/BorderCont
       _ref.getCurrentPosition(function(_arg) {
         var coords;
         coords = _arg.coords;
-        return map.centerAndZoom(new esri.geometry.Point(coords.longitude, coords.latitude), 8);
+        return map.centerAndZoom(new Point(coords.longitude, coords.latitude), 8);
       });
     }
     return registry.byId("classifyWidget").set("map", map);

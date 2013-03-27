@@ -23,21 +23,27 @@ define [
 	"dijit/_TemplatedMixin"
 	"dijit/_WidgetsInTemplateMixin"
 	"dojo/text!./ClassifyWidget/templates/ClassifyWidget.html"
+	"dojo/_base/connect"
 	"dijit/Dialog"
 	"gotemb/ClassifyWidget/SignatureClassRow"
 	"gotemb/ClassifyWidget/signatureFileParser"
 	"dojox/color"
+	"esri/geometry/Polygon"
+	"esri/layers/ArcGISImageServiceLayer"
+	"esri/layers/RasterFunction"
+	"esri/layers/ImageServiceParameters"
+	"esri/tasks/GeometryService"
+	"esri/tasks/ProjectParameters"
+	"esri/tasks/AreasAndLengthsParameters"
+	"esri/layers/FeatureLayer"
+	"esri/tasks/query"
 	"dijit/form/TextBox"
 	"dijit/form/Button"
 	"dijit/form/CheckBox"
-	"esri/map"
-	"esri/layers/FeatureLayer"
-	"esri/tasks/query"
-	"esri/tasks/geometry"
 	"gotemb/ClassifyWidget/Grid"
 	"dijit/form/DropDownButton"
 	"dijit/TooltipDialog"
-], (declare, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template, Dialog, SignatureClassRow, signatureFileParser, color) ->
+], (declare, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template, {connect}, Dialog, SignatureClassRow, signatureFileParser, color, Polygon, ArcGISImageServiceLayer, RasterFunction, ImageServiceParameters, GeometryService, ProjectParameters, AreasAndLengthsParameters, FeatureLayer, Query) ->
 	# Show an error box and log it to console
 	showError = (content) ->
 		errBox = new Dialog title: "Error", content: content
@@ -45,9 +51,9 @@ define [
 		errBox.show()
 		console.error new Error content
 		errBox
-	# Convert an `esri.geometry.extent` to an `esri.geometry.polygon`
+	# Convert an `Extent` to an `Polygon`
 	extentToPolygon = (extent) ->
-		polygon = new esri.geometry.Polygon extent.spatialReference
+		polygon = new Polygon extent.spatialReference
 		polygon.addRing [
 			[extent.xmin, extent.ymin]
 			[extent.xmin, extent.ymax]
@@ -60,7 +66,7 @@ define [
 	declare [_WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin],
 		templateString: template
 		baseClass: "ClassifyWidget"
-		map: null # should be bound to an `esri.Map` instance before using the widget
+		map: null # should be bound to a `Map` instance before using the widget
 		# Widget Inputs
 		imageServiceUrlInput: null
 		geometryServiceUrlInput: null
@@ -77,7 +83,7 @@ define [
 		constructor: ->
 			# Bind the @refresh function to the Map's onExtentChange event
 			@watch "map", (attr, oldMap, newMap) =>
-				dojo.connect newMap, "onExtentChange", @refresh.bind @
+				connect newMap, "onExtentChange", @refresh.bind @
 		postCreate: ->
 			# Setup Signatures dGrid
 			@signaturesGrid.set "columns",
@@ -98,26 +104,26 @@ define [
 		setImageLayer: (options, callback) ->
 			return showError "ImageServiceLayer: Service URL Required." if @state.imageServiceUrl in ["", null, undefined]
 			@map.removeLayer @imageServiceLayer if @imageServiceLayer?
-			@imageServiceLayer = new esri.layers.ArcGISImageServiceLayer @state.imageServiceUrl, options
-			dojo.connect @imageServiceLayer, "onLoad", =>
+			@imageServiceLayer = new ArcGISImageServiceLayer @state.imageServiceUrl, options
+			connect @imageServiceLayer, "onLoad", =>
 				@map.addLayer @imageServiceLayer
 				callback?()
-			dojo.connect @imageServiceLayer, "onError", (error) =>
+			connect @imageServiceLayer, "onError", (error) =>
 				showError "ImageServiceLayer: #{error.message}"
 				delete @imageServiceLayer
 		# Called when Rendering Rule has changed or imageServiceUrl has changed
-		setImageOrModifyRenderingRule: (renderingRule = new esri.layers.RasterFunction) ->
+		setImageOrModifyRenderingRule: (renderingRule = new RasterFunction) ->
 			unless @imageServiceLayer?
 				# Create a new ImageServiceLayer
 				@setImageLayer do =>
 					# The ImageService Params. Either `null` or contains the Rendering Rule
 					return null unless renderingRule?
-					imageServiceParameters: (extend new esri.layers.ImageServiceParameters, renderingRule: renderingRule)
+					imageServiceParameters: (extend new ImageServiceParameters, renderingRule: renderingRule)
 				, =>
-					geometryService = new esri.tasks.GeometryService @state.geometryServiceUrl
-					dojo.connect geometryService, "onError", (error) -> showError "GeometryService: #{error.message}"
+					geometryService = new GeometryService @state.geometryServiceUrl
+					connect geometryService, "onError", (error) -> showError "GeometryService: #{error.message}"
 					# Project the ImageService extents to Map's SR
-					geometryService.project (extend new esri.tasks.ProjectParameters,
+					geometryService.project (extend new ProjectParameters,
 						geometries: [@imageServiceLayer.fullExtent, @imageServiceLayer.initialExtent]
 						outSR: @map.extent.spatialReference
 					), ([fullExtent, initialExtent]) =>
@@ -133,11 +139,11 @@ define [
 				callback?()
 			else # Classification Enabled
 				return unless @state.featureGeos?
-				geometryService = new esri.tasks.GeometryService @state.geometryServiceUrl
-				dojo.connect geometryService, "onError", (error) -> showError "GeometryService: #{error.message}"
+				geometryService = new GeometryService @state.geometryServiceUrl
+				connect geometryService, "onError", (error) -> showError "GeometryService: #{error.message}"
 				# Crop Feature Polygons to lie within Map's current view extent
 				geometryService.intersect @state.featureGeos, @map.extent, (featuresInExtent) =>
-					geometryService.areasAndLengths (extend new esri.tasks.AreasAndLengthsParameters,
+					geometryService.areasAndLengths (extend new AreasAndLengthsParameters,
 						calculationType: "planar"
 						polygons: featuresInExtent
 					), (areasAndLengths) =>
@@ -145,7 +151,7 @@ define [
 						unless @state.renderedFeatureIndex is indexOfMax areasAndLengths.areas and @state.clippedImageToSignaturePolygons is @state.clipToSignaturePolygons and force is false
 							@state.renderedFeatureIndex = indexOfMax areasAndLengths.areas
 							state = @state
-							@setImageOrModifyRenderingRule extend new esri.layers.RasterFunction,
+							@setImageOrModifyRenderingRule extend new RasterFunction,
 								functionName: "funchain2",
 								arguments:
 									ClippingGeometry: if @state.clipToSignaturePolygons then @state.featureGeos[@state.renderedFeatureIndex] else extentToPolygon @state.imageServiceExtent
@@ -158,7 +164,7 @@ define [
 		# Called when Apply Changes button is clicked
 		applyChanges: (callback) ->
 			#Handle Errors
-			return showError "Widget not bound to an instance of 'esri/map'." unless @map?
+			return showError "Widget not bound to an instance of 'Map'." unless @map?
 			return showError "GeometryService: Service URL Required." if @geometryServiceUrlInput.get("value") in ["", null, undefined]
 			return showError "ImageServiceLayer: Service URL Required." if @imageServiceUrlInput.get("value") in ["", null, undefined]
 			# Remove ImageServiceLayer if Url has changed
@@ -181,19 +187,19 @@ define [
 			if @state.classificationEnabled
 				fun1 = => # Portion invoked in sync or async. See below
 					# Fetch Signatures and Polygons from feature layer
-					signaturesLayer = new esri.layers.FeatureLayer @signaturesUrlInput.get("value"), outFields: ["SIGURL"]
-					dojo.connect signaturesLayer, "onLoad", =>
-						signaturesLayer.selectFeatures (extend new esri.tasks.Query,
+					signaturesLayer = new FeatureLayer @signaturesUrlInput.get("value"), outFields: ["SIGURL"]
+					connect signaturesLayer, "onLoad", =>
+						signaturesLayer.selectFeatures (extend new Query,
 							geometry: @imageServiceLayer.fullExtent
-							spatialRelationship: esri.tasks.Query.SPATIAL_REL_INTERSECTS
-						), esri.layers.FeatureLayer.SELECTION_NEW, (features) =>
+							spatialRelationship: Query.SPATIAL_REL_INTERSECTS
+						), FeatureLayer.SELECTION_NEW, (features) =>
 							return showError "No features found within image service extent." if features.length is 0
 							fun2 = =>
 								@state.signatures = (f.attributes.SIGURL for f in features)
-								geometryService = new esri.tasks.GeometryService @state.geometryServiceUrl
-								dojo.connect geometryService, "onError", (error) -> showError "GeometryService: #{error.message}"
+								geometryService = new GeometryService @state.geometryServiceUrl
+								connect geometryService, "onError", (error) -> showError "GeometryService: #{error.message}"
 								# Project Polygons to ImageService's SR
-								geometryService.project (extend new esri.tasks.ProjectParameters,
+								geometryService.project (extend new ProjectParameters,
 									geometries: (f.geometry for f in features)
 									outSR: @map.spatialReference
 								), (projectedGeos) =>
@@ -223,13 +229,13 @@ define [
 												d.startup()
 										@state.signatureClasses = data
 										fun2()
-					dojo.connect signaturesLayer, "onError", (error) -> showError "FeatureLayer: #{error.message}"
+					connect signaturesLayer, "onError", (error) -> showError "FeatureLayer: #{error.message}"
 				return fun1() if @imageServiceLayer? # ImageServiceLayer exists
 				@setImageLayer null, => # ImageServiceLayer does not exist. Create New
-					geometryService = new esri.tasks.GeometryService @state.geometryServiceUrl
-					dojo.connect geometryService, "onError", (error) -> showError "GeometryService: #{error.message}"
+					geometryService = new GeometryService @state.geometryServiceUrl
+					connect geometryService, "onError", (error) -> showError "GeometryService: #{error.message}"
 					# Project ImageService extents to Map's SR
-					geometryService.project (extend new esri.tasks.ProjectParameters,
+					geometryService.project (extend new ProjectParameters,
 						geometries: [@imageServiceLayer.fullExtent, @imageServiceLayer.initialExtent]
 						outSR: @map.extent.spatialReference
 					), ([fullExtent, initialExtent]) =>

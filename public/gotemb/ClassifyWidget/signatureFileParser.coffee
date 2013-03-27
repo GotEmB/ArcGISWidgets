@@ -2,7 +2,7 @@ define [
 	"dojo/request"
 ], (request) ->
 	getClasses: (filePath, callback) ->
-		request.get(filePath, headers: "X-Requested-With": "").then (gsg) ->
+		request.get(filePath, headers: "X-Requested-With": null).then (gsg) ->
 			lines = gsg.match /^((?!#|\/\*).)+/gm
 			nLayers = Number lines[0].match(/\d+/g)[3]
 			callback? do ->
