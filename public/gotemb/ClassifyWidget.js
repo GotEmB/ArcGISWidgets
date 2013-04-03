@@ -28,7 +28,7 @@ indexOfMax = function(arr) {
   return idx;
 };
 
-define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dijit/_WidgetsInTemplateMixin", "dojo/text!./ClassifyWidget/templates/ClassifyWidget.html", "dojo/_base/connect", "dijit/Dialog", "gotemb/ClassifyWidget/SignatureClassRow", "gotemb/ClassifyWidget/signatureFileParser", "dojox/color", "esri/geometry/Polygon", "esri/layers/ArcGISImageServiceLayer", "esri/layers/RasterFunction", "esri/layers/ImageServiceParameters", "esri/tasks/GeometryService", "esri/tasks/ProjectParameters", "esri/tasks/AreasAndLengthsParameters", "esri/layers/FeatureLayer", "esri/tasks/query", "dijit/form/TextBox", "dijit/form/Button", "dijit/form/CheckBox", "gotemb/ClassifyWidget/Grid", "dijit/form/DropDownButton", "dijit/TooltipDialog"], function(declare, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template, _arg, Dialog, SignatureClassRow, signatureFileParser, color, Polygon, ArcGISImageServiceLayer, RasterFunction, ImageServiceParameters, GeometryService, ProjectParameters, AreasAndLengthsParameters, FeatureLayer, Query) {
+define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dijit/_WidgetsInTemplateMixin", "dojo/text!./ClassifyWidget/templates/ClassifyWidget.html", "dojo/_base/connect", "dijit/Dialog", "gotemb/ClassifyWidget/SignatureClassRow", "gotemb/ClassifyWidget/signatureFileParser", "dojox/color", "esri/geometry/Polygon", "esri/layers/ArcGISImageServiceLayer", "esri/layers/RasterFunction", "esri/layers/ImageServiceParameters", "esri/tasks/GeometryService", "esri/tasks/ProjectParameters", "esri/tasks/AreasAndLengthsParameters", "esri/layers/FeatureLayer", "esri/tasks/query", "dojo/request", "dijit/form/TextBox", "dijit/form/Button", "dijit/form/CheckBox", "gotemb/ClassifyWidget/Grid", "dijit/form/DropDownButton", "dijit/TooltipDialog"], function(declare, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template, _arg, Dialog, SignatureClassRow, signatureFileParser, color, Polygon, ArcGISImageServiceLayer, RasterFunction, ImageServiceParameters, GeometryService, ProjectParameters, AreasAndLengthsParameters, FeatureLayer, Query, request) {
   var connect, extentToPolygon, showError;
   connect = _arg.connect;
   showError = function(content) {
@@ -175,32 +175,41 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
             calculationType: "planar",
             polygons: featuresInExtent
           }), function(areasAndLengths) {
-            var cls, state;
+            var state;
             if (_this.state.renderedFeatureIndex !== indexOfMax(areasAndLengths.areas && _this.state.clippedImageToSignaturePolygons === _this.state.clipToSignaturePolygons && force === false)) {
               _this.state.renderedFeatureIndex = indexOfMax(areasAndLengths.areas);
               state = _this.state;
-              _this.setImageOrModifyRenderingRule(extend(new RasterFunction, {
-                functionName: "funchain2",
-                "arguments": {
-                  ClippingGeometry: _this.state.clipToSignaturePolygons ? _this.state.featureGeos[_this.state.renderedFeatureIndex] : extentToPolygon(_this.state.imageServiceExtent),
-                  SignatureFile: _this.state.signatures[_this.state.renderedFeatureIndex],
-                  Colormap: (function() {
-                    var _i, _len, _ref, _results;
-                    _ref = state.signatureClasses;
-                    _results = [];
-                    for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-                      cls = _ref[_i];
-                      if (cls.get("sigFile") === state.signatures[state.renderedFeatureIndex]) {
-                        _results.push([cls.get("sigValue")].concat(color.fromHex(cls.get("sigColor")).toRgb()));
+              return request.get(_this.state.signatures[_this.state.renderedFeatureIndex], {
+                headers: {
+                  "X-Requested-With": null
+                }
+              }).then(function(gsg) {
+                var cls;
+                _this.setImageOrModifyRenderingRule(extend(new RasterFunction, {
+                  functionName: "funchain2",
+                  "arguments": {
+                    ClippingGeometry: _this.state.clipToSignaturePolygons ? _this.state.featureGeos[_this.state.renderedFeatureIndex] : extentToPolygon(_this.state.imageServiceExtent),
+                    SignatureFile: gsg,
+                    Colormap: (function() {
+                      var _i, _len, _ref, _results;
+                      _ref = state.signatureClasses;
+                      _results = [];
+                      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+                        cls = _ref[_i];
+                        if (cls.get("sigFile") === state.signatures[state.renderedFeatureIndex]) {
+                          _results.push([cls.get("sigValue")].concat(color.fromHex(cls.get("sigColor")).toRgb()));
+                        }
                       }
-                    }
-                    return _results;
-                  })()
-                },
-                variableName: "Raster"
-              }));
+                      return _results;
+                    })()
+                  },
+                  variableName: "Raster"
+                }));
+                return typeof callback === "function" ? callback() : void 0;
+              });
+            } else {
+              return typeof callback === "function" ? callback() : void 0;
             }
-            return typeof callback === "function" ? callback() : void 0;
           });
         });
       }
