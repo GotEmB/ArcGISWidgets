@@ -37,13 +37,14 @@ define [
 	"esri/tasks/AreasAndLengthsParameters"
 	"esri/layers/FeatureLayer"
 	"esri/tasks/query"
+	"dojo/request"
 	"dijit/form/TextBox"
 	"dijit/form/Button"
 	"dijit/form/CheckBox"
 	"gotemb/ClassifyWidget/Grid"
 	"dijit/form/DropDownButton"
 	"dijit/TooltipDialog"
-], (declare, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template, {connect}, Dialog, SignatureClassRow, signatureFileParser, color, Polygon, ArcGISImageServiceLayer, RasterFunction, ImageServiceParameters, GeometryService, ProjectParameters, AreasAndLengthsParameters, FeatureLayer, Query) ->
+], (declare, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template, {connect}, Dialog, SignatureClassRow, signatureFileParser, color, Polygon, ArcGISImageServiceLayer, RasterFunction, ImageServiceParameters, GeometryService, ProjectParameters, AreasAndLengthsParameters, FeatureLayer, Query, request) ->
 	# Show an error box and log it to console
 	showError = (content) ->
 		errBox = new Dialog title: "Error", content: content
@@ -147,20 +148,23 @@ define [
 						calculationType: "planar"
 						polygons: featuresInExtent
 					), (areasAndLengths) =>
-						# Select the signature that corresponds to a feature polygon that has the most common area with the Map's current view extent
 						unless @state.renderedFeatureIndex is indexOfMax areasAndLengths.areas and @state.clippedImageToSignaturePolygons is @state.clipToSignaturePolygons and force is false
+							# Select the signature that corresponds to a feature polygon that has the most common area with the Map's current view extent
 							@state.renderedFeatureIndex = indexOfMax areasAndLengths.areas
 							state = @state
-							@setImageOrModifyRenderingRule extend new RasterFunction,
-								functionName: "funchain2",
-								arguments:
-									ClippingGeometry: if @state.clipToSignaturePolygons then @state.featureGeos[@state.renderedFeatureIndex] else extentToPolygon @state.imageServiceExtent
-									SignatureFile: @state.signatures[@state.renderedFeatureIndex]
-									Colormap:
-										for cls in state.signatureClasses when cls.get("sigFile") is state.signatures[state.renderedFeatureIndex]
-											[cls.get "sigValue"].concat color.fromHex(cls.get "sigColor").toRgb()
-								variableName: "Raster"
-						callback?()
+							request.get(@state.signatures[@state.renderedFeatureIndex], headers: "X-Requested-With": null).then (gsg) =>
+								@setImageOrModifyRenderingRule extend new RasterFunction,
+									functionName: "funchain2",
+									arguments:
+										ClippingGeometry: if @state.clipToSignaturePolygons then @state.featureGeos[@state.renderedFeatureIndex] else extentToPolygon @state.imageServiceExtent
+										SignatureFile: gsg
+										Colormap:
+											for cls in state.signatureClasses when cls.get("sigFile") is state.signatures[state.renderedFeatureIndex]
+												[cls.get "sigValue"].concat color.fromHex(cls.get "sigColor").toRgb()
+									variableName: "Raster"
+								callback?()
+						else
+							callback?()
 		# Called when Apply Changes button is clicked
 		applyChanges: (callback) ->
 			#Handle Errors
