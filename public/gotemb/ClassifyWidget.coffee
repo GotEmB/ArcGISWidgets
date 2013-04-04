@@ -152,12 +152,14 @@ define [
 							# Select the signature that corresponds to a feature polygon that has the most common area with the Map's current view extent
 							@state.renderedFeatureIndex = indexOfMax areasAndLengths.areas
 							state = @state
-							request.get(@state.signatures[@state.renderedFeatureIndex], headers: "X-Requested-With": null).then (gsg) =>
+							parser = document.createElement "a"
+							parser.href = @state.signatures[@state.renderedFeatureIndex]
+							request.get(parser.href, headers: "X-Requested-With": null).then (gsg) =>
 								@setImageOrModifyRenderingRule extend new RasterFunction,
 									functionName: "funchain2",
 									arguments:
 										ClippingGeometry: if @state.clipToSignaturePolygons then @state.featureGeos[@state.renderedFeatureIndex] else extentToPolygon @state.imageServiceExtent
-										SignatureFile: gsg
+										SignatureFile: parser.href # Should be gsg but exportImage error
 										Colormap:
 											for cls in state.signatureClasses when cls.get("sigFile") is state.signatures[state.renderedFeatureIndex]
 												[cls.get "sigValue"].concat color.fromHex(cls.get "sigColor").toRgb()

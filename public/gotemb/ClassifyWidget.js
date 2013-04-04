@@ -175,11 +175,13 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
             calculationType: "planar",
             polygons: featuresInExtent
           }), function(areasAndLengths) {
-            var state;
+            var parser, state;
             if (_this.state.renderedFeatureIndex !== indexOfMax(areasAndLengths.areas && _this.state.clippedImageToSignaturePolygons === _this.state.clipToSignaturePolygons && force === false)) {
               _this.state.renderedFeatureIndex = indexOfMax(areasAndLengths.areas);
               state = _this.state;
-              return request.get(_this.state.signatures[_this.state.renderedFeatureIndex], {
+              parser = document.createElement("a");
+              parser.href = _this.state.signatures[_this.state.renderedFeatureIndex];
+              return request.get(parser.href, {
                 headers: {
                   "X-Requested-With": null
                 }
@@ -189,7 +191,7 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
                   functionName: "funchain2",
                   "arguments": {
                     ClippingGeometry: _this.state.clipToSignaturePolygons ? _this.state.featureGeos[_this.state.renderedFeatureIndex] : extentToPolygon(_this.state.imageServiceExtent),
-                    SignatureFile: gsg,
+                    SignatureFile: parser.href,
                     Colormap: (function() {
                       var _i, _len, _ref, _results;
                       _ref = state.signatureClasses;
