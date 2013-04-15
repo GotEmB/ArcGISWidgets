@@ -3,7 +3,7 @@
 # Author: Gautham Badhrinathan (gbadhrinathan@esri.com)
 */
 
-require(["dijit/registry", "dojo/ready", "esri/map", "esri/geometry/Point", "dojo/parser", "dijit/layout/BorderContainer", "dijit/layout/ContentPane", "esri/dijit/Attribution", "gotemb/ClassifyWidget"], function(registry, ready, Map, Point) {
+require(["dijit/registry", "dojo/ready", "esri/map", "esri/geometry/Point", "dojo/parser", "dijit/layout/BorderContainer", "dijit/layout/ContentPane", "esri/dijit/Attribution", "gotemb/GeorefWidget"], function(registry, ready, Map, Point) {
   return ready(function() {
     var map, _ref;
     map = new Map("map", {
@@ -18,6 +18,6 @@ require(["dijit/registry", "dojo/ready", "esri/map", "esri/geometry/Point", "doj
         return map.centerAndZoom(new Point(coords.longitude, coords.latitude), 8);
       });
     }
-    return registry.byId("classifyWidget").set("map", map);
+    return registry.byId("georefWidget").set("map", map);
   });
 });
