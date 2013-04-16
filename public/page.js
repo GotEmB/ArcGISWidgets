@@ -18,6 +18,7 @@ require(["dijit/registry", "dojo/ready", "esri/map", "esri/geometry/Point", "doj
         return map.centerAndZoom(new Point(coords.longitude, coords.latitude), 8);
       });
     }
-    return registry.byId("georefWidget").set("map", map);
+    registry.byId("georefWidget").set("map", map);
+    return registry.byId("geocoder").set("map", map);
   });
 });

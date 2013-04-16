@@ -19,3 +19,4 @@ require [
 		# Using HTML5 Geolocation API
 		navigator.geolocation?.getCurrentPosition ({coords}) -> map.centerAndZoom new Point(coords.longitude, coords.latitude), 8
 		registry.byId("georefWidget").set "map", map
+		registry.byId("geocoder").set "map", map
