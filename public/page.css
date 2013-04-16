@@ -8,6 +8,11 @@ body {
   font-family: sans-serif;
   font-size: 14px;
 }
+#georefWidgetContainer {
+  position: absolute;
+  right: 35px;
+  top: 75px;
+}
 #title {
   font-weight: bold;
 }

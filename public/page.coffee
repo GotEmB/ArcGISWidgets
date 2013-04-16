@@ -12,6 +12,7 @@ require [
 	"dijit/layout/ContentPane"
 	"esri/dijit/Attribution"
 	"gotemb/GeorefWidget"
+	"dijit/TitlePane"
 ], (registry, ready, Map, Point) ->
 	ready ->
 		map = new Map "map", center: [-56.049, 38.485], zoom: 3, basemap: "streets"

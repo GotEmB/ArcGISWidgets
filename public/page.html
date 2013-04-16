@@ -2,7 +2,7 @@
 
 <html>
 	<head>
-		<title>Classify Widget</title>
+		<title>Georef Widget</title>
 		<link rel="stylesheet" type="text/css" href="//serverapi.arcgisonline.com/jsapi/arcgis/3.4/js/dojo/dijit/themes/claro/claro.css">
 		<link rel="stylesheet" type="text/css" href="//serverapi.arcgisonline.com/jsapi/arcgis/3.4/js/dojo/dojox/form/resources/FileInput.css">
 		<link rel="stylesheet" href="//serverapi.arcgisonline.com/jsapi/arcgis/3.4/js/esri/css/esri.css">
@@ -17,6 +17,8 @@
 			<div id="title" data-dojo-type="dijit/layout/ContentPane" data-dojo-props="region: 'top'">Georef Widget</div>
 			<div id="map" data-dojo-type="dijit/layout/ContentPane" data-dojo-props="region: 'center'"></div>
 		</div>
-		<div id="georefWidget" data-dojo-type="gotemb/GeorefWidget"></div>
+		<div id="georefWidgetContainer" data-dojo-type="dijit/TitlePane" data-dojo-props="title: 'Georef Widget', open: true">
+			<div id="georefWidget" data-dojo-type="gotemb/GeorefWidget"></div>
+		</div>
 	</body>
 </html>
