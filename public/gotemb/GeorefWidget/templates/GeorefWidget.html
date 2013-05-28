@@ -1,18 +1,37 @@
 <div style="width: 100%">
 	<table style="width: 100%">
 		<tr>
-			<td style="text-align: right; height: 25px; vertical-align: middle; width: 1; white-space: nowrap">
-				<label>Raster:</label>
+			<td style="height: 25px; vertical-align: middle; width: 1; white-space: nowrap">
+				<label>1. Raster:</label>
 			</td>
 			<td style="height: 25px; vertical-align: middle">
 				<form data-dojo-attach-point="uploadForm">
 					<input type="file" data-dojo-attach-point="imageFile" style="min-width: 250px; width: 100%" name="file">
 				</form>
 			</td>
+			<td style="height: 25px; vertical-align: middle; text-align: right">
+				<button data-dojo-type="dijit/form/Button" style="margin-top: 0; margin-bottom: 0; margin-right: 0" data-dojo-attach-event="onClick: upload">Upload</button>
+			</td>
 		</tr>
 		<tr>
-			<td colspan="2" style="height: 25px; vertical-align: middle; text-align: right">
-				<button data-dojo-type="dijit/form/Button" style="margin-top: 0; margin-bottom: 0; margin-right: 0" data-dojo-attach-event="onClick: upload">Upload</button>
+			<td colspan="3" style="height: 25px; vertical-align: middle; width: 1; white-space: nowrap">
+				<label>2. Move to your POI using the Geocoder and/or Pan/Zoom</label>
+			</td>
+		</tr>
+		<tr>
+			<td colspan="2" style="height: 25px; vertical-align: middle; width: 1; white-space: nowrap">
+				<label>3. Translate raster to extents:</label>
+			</td>
+			<td style="height: 25px; vertical-align: middle; text-align: right">
+				<button data-dojo-type="dijit/form/Button" style="margin-top: 0; margin-bottom: 0; margin-right: 0" data-dojo-attach-event="onClick: roughTransform">Translate</button>
+			</td>
+		</tr>
+		<tr>
+			<td colspan="2" style="height: 25px; vertical-align: middle; width: 1; white-space: nowrap">
+				<label>4. Compute Tiepoints and replace transform:</label>
+			</td>
+			<td style="height: 25px; vertical-align: middle; text-align: right">
+				<button data-dojo-type="dijit/form/Button" style="margin-top: 0; margin-bottom: 0; margin-right: 0" data-dojo-attach-event="onClick: computeAndTransform">Compute</button>
 			</td>
 		</tr>
 	</table>

@@ -1,0 +1,9 @@
+Upload Raster
+Use GeoCoder to move to POI
+Pan / Zoom
+Translate Raster to Extents (Geotransform)
+Check with user; If yes: continue, else: goto step 2/3
+Compute Tiepoints
+Replace geotransform with tiepoints
+Check with user; If yes: end, else: continue
+Manually add/move/remove Tiepoints
