@@ -11,7 +11,7 @@ extend = function(obj, mixin) {
   return obj;
 };
 
-define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dijit/_WidgetsInTemplateMixin", "dojo/text!./GeorefWidget/templates/GeorefWidget.html", "dojo/_base/connect", "esri/layers/ArcGISImageServiceLayer", "esri/request", "esri/layers/MosaicRule", "esri/geometry/Polygon", "esri/tasks/GeometryService", "dojox/form/FileInput", "dijit/form/Button", "dijit/layout/AccordionContainer", "dijit/layout/ContentPane", "gotemb/Grid"], function(declare, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template, _arg, ArcGISImageServiceLayer, request, MosaicRule, Polygon, GeometryService) {
+define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dijit/_WidgetsInTemplateMixin", "dojo/text!./GeorefWidget/templates/GeorefWidget.html", "dojo/_base/connect", "esri/layers/ArcGISImageServiceLayer", "esri/request", "esri/layers/MosaicRule", "esri/geometry/Polygon", "esri/tasks/GeometryService", "dojo/dom-style", "dojox/form/FileInput", "dijit/form/Button", "dijit/layout/AccordionContainer", "dijit/layout/ContentPane", "gotemb/GeorefWidget/Grid", "dijit/Dialog", "dijit/Toolbar", "dijit/ToolbarSeparator", "dijit/form/ToggleButton"], function(declare, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template, _arg, ArcGISImageServiceLayer, request, MosaicRule, Polygon, GeometryService, domStyle) {
   var connect;
 
   connect = _arg.connect;
@@ -28,9 +28,12 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
     geometryServiceUrl: "http://lamborghini:6080/arcgis/rest/services/Utilities/Geometry/GeometryServer",
     geometryService: null,
     rastertype: null,
-    imageIDs: [],
     currentId: null,
     rastersGrid: null,
+    addRasterDialog: null,
+    selectRasterContainer: null,
+    transformContainer: null,
+    editTiepointsContainer: null,
     postCreate: function() {
       var _this = this;
 
@@ -39,10 +42,83 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
       return connect(this.imageServiceLayer, "onLoad", function() {
         _this.map.addLayer(_this.referenceLayer = new ArcGISImageServiceLayer(_this.referenceLayerUrl));
         _this.imageServiceLayer.setOpacity(0);
-        return _this.map.addLayer(_this.imageServiceLayer);
+        _this.map.addLayer(_this.imageServiceLayer);
+        _this.rastersGrid.set("columns", {
+          id: "Raster Id",
+          name: "Name"
+        });
+        _this.rastersGrid.set("selectionMode", "single");
+        return _this.loadRastersList(function() {
+          return _this.rastersGrid.on("dgrid-select", function(_arg1) {
+            var rows;
+
+            rows = _arg1.rows;
+            _this.currentId = rows[0].data.id;
+            _this.imageServiceLayer.setMosaicRule(extend(new MosaicRule, {
+              method: MosaicRule.METHOD_LOCKRASTER,
+              lockRasterIds: [_this.currentId]
+            }), true);
+            return request({
+              url: _this.imageServiceUrl + "/query",
+              content: {
+                objectIds: [_this.currentId],
+                returnGeometry: true,
+                outFields: "",
+                f: "json"
+              },
+              handleAs: "json",
+              load: function(response3) {
+                _this.map.setExtent(new Polygon(response3.features[0].geometry).getExtent().expand(2));
+                return _this.imageServiceLayer.setOpacity(1);
+              },
+              error: console.error
+            }, {
+              usePost: true
+            });
+          });
+        });
       });
     },
-    upload: function() {
+    loadRastersList: function(callback) {
+      var _this = this;
+
+      return request({
+        url: this.imageServiceUrl + "/query",
+        content: {
+          f: "json",
+          outFields: "OBJECTID, Name",
+          returnGeometry: false
+        },
+        handlesAs: "json",
+        load: function(response) {
+          var feature, features;
+
+          _this.rastersGrid.refresh();
+          _this.rastersGrid.renderArray(features = (function() {
+            var _i, _len, _ref, _results;
+
+            _ref = response.features;
+            _results = [];
+            for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+              feature = _ref[_i];
+              _results.push({
+                id: feature.attributes.OBJECTID,
+                name: feature.attributes.Name
+              });
+            }
+            return _results;
+          })());
+          return typeof callback === "function" ? callback(features) : void 0;
+        },
+        error: console.error
+      }, {
+        usePost: true
+      });
+    },
+    showAddRasterDialog: function() {
+      return this.addRasterDialog.show();
+    },
+    addRasterDialog_upload: function() {
       var _this = this;
 
       if (this.imageFile.value.length === 0) {
@@ -77,32 +153,12 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
               var id;
 
               if (id = response2.addResults[0].rasterId) {
-                console.info("Step 3/3: Navigate to the image.");
-                _this.imageIDs.push(id.toString());
-                _this.currentId = id;
-                if (_this.imageIDs.length > 0) {
-                  _this.imageServiceLayer.setMosaicRule(extend(new MosaicRule, {
-                    method: MosaicRule.METHOD_LOCKRASTER,
-                    lockRasterIds: _this.imageIDs
-                  }), true);
-                }
-                return request({
-                  url: _this.imageServiceUrl + "/query",
-                  content: {
-                    objectIds: id,
-                    returnGeometry: true,
-                    outFields: "",
-                    f: "json"
-                  },
-                  handleAs: "json",
-                  load: function(response3) {
-                    _this.map.setExtent(new Polygon(response3.features[0].geometry).getExtent().expand(2));
-                    _this.imageServiceLayer.setOpacity(1);
-                    return console.info("Succeeded!");
-                  },
-                  error: console.error
-                }, {
-                  usePost: true
+                return _this.loadRastersList(function(features) {
+                  _this.addRasterDialog.hide();
+                  _this.rastersGrid.clearSelection();
+                  if (features.length > 0) {
+                    return _this.rastersGrid.select(features.length - 1);
+                  }
                 });
               }
             },
@@ -112,6 +168,8 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
           });
         },
         error: console.error
+      }, {
+        usePost: true
       });
     },
     roughTransform: function() {
@@ -220,7 +278,7 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
       var _this = this;
 
       if (this.currentId == null) {
-        return console.error("An image must be uploaded in step 1.");
+        return console.error("Please select a raster.");
       }
       return request({
         url: this.imageServiceUrl + ("/" + this.currentId + "/info"),
@@ -324,6 +382,19 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
       }, {
         usePost: true
       });
+    },
+    toggleReferenceLayer: function(state) {
+      return this.referenceLayer.setOpacity(state ? 1 : 0);
+    },
+    startEditTiepoints: function() {
+      domStyle.set(this.selectRasterContainer.domNode, "display", "none");
+      domStyle.set(this.transformContainer.domNode, "display", "none");
+      return domStyle.set(this.editTiepointsContainer.domNode, "display", "block");
+    },
+    closeEditTiepoints: function() {
+      domStyle.set(this.selectRasterContainer.domNode, "display", "block");
+      domStyle.set(this.transformContainer.domNode, "display", "block");
+      return domStyle.set(this.editTiepointsContainer.domNode, "display", "none");
     }
   });
 });

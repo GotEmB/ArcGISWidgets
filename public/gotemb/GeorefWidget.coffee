@@ -15,13 +15,18 @@ define [
 	"esri/layers/MosaicRule"
 	"esri/geometry/Polygon"
 	"esri/tasks/GeometryService"
+	"dojo/dom-style"
 	# ---
 	"dojox/form/FileInput"
 	"dijit/form/Button"
 	"dijit/layout/AccordionContainer"
 	"dijit/layout/ContentPane"
-	"gotemb/Grid"
-], (declare, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template, {connect}, ArcGISImageServiceLayer, request, MosaicRule, Polygon, GeometryService) ->
+	"gotemb/GeorefWidget/Grid"
+	"dijit/Dialog"
+	"dijit/Toolbar"
+	"dijit/ToolbarSeparator"
+	"dijit/form/ToggleButton"
+], (declare, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template, {connect}, ArcGISImageServiceLayer, request, MosaicRule, Polygon, GeometryService, domStyle) ->
 	declare [_WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin],
 		templateString: template
 		baseClass: "ClassifyWidget"
@@ -35,9 +40,12 @@ define [
 		geometryServiceUrl: "http://lamborghini:6080/arcgis/rest/services/Utilities/Geometry/GeometryServer"
 		geometryService: null
 		rastertype: null
-		imageIDs: []
 		currentId: null
 		rastersGrid: null
+		addRasterDialog: null
+		selectRasterContainer: null
+		transformContainer: null
+		editTiepointsContainer: null
 		postCreate: ->
 			@imageServiceLayer = new ArcGISImageServiceLayer @imageServiceUrl
 			@geometryService = new GeometryService @geometryServiceUrl
@@ -45,7 +53,46 @@ define [
 				@map.addLayer @referenceLayer = new ArcGISImageServiceLayer @referenceLayerUrl
 				@imageServiceLayer.setOpacity 0
 				@map.addLayer @imageServiceLayer
-		upload: ->
+				@rastersGrid.set "columns", id: "Raster Id", name: "Name"
+				@rastersGrid.set "selectionMode", "single"
+				@loadRastersList =>
+					@rastersGrid.on "dgrid-select", ({rows}) =>
+						@currentId = rows[0].data.id
+						@imageServiceLayer.setMosaicRule extend(
+							new MosaicRule
+							method: MosaicRule.METHOD_LOCKRASTER
+							lockRasterIds: [@currentId]
+						), true
+						request
+							url: @imageServiceUrl + "/query"
+							content:
+								objectIds: [@currentId]
+								returnGeometry: true
+								outFields: ""
+								f: "json"
+							handleAs: "json"
+							load: (response3) =>
+								@map.setExtent new Polygon(response3.features[0].geometry).getExtent().expand 2
+								@imageServiceLayer.setOpacity 1
+							error: console.error
+							(usePost: true)
+		loadRastersList: (callback) ->
+			request
+				url: @imageServiceUrl + "/query"
+				content:
+					f: "json"
+					outFields: "OBJECTID, Name"
+					returnGeometry: false
+				handlesAs: "json"
+				load: (response) =>
+					@rastersGrid.refresh()
+					@rastersGrid.renderArray features = (id: feature.attributes.OBJECTID, name: feature.attributes.Name for feature in response.features)
+					callback? features
+				error: console.error
+				(usePost: true)
+		showAddRasterDialog: ->
+			@addRasterDialog.show()
+		addRasterDialog_upload: ->
 			return console.error "An image must be selected!" if @imageFile.value.length is 0
 			@rastertype = if @imageFile.value.indexOf("las") is -1 then "Raster Dataset" else "HillshadedLAS"
 			console.info "Step 1/3: Uploading..."
@@ -69,32 +116,14 @@ define [
 						handleAs: "json"
 						load: (response2) =>
 							if id = response2.addResults[0].rasterId
-								console.info "Step 3/3: Navigate to the image."
-								@imageIDs.push id.toString()
-								@currentId = id
-								if @imageIDs.length > 0
-									@imageServiceLayer.setMosaicRule extend(
-										new MosaicRule
-										method: MosaicRule.METHOD_LOCKRASTER
-										lockRasterIds: @imageIDs
-									), true
-								request
-									url: @imageServiceUrl + "/query"
-									content:
-										objectIds: id
-										returnGeometry: true
-										outFields: ""
-										f: "json"
-									handleAs: "json"
-									load: (response3) =>
-										@map.setExtent new Polygon(response3.features[0].geometry).getExtent().expand 2
-										@imageServiceLayer.setOpacity 1
-										console.info "Succeeded!"
-									error: console.error
-									(usePost: true)
+								@loadRastersList (features) =>
+									@addRasterDialog.hide()
+									@rastersGrid.clearSelection()
+									@rastersGrid.select features.length - 1 if features.length > 0
 						error: console.error
 						(usePost: true)
 				error: console.error
+				(usePost: true)
 		roughTransform: ->
 			return console.error "An image must be uploaded in step 1." unless @currentId?
 			request
@@ -156,7 +185,7 @@ define [
 				error: console.error
 				(usePost: true)
 		computeAndTransform: ->
-			return console.error "An image must be uploaded in step 1." unless @currentId?
+			return console.error "Please select a raster." unless @currentId?
 			request
 				url: @imageServiceUrl + "/#{@currentId}/info"
 				content: f: "json"
@@ -207,3 +236,13 @@ define [
 						(usePost: true)
 				error: console.error
 				(usePost: true)
+		toggleReferenceLayer: (state) ->
+			@referenceLayer.setOpacity if state then 1 else 0
+		startEditTiepoints: ->
+			domStyle.set @selectRasterContainer.domNode, "display", "none"
+			domStyle.set @transformContainer.domNode, "display", "none"
+			domStyle.set @editTiepointsContainer.domNode, "display", "block"
+		closeEditTiepoints: ->
+			domStyle.set @selectRasterContainer.domNode, "display", "block"
+			domStyle.set @transformContainer.domNode, "display", "block"
+			domStyle.set @editTiepointsContainer.domNode, "display", "none"
