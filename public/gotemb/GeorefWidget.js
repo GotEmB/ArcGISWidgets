@@ -11,7 +11,7 @@ extend = function(obj, mixin) {
   return obj;
 };
 
-define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dijit/_WidgetsInTemplateMixin", "dojo/text!./GeorefWidget/templates/GeorefWidget.html", "dojo/_base/connect", "esri/layers/ArcGISImageServiceLayer", "esri/request", "esri/layers/MosaicRule", "esri/geometry/Polygon", "esri/tasks/GeometryService", "dojox/form/FileInput", "dijit/form/Button"], function(declare, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template, _arg, ArcGISImageServiceLayer, request, MosaicRule, Polygon, GeometryService) {
+define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dijit/_WidgetsInTemplateMixin", "dojo/text!./GeorefWidget/templates/GeorefWidget.html", "dojo/_base/connect", "esri/layers/ArcGISImageServiceLayer", "esri/request", "esri/layers/MosaicRule", "esri/geometry/Polygon", "esri/tasks/GeometryService", "dojox/form/FileInput", "dijit/form/Button", "dijit/layout/AccordionContainer", "dijit/layout/ContentPane", "gotemb/Grid"], function(declare, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template, _arg, ArcGISImageServiceLayer, request, MosaicRule, Polygon, GeometryService) {
   var connect;
 
   connect = _arg.connect;
@@ -21,15 +21,16 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
     map: null,
     imageFile: null,
     uploadForm: null,
-    imageServiceUrl: "http://lamborghini.uae.esri.com:6080/arcgis/rest/services/amberg_gcs_1/ImageServer",
+    imageServiceUrl: "http://eg1109:6080/arcgis/rest/services/amberg_wgs/ImageServer",
     imageServiceLayer: null,
-    referenceLayerUrl: "http://lamborghini.uae.esri.com:6080/arcgis/rest/services/amberg_gcs_reference/ImageServer",
+    referenceLayerUrl: "http://eg1109:6080/arcgis/rest/services/amberg_wgs_reference/ImageServer",
     referenceLayer: null,
     geometryServiceUrl: "http://lamborghini:6080/arcgis/rest/services/Utilities/Geometry/GeometryServer",
     geometryService: null,
     rastertype: null,
     imageIDs: [],
     currentId: null,
+    rastersGrid: null,
     postCreate: function() {
       var _this = this;
 
@@ -100,6 +101,8 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
                     return console.info("Succeeded!");
                   },
                   error: console.error
+                }, {
+                  usePost: true
                 });
               }
             },
@@ -199,6 +202,8 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
                   return _this.map.setExtent(new Polygon(response3.features[0].geometry).getExtent().expand(2));
                 },
                 error: console.error
+              }, {
+                usePost: true
               });
             },
             error: console.error
@@ -243,9 +248,72 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
             },
             handleAs: "json",
             load: function(response2) {
-              var i;
+              var point;
 
-              return long(i = 234);
+              return request({
+                url: _this.imageServiceUrl + "/update",
+                content: {
+                  f: "json",
+                  rasterId: _this.currentId,
+                  geodataTransforms: JSON.stringify([
+                    {
+                      geodataTransform: "Polynomial",
+                      geodataTransformArguments: {
+                        sourcePoints: (function() {
+                          var _i, _len, _ref, _results;
+
+                          _ref = response2.tiePoints.sourcePoints;
+                          _results = [];
+                          for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+                            point = _ref[_i];
+                            _results.push({
+                              x: point.x,
+                              y: point.y
+                            });
+                          }
+                          return _results;
+                        })(),
+                        targetPoints: (function() {
+                          var _i, _len, _ref, _results;
+
+                          _ref = response2.tiePoints.targetPoints;
+                          _results = [];
+                          for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+                            point = _ref[_i];
+                            _results.push({
+                              x: point.x,
+                              y: point.y
+                            });
+                          }
+                          return _results;
+                        })(),
+                        polynomialOrder: 1,
+                        spatialReference: response2.tiePoints.sourcePoints[0].spatialReference
+                      }
+                    }
+                  ])
+                },
+                handleAs: "json",
+                load: function() {
+                  return request({
+                    url: _this.imageServiceUrl + "/query",
+                    content: {
+                      objectIds: _this.currentId,
+                      returnGeometry: true,
+                      outFields: "",
+                      f: "json"
+                    },
+                    handleAs: "json",
+                    load: function(response3) {
+                      return _this.map.setExtent(new Polygon(response3.features[0].geometry).getExtent().expand(2));
+                    },
+                    error: console.error
+                  });
+                },
+                error: console.error
+              }, {
+                usePost: true
+              });
             },
             error: console.error
           }, {

@@ -41,7 +41,7 @@ define [
 	"dijit/form/TextBox"
 	"dijit/form/Button"
 	"dijit/form/CheckBox"
-	"gotemb/ClassifyWidget/Grid"
+	"gotemb/Grid"
 	"dijit/form/DropDownButton"
 	"dijit/TooltipDialog"
 ], (declare, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template, {connect}, Dialog, SignatureClassRow, signatureFileParser, color, Polygon, ArcGISImageServiceLayer, RasterFunction, ImageServiceParameters, GeometryService, ProjectParameters, AreasAndLengthsParameters, FeatureLayer, Query, request) ->

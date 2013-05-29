@@ -2,7 +2,7 @@
 /*
 # Author: Gautham Badhrinathan (gbadhrinathan@esri.com)
 */
-require(["dijit/registry", "dojo/ready", "esri/map", "esri/geometry/Point", "dojo/parser", "dijit/layout/BorderContainer", "dijit/layout/ContentPane", "esri/dijit/Attribution", "gotemb/GeorefWidget", "dijit/TitlePane", "esri/dijit/Geocoder"], function(registry, ready, Map, Point) {
+require(["dijit/registry", "dojo/ready", "esri/map", "esri/geometry/Point", "dojo/parser", "dijit/layout/BorderContainer", "dijit/layout/ContentPane", "esri/dijit/Attribution", "gotemb/GeorefWidget", "esri/dijit/Geocoder"], function(registry, ready, Map, Point) {
   return ready(function() {
     var map, _ref;
 

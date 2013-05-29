@@ -12,7 +12,6 @@ require [
 	"dijit/layout/ContentPane"
 	"esri/dijit/Attribution"
 	"gotemb/GeorefWidget"
-	"dijit/TitlePane"
 	"esri/dijit/Geocoder"
 ], (registry, ready, Map, Point) ->
 	ready ->

@@ -18,6 +18,9 @@ define [
 	# ---
 	"dojox/form/FileInput"
 	"dijit/form/Button"
+	"dijit/layout/AccordionContainer"
+	"dijit/layout/ContentPane"
+	"gotemb/Grid"
 ], (declare, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template, {connect}, ArcGISImageServiceLayer, request, MosaicRule, Polygon, GeometryService) ->
 	declare [_WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin],
 		templateString: template
@@ -25,15 +28,16 @@ define [
 		map: null # should be bound to a `Map` instance before using the widget
 		imageFile: null
 		uploadForm: null
-		imageServiceUrl: "http://lamborghini.uae.esri.com:6080/arcgis/rest/services/amberg_gcs_1/ImageServer"
+		imageServiceUrl: "http://eg1109:6080/arcgis/rest/services/amberg_wgs/ImageServer"
 		imageServiceLayer: null
-		referenceLayerUrl: "http://lamborghini.uae.esri.com:6080/arcgis/rest/services/amberg_gcs_reference/ImageServer"
+		referenceLayerUrl: "http://eg1109:6080/arcgis/rest/services/amberg_wgs_reference/ImageServer"
 		referenceLayer: null
 		geometryServiceUrl: "http://lamborghini:6080/arcgis/rest/services/Utilities/Geometry/GeometryServer"
 		geometryService: null
 		rastertype: null
 		imageIDs: []
 		currentId: null
+		rastersGrid: null
 		postCreate: ->
 			@imageServiceLayer = new ArcGISImageServiceLayer @imageServiceUrl
 			@geometryService = new GeometryService @geometryServiceUrl
@@ -87,6 +91,7 @@ define [
 										@imageServiceLayer.setOpacity 1
 										console.info "Succeeded!"
 									error: console.error
+									(usePost: true)
 						error: console.error
 						(usePost: true)
 				error: console.error
@@ -145,6 +150,7 @@ define [
 								load: (response3) =>
 									@map.setExtent new Polygon(response3.features[0].geometry).getExtent().expand 2
 								error: console.error
+								(usePost: true)
 						error: console.error
 						(usePost: true)
 				error: console.error
@@ -169,8 +175,34 @@ define [
 							]
 						handleAs: "json"
 						load: (response2) =>
-							# ...
-							long i = 234;
+							request
+								url: @imageServiceUrl + "/update"
+								content:
+									f: "json"
+									rasterId: @currentId
+									geodataTransforms: JSON.stringify [
+										geodataTransform: "Polynomial"
+										geodataTransformArguments:
+											sourcePoints: x: point.x, y: point.y for point in response2.tiePoints.sourcePoints
+											targetPoints: x: point.x, y: point.y for point in response2.tiePoints.targetPoints
+											polynomialOrder: 1
+											spatialReference: response2.tiePoints.sourcePoints[0].spatialReference
+									]
+								handleAs: "json"
+								load: =>
+									request
+										url: @imageServiceUrl + "/query"
+										content:
+											objectIds: @currentId
+											returnGeometry: true
+											outFields: ""
+											f: "json"
+										handleAs: "json"
+										load: (response3) =>
+											@map.setExtent new Polygon(response3.features[0].geometry).getExtent().expand 2
+										error: console.error
+								error: console.error
+								(usePost: true)
 						error: console.error
 						(usePost: true)
 				error: console.error
