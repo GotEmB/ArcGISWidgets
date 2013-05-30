@@ -17,8 +17,8 @@ html, body
 #geocoder
 	display block
 	position absolute
-	left 88px
-	top 34px
+	left 80px
+	top 26px
 
 #title
 	font-weight bold
@@ -29,5 +29,47 @@ html, body
 .fixedWidth250.dijitButton .dijitButtonNode
 	width: 250px
 
-//.dijitContentPane.dijitBorderContainer-child.dijitBorderContainer-dijitContentPane.dijitBorderContainerPane
-//	padding 0
+.dijitBorderContainer
+	border none
+
+.dijitContentPane.dijitBorderContainer-child.dijitBorderContainer-dijitContentPane.dijitBorderContainerPane
+	padding 0
+
+	&.no-border
+		border none
+
+.claro *
+	outline none
+
+.dgrid-scroller
+	margin-top 0 !important
+
+.dgrid-header
+	z-index 1
+
+.dgrid-content
+	margin-top 23px
+	height auto
+
+td.field-sourcePoint, td.field-targetPoint
+	padding 0
+
+.PointGrid
+	border-collapse collapse
+	width 100%
+
+	td
+		padding 0
+
+		&:first-child
+			background-color #eee
+			padding 3px
+			width 16px
+			text-align center
+			border-right solid 1px #ddd
+		
+		input
+			margin 0
+			width 100%
+			border none
+			padding 3px

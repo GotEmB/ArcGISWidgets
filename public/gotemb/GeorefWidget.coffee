@@ -16,17 +16,19 @@ define [
 	"esri/geometry/Polygon"
 	"esri/tasks/GeometryService"
 	"dojo/dom-style"
+	"gotemb/GeorefWidget/PointGrid"
 	# ---
 	"dojox/form/FileInput"
 	"dijit/form/Button"
 	"dijit/layout/AccordionContainer"
 	"dijit/layout/ContentPane"
-	"gotemb/GeorefWidget/Grid"
+	"gotemb/GeorefWidget/RastersGrid"
+	"gotemb/GeorefWidget/TiepointsGrid"
 	"dijit/Dialog"
 	"dijit/Toolbar"
 	"dijit/ToolbarSeparator"
 	"dijit/form/ToggleButton"
-], (declare, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template, {connect}, ArcGISImageServiceLayer, request, MosaicRule, Polygon, GeometryService, domStyle) ->
+], (declare, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template, {connect}, ArcGISImageServiceLayer, request, MosaicRule, Polygon, GeometryService, domStyle, PointGrid) ->
 	declare [_WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin],
 		templateString: template
 		baseClass: "ClassifyWidget"
@@ -41,11 +43,15 @@ define [
 		geometryService: null
 		rastertype: null
 		currentId: null
+		rasters: null
 		rastersGrid: null
 		addRasterDialog: null
 		selectRasterContainer: null
 		transformContainer: null
 		editTiepointsContainer: null
+		editTiepointsContainer_loading: null
+		tiepoints: null
+		tiepointsGrid: null
 		postCreate: ->
 			@imageServiceLayer = new ArcGISImageServiceLayer @imageServiceUrl
 			@geometryService = new GeometryService @geometryServiceUrl
@@ -53,7 +59,15 @@ define [
 				@map.addLayer @referenceLayer = new ArcGISImageServiceLayer @referenceLayerUrl
 				@imageServiceLayer.setOpacity 0
 				@map.addLayer @imageServiceLayer
-				@rastersGrid.set "columns", id: "Raster Id", name: "Name"
+				@rastersGrid.set "columns", [
+					label: "Raster Id"
+					field: "id"
+					sortable: false
+				,
+					label: "Name"
+					field: "name"
+					sortable: false
+				]
 				@rastersGrid.set "selectionMode", "single"
 				@loadRastersList =>
 					@rastersGrid.on "dgrid-select", ({rows}) =>
@@ -76,18 +90,47 @@ define [
 								@imageServiceLayer.setOpacity 1
 							error: console.error
 							(usePost: true)
+				@tiepointsGrid.set "columns", [
+					label: "Source Point"
+					field: "sourcePoint"
+					sortable: false
+					renderCell: (object, value, domNode) =>
+						new PointGrid
+							x: value.x
+							y: value.y
+							onPointChanged: ({x, y}) =>
+								value.x = x
+								value.y = y
+						.domNode
+				,
+					label: "Target Point"
+					field: "targetPoint"
+					sortable: false
+					renderCell: (object, value, domNode) =>
+						new PointGrid
+							x: value.x
+							y: value.y
+							onPointChanged: ({x, y}) =>
+								value.x = x
+								value.y = y
+						.domNode
+				]
 		loadRastersList: (callback) ->
 			request
 				url: @imageServiceUrl + "/query"
 				content:
 					f: "json"
 					outFields: "OBJECTID, Name"
-					returnGeometry: false
 				handlesAs: "json"
 				load: (response) =>
+					@rasters =
+						for feature in response.features
+							id: feature.attributes.OBJECTID
+							name: feature.attributes.Name
+							spatialReference: feature.geometry.spatialReference
 					@rastersGrid.refresh()
-					@rastersGrid.renderArray features = (id: feature.attributes.OBJECTID, name: feature.attributes.Name for feature in response.features)
-					callback? features
+					@rastersGrid.renderArray @rasters
+					callback?()
 				error: console.error
 				(usePost: true)
 		showAddRasterDialog: ->
@@ -116,16 +159,16 @@ define [
 						handleAs: "json"
 						load: (response2) =>
 							if id = response2.addResults[0].rasterId
-								@loadRastersList (features) =>
+								@loadRastersList =>
 									@addRasterDialog.hide()
 									@rastersGrid.clearSelection()
-									@rastersGrid.select features.length - 1 if features.length > 0
+									@rastersGrid.select @rasters.length - 1 if @rasters.length > 0
 						error: console.error
 						(usePost: true)
 				error: console.error
 				(usePost: true)
 		roughTransform: ->
-			return console.error "An image must be uploaded in step 1." unless @currentId?
+			return console.error "No raster selected" unless @currentId?
 			request
 				url: @imageServiceUrl + "/#{@currentId}/info"
 				content: f: "json"
@@ -185,64 +228,71 @@ define [
 				error: console.error
 				(usePost: true)
 		computeAndTransform: ->
-			return console.error "Please select a raster." unless @currentId?
+			@computeTiePoints ({tiePoints}) =>
+				request
+					url: @imageServiceUrl + "/update"
+					content:
+						f: "json"
+						rasterId: @currentId
+						geodataTransforms: JSON.stringify [
+							geodataTransform: "Polynomial"
+							geodataTransformArguments:
+								sourcePoints: x: point.x, y: point.y for point in tiePoints.sourcePoints
+								targetPoints: x: point.x, y: point.y for point in tiePoints.targetPoints
+								polynomialOrder: 1
+								spatialReference: tiePoints.sourcePoints[0].spatialReference
+						]
+					handleAs: "json"
+					load: =>
+						request
+							url: @imageServiceUrl + "/query"
+							content:
+								objectIds: @currentId
+								returnGeometry: true
+								outFields: ""
+								f: "json"
+							handleAs: "json"
+							load: (response2) =>
+								@map.setExtent new Polygon(response2.features[0].geometry).getExtent().expand 2
+							error: console.error
+					error: console.error
+					(usePost: true)
+		computeTiePoints: (callback) ->
+			return console.error "No raster selected" unless @currentId?
 			request
-				url: @imageServiceUrl + "/#{@currentId}/info"
-				content: f: "json"
+				url: @imageServiceUrl + "/computeTiePoints"
+				content:
+					f: "json"
+					rasterId: @currentId
+					geodataTransforms: JSON.stringify [
+						geodataTransform: "Identity"
+						geodataTransformArguments:
+							spatialReference: @rasters.filter((x) => x.id is @currentId)[0].spatialReference
+					]
 				handleAs: "json"
-				load: (response1) =>
-					src = response1.extent
-					request
-						url: @imageServiceUrl + "/computeTiePoints"
-						content:
-							f: "json"
-							rasterId: @currentId
-							geodataTransforms: JSON.stringify [
-								geodataTransform: "Identity"
-								geodataTransformArguments:
-									spatialReference: src.spatialReference
-							]
-						handleAs: "json"
-						load: (response2) =>
-							request
-								url: @imageServiceUrl + "/update"
-								content:
-									f: "json"
-									rasterId: @currentId
-									geodataTransforms: JSON.stringify [
-										geodataTransform: "Polynomial"
-										geodataTransformArguments:
-											sourcePoints: x: point.x, y: point.y for point in response2.tiePoints.sourcePoints
-											targetPoints: x: point.x, y: point.y for point in response2.tiePoints.targetPoints
-											polynomialOrder: 1
-											spatialReference: response2.tiePoints.sourcePoints[0].spatialReference
-									]
-								handleAs: "json"
-								load: =>
-									request
-										url: @imageServiceUrl + "/query"
-										content:
-											objectIds: @currentId
-											returnGeometry: true
-											outFields: ""
-											f: "json"
-										handleAs: "json"
-										load: (response3) =>
-											@map.setExtent new Polygon(response3.features[0].geometry).getExtent().expand 2
-										error: console.error
-								error: console.error
-								(usePost: true)
-						error: console.error
-						(usePost: true)
+				load: (response) ->
+					callback? response
 				error: console.error
 				(usePost: true)
 		toggleReferenceLayer: (state) ->
 			@referenceLayer.setOpacity if state then 1 else 0
 		startEditTiepoints: ->
-			domStyle.set @selectRasterContainer.domNode, "display", "none"
-			domStyle.set @transformContainer.domNode, "display", "none"
-			domStyle.set @editTiepointsContainer.domNode, "display", "block"
+			domStyle.set @editTiepointsContainer_loading, "display", "block"
+			for display, containers of {none: [@selectRasterContainer, @transformContainer], block: [@editTiepointsContainer]}
+				domStyle.set container.domNode, "display", display for container in containers
+			@computeTiePoints ({tiePoints}) =>
+				domStyle.set @editTiepointsContainer_loading, "display", "none"
+				@tiepoints =
+					for i in [0...tiePoints.sourcePoints.length]
+						sourcePoint:
+							x: tiePoints.sourcePoints[i].x
+							y: tiePoints.sourcePoints[i].y
+						targetPoint:
+							x: tiePoints.targetPoints[i].x
+							y: tiePoints.targetPoints[i].y
+				@tiepointsGrid.refresh()
+				@tiepointsGrid.renderArray @tiepoints
 		closeEditTiepoints: ->
-			domStyle.set @selectRasterContainer.domNode, "display", "block"
-			domStyle.set @transformContainer.domNode, "display", "block"
-			domStyle.set @editTiepointsContainer.domNode, "display", "none"
+			domStyle.set @editTiepointsContainer_loading, "display", "none"
+			for display, containers of {block: [@selectRasterContainer, @transformContainer], none: [@editTiepointsContainer]}
+				domStyle.set container.domNode, "display", display for container in containers

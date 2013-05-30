@@ -11,7 +11,7 @@ extend = function(obj, mixin) {
   return obj;
 };
 
-define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dijit/_WidgetsInTemplateMixin", "dojo/text!./GeorefWidget/templates/GeorefWidget.html", "dojo/_base/connect", "esri/layers/ArcGISImageServiceLayer", "esri/request", "esri/layers/MosaicRule", "esri/geometry/Polygon", "esri/tasks/GeometryService", "dojo/dom-style", "dojox/form/FileInput", "dijit/form/Button", "dijit/layout/AccordionContainer", "dijit/layout/ContentPane", "gotemb/GeorefWidget/Grid", "dijit/Dialog", "dijit/Toolbar", "dijit/ToolbarSeparator", "dijit/form/ToggleButton"], function(declare, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template, _arg, ArcGISImageServiceLayer, request, MosaicRule, Polygon, GeometryService, domStyle) {
+define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dijit/_WidgetsInTemplateMixin", "dojo/text!./GeorefWidget/templates/GeorefWidget.html", "dojo/_base/connect", "esri/layers/ArcGISImageServiceLayer", "esri/request", "esri/layers/MosaicRule", "esri/geometry/Polygon", "esri/tasks/GeometryService", "dojo/dom-style", "gotemb/GeorefWidget/PointGrid", "dojox/form/FileInput", "dijit/form/Button", "dijit/layout/AccordionContainer", "dijit/layout/ContentPane", "gotemb/GeorefWidget/RastersGrid", "gotemb/GeorefWidget/TiepointsGrid", "dijit/Dialog", "dijit/Toolbar", "dijit/ToolbarSeparator", "dijit/form/ToggleButton"], function(declare, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template, _arg, ArcGISImageServiceLayer, request, MosaicRule, Polygon, GeometryService, domStyle, PointGrid) {
   var connect;
 
   connect = _arg.connect;
@@ -29,11 +29,15 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
     geometryService: null,
     rastertype: null,
     currentId: null,
+    rasters: null,
     rastersGrid: null,
     addRasterDialog: null,
     selectRasterContainer: null,
     transformContainer: null,
     editTiepointsContainer: null,
+    editTiepointsContainer_loading: null,
+    tiepoints: null,
+    tiepointsGrid: null,
     postCreate: function() {
       var _this = this;
 
@@ -43,12 +47,19 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
         _this.map.addLayer(_this.referenceLayer = new ArcGISImageServiceLayer(_this.referenceLayerUrl));
         _this.imageServiceLayer.setOpacity(0);
         _this.map.addLayer(_this.imageServiceLayer);
-        _this.rastersGrid.set("columns", {
-          id: "Raster Id",
-          name: "Name"
-        });
+        _this.rastersGrid.set("columns", [
+          {
+            label: "Raster Id",
+            field: "id",
+            sortable: false
+          }, {
+            label: "Name",
+            field: "name",
+            sortable: false
+          }
+        ]);
         _this.rastersGrid.set("selectionMode", "single");
-        return _this.loadRastersList(function() {
+        _this.loadRastersList(function() {
           return _this.rastersGrid.on("dgrid-select", function(_arg1) {
             var rows;
 
@@ -77,6 +88,43 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
             });
           });
         });
+        return _this.tiepointsGrid.set("columns", [
+          {
+            label: "Source Point",
+            field: "sourcePoint",
+            sortable: false,
+            renderCell: function(object, value, domNode) {
+              return new PointGrid({
+                x: value.x,
+                y: value.y,
+                onPointChanged: function(_arg1) {
+                  var x, y;
+
+                  x = _arg1.x, y = _arg1.y;
+                  value.x = x;
+                  return value.y = y;
+                }
+              }).domNode;
+            }
+          }, {
+            label: "Target Point",
+            field: "targetPoint",
+            sortable: false,
+            renderCell: function(object, value, domNode) {
+              return new PointGrid({
+                x: value.x,
+                y: value.y,
+                onPointChanged: function(_arg1) {
+                  var x, y;
+
+                  x = _arg1.x, y = _arg1.y;
+                  value.x = x;
+                  return value.y = y;
+                }
+              }).domNode;
+            }
+          }
+        ]);
       });
     },
     loadRastersList: function(callback) {
@@ -86,15 +134,13 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
         url: this.imageServiceUrl + "/query",
         content: {
           f: "json",
-          outFields: "OBJECTID, Name",
-          returnGeometry: false
+          outFields: "OBJECTID, Name"
         },
         handlesAs: "json",
         load: function(response) {
-          var feature, features;
+          var feature;
 
-          _this.rastersGrid.refresh();
-          _this.rastersGrid.renderArray(features = (function() {
+          _this.rasters = (function() {
             var _i, _len, _ref, _results;
 
             _ref = response.features;
@@ -103,12 +149,15 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
               feature = _ref[_i];
               _results.push({
                 id: feature.attributes.OBJECTID,
-                name: feature.attributes.Name
+                name: feature.attributes.Name,
+                spatialReference: feature.geometry.spatialReference
               });
             }
             return _results;
-          })());
-          return typeof callback === "function" ? callback(features) : void 0;
+          })();
+          _this.rastersGrid.refresh();
+          _this.rastersGrid.renderArray(_this.rasters);
+          return typeof callback === "function" ? callback() : void 0;
         },
         error: console.error
       }, {
@@ -153,11 +202,11 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
               var id;
 
               if (id = response2.addResults[0].rasterId) {
-                return _this.loadRastersList(function(features) {
+                return _this.loadRastersList(function() {
                   _this.addRasterDialog.hide();
                   _this.rastersGrid.clearSelection();
-                  if (features.length > 0) {
-                    return _this.rastersGrid.select(features.length - 1);
+                  if (_this.rasters.length > 0) {
+                    return _this.rastersGrid.select(_this.rasters.length - 1);
                   }
                 });
               }
@@ -176,7 +225,7 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
       var _this = this;
 
       if (this.currentId == null) {
-        return console.error("An image must be uploaded in step 1.");
+        return console.error("No raster selected");
       }
       return request({
         url: this.imageServiceUrl + ("/" + this.currentId + "/info"),
@@ -277,106 +326,101 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
     computeAndTransform: function() {
       var _this = this;
 
+      return this.computeTiePoints(function(_arg1) {
+        var point, tiePoints;
+
+        tiePoints = _arg1.tiePoints;
+        return request({
+          url: _this.imageServiceUrl + "/update",
+          content: {
+            f: "json",
+            rasterId: _this.currentId,
+            geodataTransforms: JSON.stringify([
+              {
+                geodataTransform: "Polynomial",
+                geodataTransformArguments: {
+                  sourcePoints: (function() {
+                    var _i, _len, _ref, _results;
+
+                    _ref = tiePoints.sourcePoints;
+                    _results = [];
+                    for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+                      point = _ref[_i];
+                      _results.push({
+                        x: point.x,
+                        y: point.y
+                      });
+                    }
+                    return _results;
+                  })(),
+                  targetPoints: (function() {
+                    var _i, _len, _ref, _results;
+
+                    _ref = tiePoints.targetPoints;
+                    _results = [];
+                    for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+                      point = _ref[_i];
+                      _results.push({
+                        x: point.x,
+                        y: point.y
+                      });
+                    }
+                    return _results;
+                  })(),
+                  polynomialOrder: 1,
+                  spatialReference: tiePoints.sourcePoints[0].spatialReference
+                }
+              }
+            ])
+          },
+          handleAs: "json",
+          load: function() {
+            return request({
+              url: _this.imageServiceUrl + "/query",
+              content: {
+                objectIds: _this.currentId,
+                returnGeometry: true,
+                outFields: "",
+                f: "json"
+              },
+              handleAs: "json",
+              load: function(response2) {
+                return _this.map.setExtent(new Polygon(response2.features[0].geometry).getExtent().expand(2));
+              },
+              error: console.error
+            });
+          },
+          error: console.error
+        }, {
+          usePost: true
+        });
+      });
+    },
+    computeTiePoints: function(callback) {
+      var _this = this;
+
       if (this.currentId == null) {
-        return console.error("Please select a raster.");
+        return console.error("No raster selected");
       }
       return request({
-        url: this.imageServiceUrl + ("/" + this.currentId + "/info"),
+        url: this.imageServiceUrl + "/computeTiePoints",
         content: {
-          f: "json"
+          f: "json",
+          rasterId: this.currentId,
+          geodataTransforms: JSON.stringify([
+            {
+              geodataTransform: "Identity",
+              geodataTransformArguments: {
+                spatialReference: this.rasters.filter(function(x) {
+                  return x.id === _this.currentId;
+                })[0].spatialReference
+              }
+            }
+          ])
         },
         handleAs: "json",
-        load: function(response1) {
-          var src;
-
-          src = response1.extent;
-          return request({
-            url: _this.imageServiceUrl + "/computeTiePoints",
-            content: {
-              f: "json",
-              rasterId: _this.currentId,
-              geodataTransforms: JSON.stringify([
-                {
-                  geodataTransform: "Identity",
-                  geodataTransformArguments: {
-                    spatialReference: src.spatialReference
-                  }
-                }
-              ])
-            },
-            handleAs: "json",
-            load: function(response2) {
-              var point;
-
-              return request({
-                url: _this.imageServiceUrl + "/update",
-                content: {
-                  f: "json",
-                  rasterId: _this.currentId,
-                  geodataTransforms: JSON.stringify([
-                    {
-                      geodataTransform: "Polynomial",
-                      geodataTransformArguments: {
-                        sourcePoints: (function() {
-                          var _i, _len, _ref, _results;
-
-                          _ref = response2.tiePoints.sourcePoints;
-                          _results = [];
-                          for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-                            point = _ref[_i];
-                            _results.push({
-                              x: point.x,
-                              y: point.y
-                            });
-                          }
-                          return _results;
-                        })(),
-                        targetPoints: (function() {
-                          var _i, _len, _ref, _results;
-
-                          _ref = response2.tiePoints.targetPoints;
-                          _results = [];
-                          for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-                            point = _ref[_i];
-                            _results.push({
-                              x: point.x,
-                              y: point.y
-                            });
-                          }
-                          return _results;
-                        })(),
-                        polynomialOrder: 1,
-                        spatialReference: response2.tiePoints.sourcePoints[0].spatialReference
-                      }
-                    }
-                  ])
-                },
-                handleAs: "json",
-                load: function() {
-                  return request({
-                    url: _this.imageServiceUrl + "/query",
-                    content: {
-                      objectIds: _this.currentId,
-                      returnGeometry: true,
-                      outFields: "",
-                      f: "json"
-                    },
-                    handleAs: "json",
-                    load: function(response3) {
-                      return _this.map.setExtent(new Polygon(response3.features[0].geometry).getExtent().expand(2));
-                    },
-                    error: console.error
-                  });
-                },
-                error: console.error
-              }, {
-                usePost: true
-              });
-            },
-            error: console.error
-          }, {
-            usePost: true
-          });
+        load: function(response) {
+          return typeof callback === "function" ? callback(response) : void 0;
         },
         error: console.error
       }, {
@@ -387,14 +431,71 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
       return this.referenceLayer.setOpacity(state ? 1 : 0);
     },
     startEditTiepoints: function() {
-      domStyle.set(this.selectRasterContainer.domNode, "display", "none");
-      domStyle.set(this.transformContainer.domNode, "display", "none");
-      return domStyle.set(this.editTiepointsContainer.domNode, "display", "block");
+      var container, containers, display, _i, _len, _ref,
+        _this = this;
+
+      domStyle.set(this.editTiepointsContainer_loading, "display", "block");
+      _ref = {
+        none: [this.selectRasterContainer, this.transformContainer],
+        block: [this.editTiepointsContainer]
+      };
+      for (display in _ref) {
+        containers = _ref[display];
+        for (_i = 0, _len = containers.length; _i < _len; _i++) {
+          container = containers[_i];
+          domStyle.set(container.domNode, "display", display);
+        }
+      }
+      return this.computeTiePoints(function(_arg1) {
+        var i, tiePoints;
+
+        tiePoints = _arg1.tiePoints;
+        domStyle.set(_this.editTiepointsContainer_loading, "display", "none");
+        _this.tiepoints = (function() {
+          var _j, _ref1, _results;
+
+          _results = [];
+          for (i = _j = 0, _ref1 = tiePoints.sourcePoints.length; 0 <= _ref1 ? _j < _ref1 : _j > _ref1; i = 0 <= _ref1 ? ++_j : --_j) {
+            _results.push({
+              sourcePoint: {
+                x: tiePoints.sourcePoints[i].x,
+                y: tiePoints.sourcePoints[i].y
+              },
+              targetPoint: {
+                x: tiePoints.targetPoints[i].x,
+                y: tiePoints.targetPoints[i].y
+              }
+            });
+          }
+          return _results;
+        })();
+        _this.tiepointsGrid.refresh();
+        return _this.tiepointsGrid.renderArray(_this.tiepoints);
+      });
     },
     closeEditTiepoints: function() {
-      domStyle.set(this.selectRasterContainer.domNode, "display", "block");
-      domStyle.set(this.transformContainer.domNode, "display", "block");
-      return domStyle.set(this.editTiepointsContainer.domNode, "display", "none");
+      var container, containers, display, _ref, _results;
+
+      domStyle.set(this.editTiepointsContainer_loading, "display", "none");
+      _ref = {
+        block: [this.selectRasterContainer, this.transformContainer],
+        none: [this.editTiepointsContainer]
+      };
+      _results = [];
+      for (display in _ref) {
+        containers = _ref[display];
+        _results.push((function() {
+          var _i, _len, _results1;
+
+          _results1 = [];
+          for (_i = 0, _len = containers.length; _i < _len; _i++) {
+            container = containers[_i];
+            _results1.push(domStyle.set(container.domNode, "display", display));
+          }
+          return _results1;
+        })());
+      }
+      return _results;
     }
   });
 });
