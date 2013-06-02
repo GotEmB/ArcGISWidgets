@@ -20,6 +20,12 @@ define [
 	"dojo/store/Observable"
 	"dojo/store/Memory"
 	"gotemb/GeorefWidget/TiepointsGrid"
+	"esri/layers/GraphicsLayer"
+	"dojo/_base/Color"
+	"esri/symbols/SimpleMarkerSymbol"
+	"esri/symbols/SimpleLineSymbol"
+	"esri/graphic"
+	"esri/geometry/Point"
 	# ---
 	"dojox/form/FileInput"
 	"dijit/form/Button"
@@ -30,7 +36,7 @@ define [
 	"dijit/Toolbar"
 	"dijit/ToolbarSeparator"
 	"dijit/form/ToggleButton"
-], (declare, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template, {connect}, ArcGISImageServiceLayer, request, MosaicRule, Polygon, GeometryService, domStyle, PointGrid, Observable, Memory, TiepointsGrid) ->
+], (declare, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template, {connect}, ArcGISImageServiceLayer, request, MosaicRule, Polygon, GeometryService, domStyle, PointGrid, Observable, Memory, TiepointsGrid, GraphicsLayer, Color, SimpleMarkerSymbol, SimpleLineSymbol, Graphic, Point) ->
 	declare [_WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin],
 		templateString: template
 		baseClass: "ClassifyWidget"
@@ -49,12 +55,13 @@ define [
 		rastersGrid: null
 		addRasterDialog: null
 		selectRasterContainer: null
-		transformContainer: null
+		tasksContainer: null
 		editTiepointsContainer: null
 		editTiepointsContainer_loading: null
 		tiepoints: null
 		tiepointsGrid: null
 		toggleTiepointsSelectionButton: null
+		tiepointsLayer: null
 		postCreate: ->
 			@imageServiceLayer = new ArcGISImageServiceLayer @imageServiceUrl
 			@geometryService = new GeometryService @geometryServiceUrl
@@ -72,28 +79,29 @@ define [
 					sortable: false
 				]
 				@rastersGrid.set "selectionMode", "single"
-				@loadRastersList =>
-					@rastersGrid.on "dgrid-select", ({rows}) =>
-						return if @currentId is rows[0].data.rasterId
-						@currentId = rows[0].data.rasterId
-						@imageServiceLayer.setMosaicRule extend(
-							new MosaicRule
-							method: MosaicRule.METHOD_LOCKRASTER
-							lockRasterIds: [@currentId]
-						), true
-						request
-							url: @imageServiceUrl + "/query"
-							content:
-								objectIds: [@currentId]
-								returnGeometry: true
-								outFields: ""
-								f: "json"
-							handleAs: "json"
-							load: (response3) =>
-								@map.setExtent new Polygon(response3.features[0].geometry).getExtent().expand 2
-								@imageServiceLayer.setOpacity 1
-							error: console.error
-							(usePost: true)
+				@loadRastersList()
+				@rastersGrid.on "dgrid-select", ({rows}) =>
+					return if @currentId is rows[0].data.rasterId
+					@currentId = rows[0].data.rasterId
+					@imageServiceLayer.setMosaicRule extend(
+						new MosaicRule
+						method: MosaicRule.METHOD_LOCKRASTER
+						lockRasterIds: [@currentId]
+					), true
+					request
+						url: @imageServiceUrl + "/query"
+						content:
+							objectIds: [@currentId]
+							returnGeometry: true
+							outFields: ""
+							f: "json"
+						handleAs: "json"
+						load: (response3) =>
+							@map.setExtent new Polygon(response3.features[0].geometry).getExtent().expand 2
+							@imageServiceLayer.setOpacity 1
+							domStyle.set @tasksContainer.domNode, "display", "block"
+						error: console.error
+						(usePost: true)
 				@tiepoints = new Observable new Memory idProperty: "id"
 				@tiepointsGrid = new TiepointsGrid
 					columns: [
@@ -109,8 +117,10 @@ define [
 								x: value.x
 								y: value.y
 								onPointChanged: ({x, y}) =>
-									value.x = x
-									value.y = y
+									point = new Point object.sourceGraphic.geometry
+									point.x = value.x = x
+									point.y = value.y = y
+									object.sourceGraphic.setGeometry point
 							.domNode
 					,
 						label: "Target Point"
@@ -121,8 +131,10 @@ define [
 								x: value.x
 								y: value.y
 								onPointChanged: ({x, y}) =>
-									value.x = x
-									value.y = y
+									point = new Point object.targetGraphic.geometry
+									point.x = value.x = x
+									point.y = value.y = y
+									object.targetGraphic.setGeometry point
 							.domNode
 					]
 					store: @tiepoints
@@ -136,10 +148,18 @@ define [
 						@tiepointsGrid.select row
 				@tiepointsGrid.on "dgrid-select", ({rows}) =>
 					@toggleTiepointsSelectionButton.set "label", "Clear Selection"
+					for row in rows
+						row.data.sourceGraphic.show()
+						row.data.targetGraphic.show()
 				@tiepointsGrid.on "dgrid-deselect", ({rows}) =>
 					for rowId, bool of @tiepointsGrid.selection when bool
 						noneSelected = false
-					@toggleTiepointsSelectionButton.set "label", "Select All" unless noneSelected? and not noneSelected
+					@toggleTiepointsSelectionButton.set "label", "Select All" unless noneSelected? and not noneSelected	
+					for row in rows
+						row.data.sourceGraphic.hide()
+						row.data.targetGraphic.hide()
+				@tiepointsLayer = new GraphicsLayer
+				@map.addLayer @tiepointsLayer
 		loadRastersList: (callback) ->
 			request
 				url: @imageServiceUrl + "/query"
@@ -303,10 +323,32 @@ define [
 			@referenceLayer.setOpacity if state then 1 else 0
 		startEditTiepoints: ->
 			domStyle.set @editTiepointsContainer_loading, "display", "block"
-			for display, containers of {none: [@selectRasterContainer, @transformContainer], block: [@editTiepointsContainer]}
+			for display, containers of {none: [@selectRasterContainer, @tasksContainer], block: [@editTiepointsContainer]}
 				domStyle.set container.domNode, "display", display for container in containers
 			@computeTiePoints ({tiePoints}) =>
 				domStyle.set @editTiepointsContainer_loading, "display", "none"
+				sourceSymbol =
+					new SimpleMarkerSymbol(
+						SimpleMarkerSymbol.STYLE_X
+						10
+						new SimpleLineSymbol(
+							SimpleLineSymbol.STYLE_SOLID
+							new Color([20, 20, 180])
+							2
+						)
+						new Color [0, 0, 0]
+					)
+				targetSymbol =
+					new SimpleMarkerSymbol(
+						SimpleMarkerSymbol.STYLE_X
+						10
+						new SimpleLineSymbol(
+							SimpleLineSymbol.STYLE_SOLID
+							new Color([180, 20, 20])
+							2
+						)
+						new Color [0, 0, 0]
+					)
 				for i in [0...tiePoints.sourcePoints.length]
 					@tiepoints.put
 						id: i + 1
@@ -316,10 +358,16 @@ define [
 						targetPoint:
 							x: tiePoints.targetPoints[i].x
 							y: tiePoints.targetPoints[i].y
-					@tiepointsGrid.selectAll()
+						sourceGraphic: sourceGraphic = new Graphic new Point(tiePoints.sourcePoints[i]), sourceSymbol
+						targetGraphic: targetGraphic = new Graphic new Point(tiePoints.targetPoints[i]), targetSymbol
+					@tiepointsLayer.add sourceGraphic
+					@tiepointsLayer.add targetGraphic
+				@tiepointsGrid.selectAll()
 		closeEditTiepoints: ->
 			domStyle.set @editTiepointsContainer_loading, "display", "none"
-			for display, containers of {block: [@selectRasterContainer, @transformContainer], none: [@editTiepointsContainer]}
+			@tiepointsLayer.clear()
+			@tiepoints.remove tiepoint.id for tiepoint in @tiepoints.data.splice 0
+			for display, containers of {block: [@selectRasterContainer, @tasksContainer], none: [@editTiepointsContainer]}
 				domStyle.set container.domNode, "display", display for container in containers
 		toggleTiepointsSelection: ->
 			if @toggleTiepointsSelectionButton.label is "Clear Selection"
