@@ -1,6 +1,7 @@
 define [
 	"dojo/_base/declare"
-	"dgrid/Grid"
+	"dgrid/OnDemandGrid"
 	"dgrid/extensions/DijitRegistry"
-], (declare, Grid, DijitRegistry) ->
-	declare [Grid, DijitRegistry]
+	"dgrid/Selection"
+], (declare, Grid, DijitRegistry, Selection) ->
+	declare [Grid, DijitRegistry, Selection]

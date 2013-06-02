@@ -17,18 +17,20 @@ define [
 	"esri/tasks/GeometryService"
 	"dojo/dom-style"
 	"gotemb/GeorefWidget/PointGrid"
+	"dojo/store/Observable"
+	"dojo/store/Memory"
+	"gotemb/GeorefWidget/TiepointsGrid"
 	# ---
 	"dojox/form/FileInput"
 	"dijit/form/Button"
 	"dijit/layout/AccordionContainer"
 	"dijit/layout/ContentPane"
 	"gotemb/GeorefWidget/RastersGrid"
-	"gotemb/GeorefWidget/TiepointsGrid"
 	"dijit/Dialog"
 	"dijit/Toolbar"
 	"dijit/ToolbarSeparator"
 	"dijit/form/ToggleButton"
-], (declare, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template, {connect}, ArcGISImageServiceLayer, request, MosaicRule, Polygon, GeometryService, domStyle, PointGrid) ->
+], (declare, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template, {connect}, ArcGISImageServiceLayer, request, MosaicRule, Polygon, GeometryService, domStyle, PointGrid, Observable, Memory, TiepointsGrid) ->
 	declare [_WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin],
 		templateString: template
 		baseClass: "ClassifyWidget"
@@ -52,6 +54,7 @@ define [
 		editTiepointsContainer_loading: null
 		tiepoints: null
 		tiepointsGrid: null
+		toggleTiepointsSelectionButton: null
 		postCreate: ->
 			@imageServiceLayer = new ArcGISImageServiceLayer @imageServiceUrl
 			@geometryService = new GeometryService @geometryServiceUrl
@@ -61,7 +64,7 @@ define [
 				@map.addLayer @imageServiceLayer
 				@rastersGrid.set "columns", [
 					label: "Raster Id"
-					field: "id"
+					field: "rasterId"
 					sortable: false
 				,
 					label: "Name"
@@ -71,7 +74,8 @@ define [
 				@rastersGrid.set "selectionMode", "single"
 				@loadRastersList =>
 					@rastersGrid.on "dgrid-select", ({rows}) =>
-						@currentId = rows[0].data.id
+						return if @currentId is rows[0].data.rasterId
+						@currentId = rows[0].data.rasterId
 						@imageServiceLayer.setMosaicRule extend(
 							new MosaicRule
 							method: MosaicRule.METHOD_LOCKRASTER
@@ -90,31 +94,52 @@ define [
 								@imageServiceLayer.setOpacity 1
 							error: console.error
 							(usePost: true)
-				@tiepointsGrid.set "columns", [
-					label: "Source Point"
-					field: "sourcePoint"
-					sortable: false
-					renderCell: (object, value, domNode) =>
-						new PointGrid
-							x: value.x
-							y: value.y
-							onPointChanged: ({x, y}) =>
-								value.x = x
-								value.y = y
-						.domNode
-				,
-					label: "Target Point"
-					field: "targetPoint"
-					sortable: false
-					renderCell: (object, value, domNode) =>
-						new PointGrid
-							x: value.x
-							y: value.y
-							onPointChanged: ({x, y}) =>
-								value.x = x
-								value.y = y
-						.domNode
-				]
+				@tiepoints = new Observable new Memory idProperty: "id"
+				@tiepointsGrid = new TiepointsGrid
+					columns: [
+						label: " "
+						field: "id"
+						sortable: false
+					,
+						label: "Source Point"
+						field: "sourcePoint"
+						sortable: false
+						renderCell: (object, value, domNode) =>
+							new PointGrid
+								x: value.x
+								y: value.y
+								onPointChanged: ({x, y}) =>
+									value.x = x
+									value.y = y
+							.domNode
+					,
+						label: "Target Point"
+						field: "targetPoint"
+						sortable: false
+						renderCell: (object, value, domNode) =>
+							new PointGrid
+								x: value.x
+								y: value.y
+								onPointChanged: ({x, y}) =>
+									value.x = x
+									value.y = y
+							.domNode
+					]
+					store: @tiepoints
+					selectionMode: "none"
+					@tiepointsGrid
+				@tiepointsGrid.startup()
+				@tiepointsGrid.on ".field-id:click", (e) =>
+					if @tiepointsGrid.isSelected row = @tiepointsGrid.cell(e).row
+						@tiepointsGrid.deselect row
+					else
+						@tiepointsGrid.select row
+				@tiepointsGrid.on "dgrid-select", ({rows}) =>
+					@toggleTiepointsSelectionButton.set "label", "Clear Selection"
+				@tiepointsGrid.on "dgrid-deselect", ({rows}) =>
+					for rowId, bool of @tiepointsGrid.selection when bool
+						noneSelected = false
+					@toggleTiepointsSelectionButton.set "label", "Select All" unless noneSelected? and not noneSelected
 		loadRastersList: (callback) ->
 			request
 				url: @imageServiceUrl + "/query"
@@ -125,7 +150,7 @@ define [
 				load: (response) =>
 					@rasters =
 						for feature in response.features
-							id: feature.attributes.OBJECTID
+							rasterId: feature.attributes.OBJECTID
 							name: feature.attributes.Name
 							spatialReference: feature.geometry.spatialReference
 					@rastersGrid.refresh()
@@ -260,20 +285,20 @@ define [
 		computeTiePoints: (callback) ->
 			return console.error "No raster selected" unless @currentId?
 			request
-				url: @imageServiceUrl + "/computeTiePoints"
+				url: "dummyResponses/tiepoints1.json" #@imageServiceUrl + "/computeTiePoints"
 				content:
 					f: "json"
 					rasterId: @currentId
 					geodataTransforms: JSON.stringify [
 						geodataTransform: "Identity"
 						geodataTransformArguments:
-							spatialReference: @rasters.filter((x) => x.id is @currentId)[0].spatialReference
+							spatialReference: @rasters.filter((x) => x.rasterId is @currentId)[0].spatialReference
 					]
 				handleAs: "json"
 				load: (response) ->
 					callback? response
 				error: console.error
-				(usePost: true)
+				#(usePost: true)
 		toggleReferenceLayer: (state) ->
 			@referenceLayer.setOpacity if state then 1 else 0
 		startEditTiepoints: ->
@@ -282,17 +307,22 @@ define [
 				domStyle.set container.domNode, "display", display for container in containers
 			@computeTiePoints ({tiePoints}) =>
 				domStyle.set @editTiepointsContainer_loading, "display", "none"
-				@tiepoints =
-					for i in [0...tiePoints.sourcePoints.length]
+				for i in [0...tiePoints.sourcePoints.length]
+					@tiepoints.put
+						id: i + 1
 						sourcePoint:
 							x: tiePoints.sourcePoints[i].x
 							y: tiePoints.sourcePoints[i].y
 						targetPoint:
 							x: tiePoints.targetPoints[i].x
 							y: tiePoints.targetPoints[i].y
-				@tiepointsGrid.refresh()
-				@tiepointsGrid.renderArray @tiepoints
+					@tiepointsGrid.selectAll()
 		closeEditTiepoints: ->
 			domStyle.set @editTiepointsContainer_loading, "display", "none"
 			for display, containers of {block: [@selectRasterContainer, @transformContainer], none: [@editTiepointsContainer]}
 				domStyle.set container.domNode, "display", display for container in containers
+		toggleTiepointsSelection: ->
+			if @toggleTiepointsSelectionButton.label is "Clear Selection"
+				@tiepointsGrid.clearSelection()
+			else
+				@tiepointsGrid.selectAll()

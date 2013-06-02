@@ -47,19 +47,33 @@ html, body
 .dgrid-header
 	z-index 1
 
+th.dgrid-cell
+	text-align center
+
 .dgrid-content
 	margin-top 23px
 	height auto
 
+.field-rasterId
+	width 30%
+
 td.field-sourcePoint, td.field-targetPoint
 	padding 0
+
+.field-id
+	width 25px
+	padding 0
+	vertical-align middle
+	text-align center
 
 .PointGrid
 	border-collapse collapse
 	width 100%
 
 	td
-		padding 0
+		padding 0 3px
+		font-size 0.9em
+		background-color white
 
 		&:first-child
 			background-color #eee
@@ -72,4 +86,9 @@ td.field-sourcePoint, td.field-targetPoint
 			margin 0
 			width 100%
 			border none
-			padding 3px
+			padding 0
+			font-size 1em
+
+.dijitAccordionChildWrapper
+	.dijitDialogPaneActionBar
+		border-top none

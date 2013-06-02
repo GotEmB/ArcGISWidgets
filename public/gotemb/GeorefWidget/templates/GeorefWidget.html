@@ -51,8 +51,10 @@
 		<div data-dojo-type="dijit/layout/ContentPane" title="Edit Tiepoints" style="padding: 0">
 			<div data-dojo-type="dijit/Toolbar">
 				<div data-dojo-type="dijit/form/Button" data-dojo-attach-event="onClick: showAddRasterDialog">Add Point</div>
+				<span data-dojo-type="dijit/ToolbarSeparator"></span>
+				<div data-dojo-type="dijit/form/Button" data-dojo-attach-event="onClick: toggleTiepointsSelection" data-dojo-attach-point="toggleTiepointsSelectionButton">---</div>	
 			</div>
-			<div data-dojo-type="gotemb/GeorefWidget/TiepointsGrid" data-dojo-attach-point="tiepointsGrid" style="height: 300px"></div>
+			<div data-dojo-attach-point="tiepointsGrid" style="height: 300px"></div>
 			<div class="dijitDialogPaneActionBar" style="margin: 0">
 				<button data-dojo-type="dijit/form/Button" type="button" data-dojo-attach-event="onClick: closeEditTiepoints">Cancel</button>
 				<button data-dojo-type="dijit/form/Button" type="button" data-dojo-attach-event="onClick: closeEditTiepoints">Apply Transform</button>
