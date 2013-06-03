@@ -17,6 +17,9 @@ define [
 			@xInput.value = @x
 			@yInput.value = @y
 		valueChanged: ->
-			@x = @xInput.value
-			@y = @yInput.value
+			@x = Number @xInput.value
+			@y = Number @yInput.value
 			@onPointChanged? x: @x, y: @y
+		setPoint: ({x, y})->
+			@x = @xInput.value = x
+			@y = @yInput.value = y

@@ -22,13 +22,16 @@ define [
 	"gotemb/GeorefWidget/TiepointsGrid"
 	"esri/layers/GraphicsLayer"
 	"dojo/_base/Color"
-	"esri/symbols/SimpleMarkerSymbol"
-	"esri/symbols/SimpleLineSymbol"
+	"esri/symbols/PictureMarkerSymbol"
 	"esri/graphic"
 	"esri/geometry/Point"
+	"dojo/window"
+	"dojo/dom-class"
+	"dojo/query"
 	# ---
 	"dojox/form/FileInput"
 	"dijit/form/Button"
+	"dijit/form/DropDownButton"
 	"dijit/layout/AccordionContainer"
 	"dijit/layout/ContentPane"
 	"gotemb/GeorefWidget/RastersGrid"
@@ -38,7 +41,9 @@ define [
 	"dijit/form/ToggleButton"
 	"dijit/Menu"
 	"dijit/CheckedMenuItem"
-], (declare, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template, {connect}, ArcGISImageServiceLayer, request, MosaicRule, Polygon, GeometryService, domStyle, PointGrid, Observable, Memory, TiepointsGrid, GraphicsLayer, Color, SimpleMarkerSymbol, SimpleLineSymbol, Graphic, Point) ->
+	"dojo/NodeList-traverse"
+	"dojo/NodeList-dom"
+], (declare, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template, {connect}, ArcGISImageServiceLayer, request, MosaicRule, Polygon, GeometryService, domStyle, PointGrid, Observable, Memory, TiepointsGrid, GraphicsLayer, Color, PictureMarkerSymbol, Graphic, Point, win, domClass, query) ->
 	declare [_WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin],
 		templateString: template
 		baseClass: "ClassifyWidget"
@@ -118,29 +123,43 @@ define [
 						field: "sourcePoint"
 						sortable: false
 						renderCell: (object, value, domNode) =>
-							new PointGrid
-								x: value.x
-								y: value.y
+							pointGrid = new PointGrid
+								x: value.geometry.x
+								y: value.geometry.y
 								onPointChanged: ({x, y}) =>
-									point = new Point object.sourceGraphic.geometry
-									point.x = value.x = x
-									point.y = value.y = y
-									object.sourceGraphic.setGeometry point
-							.domNode
+									point = new Point value.geometry
+									point.x = x
+									point.y = y
+									value.setGeometry point
+							value.pointChanged = =>
+								pointGrid.setPoint x: value.geometry.x, y: value.geometry.y
+							value.gotoPointGrid = =>
+								win.scrollIntoView pointGrid.domNode
+								tdId = new query.NodeList(pointGrid.domNode).parent().parent().children().first()
+								tdId.removeClass "yellow"
+								setTimeout (=> tdId.addClass "yellow"), 0
+							pointGrid.domNode
 					,
 						label: "Target Point"
 						field: "targetPoint"
 						sortable: false
 						renderCell: (object, value, domNode) =>
-							new PointGrid
-								x: value.x
-								y: value.y
+							pointGrid = new PointGrid
+								x: value.geometry.x
+								y: value.geometry.y
 								onPointChanged: ({x, y}) =>
-									point = new Point object.targetGraphic.geometry
-									point.x = value.x = x
-									point.y = value.y = y
-									object.targetGraphic.setGeometry point
-							.domNode
+									point = new Point value.geometry
+									point.x = x
+									point.y = y
+									value.setGeometry point
+							value.pointChanged = =>
+								pointGrid.setPoint x: value.geometry.x, y: value.geometry.y
+							value.gotoPointGrid = =>
+								win.scrollIntoView pointGrid.domNode
+								tdId = new query.NodeList(pointGrid.domNode).parent().parent().children().first()
+								tdId.removeClass "yellow"
+								setTimeout (=> tdId.addClass "yellow"), 0
+							pointGrid.domNode
 					]
 					store: @tiepoints
 					selectionMode: "none"
@@ -154,26 +173,32 @@ define [
 				@tiepointsGrid.on "dgrid-select", ({rows}) =>
 					@toggleTiepointsSelectionButton.set "label", "Clear Selection"
 					for row in rows
-						row.data.sourceGraphic.show()
-						row.data.targetGraphic.show()
+						row.data.sourcePoint.show()
+						row.data.targetPoint.show()
 				@tiepointsGrid.on "dgrid-deselect", ({rows}) =>
 					for rowId, bool of @tiepointsGrid.selection when bool
 						noneSelected = false
 					@toggleTiepointsSelectionButton.set "label", "Select All" unless noneSelected? and not noneSelected	
 					for row in rows
-						row.data.sourceGraphic.hide()
-						row.data.targetGraphic.hide()
+						row.data.sourcePoint.hide()
+						row.data.targetPoint.hide()
 				@tiepointsLayer = new GraphicsLayer
 				@map.addLayer @tiepointsLayer
 				connect @tiepointsLayer, "onMouseDown", (e) =>
 					@map.disablePan()
 					@graphicBeingMoved = e.graphic
+					@graphicBeingMoved.gotoPointGrid()
+				connect @tiepointsLayer, "onClick onDblClick", (e) =>
+					delete @graphicBeingMoved
+					@map.enablePan()
 				connect @map, "onMouseDrag", (e) =>
 					return unless @graphicBeingMoved?
 					@graphicBeingMoved.setGeometry e.mapPoint
+					@graphicBeingMoved.pointChanged()
 				connect @map, "onMouseDragEnd", (e) =>
 					return unless @graphicBeingMoved?
 					@graphicBeingMoved.setGeometry e.mapPoint
+					@graphicBeingMoved.pointChanged()
 					delete @graphicBeingMoved
 					@map.enablePan()
 		loadRastersList: (callback) ->
@@ -321,7 +346,7 @@ define [
 		computeTiePoints: (callback) ->
 			return console.error "No raster selected" unless @currentId?
 			request
-				url: "dummyResponses/tiepoints1.json" #@imageServiceUrl + "/computeTiePoints"
+				url: @imageServiceUrl + "/computeTiePoints" #"dummyResponses/tiepoints1.json" 
 				content:
 					f: "json"
 					rasterId: @currentId
@@ -334,7 +359,7 @@ define [
 				load: (response) ->
 					callback? response
 				error: console.error
-				#(usePost: true)
+				(usePost: true)
 		toggleReferenceLayer: (state) ->
 			@referenceLayer.setOpacity if state then 1 else 0
 			@rasters_toggleReferenceLayersButton.set "checked", state
@@ -347,41 +372,29 @@ define [
 				domStyle.set container.domNode, "display", display for container in containers
 			@computeTiePoints ({tiePoints}) =>
 				domStyle.set @editTiepointsContainer_loading, "display", "none"
-				sourceSymbol =
-					new SimpleMarkerSymbol(
-						SimpleMarkerSymbol.STYLE_X
-						10
-						new SimpleLineSymbol(
-							SimpleLineSymbol.STYLE_SOLID
-							new Color([20, 20, 180])
-							2
-						)
-						new Color [0, 0, 0]
-					)
-				targetSymbol =
-					new SimpleMarkerSymbol(
-						SimpleMarkerSymbol.STYLE_X
-						10
-						new SimpleLineSymbol(
-							SimpleLineSymbol.STYLE_SOLID
-							new Color([180, 20, 20])
-							2
-						)
-						new Color [0, 0, 0]
-					)
+				sourceSymbol = new PictureMarkerSymbol
+					xoffset: 2
+					yoffset: 8
+					type: "esriPMS"
+					url: "http://static.arcgis.com/images/Symbols/Basic/BlueShinyPin.png"
+					contentType: "image/png"
+					width: 24
+					height: 24
+				targetSymbol = new PictureMarkerSymbol
+					xoffset: 2
+					yoffset: 8
+					type: "esriPMS"
+					url: "http://static.arcgis.com/images/Symbols/Basic/RedShinyPin.png"
+					contentType: "image/png"
+					width: 24
+					height: 24
 				for i in [0...tiePoints.sourcePoints.length]
 					@tiepoints.put
 						id: i + 1
-						sourcePoint:
-							x: tiePoints.sourcePoints[i].x
-							y: tiePoints.sourcePoints[i].y
-						targetPoint:
-							x: tiePoints.targetPoints[i].x
-							y: tiePoints.targetPoints[i].y
-						sourceGraphic: sourceGraphic = new Graphic new Point(tiePoints.sourcePoints[i]), sourceSymbol
-						targetGraphic: targetGraphic = new Graphic new Point(tiePoints.targetPoints[i]), targetSymbol
-					@tiepointsLayer.add sourceGraphic
-					@tiepointsLayer.add targetGraphic
+						sourcePoint: sourcePoint = new Graphic new Point(tiePoints.sourcePoints[i]), sourceSymbol
+						targetPoint: targetPoint = new Graphic new Point(tiePoints.targetPoints[i]), targetSymbol
+					@tiepointsLayer.add sourcePoint
+					@tiepointsLayer.add targetPoint
 				@tiepointsGrid.selectAll()
 		closeEditTiepoints: ->
 			domStyle.set @editTiepointsContainer_loading, "display", "none"

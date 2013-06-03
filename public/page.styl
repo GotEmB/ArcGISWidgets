@@ -1,5 +1,11 @@
 @import nib
 
+@keyframes yellowAnimate
+	from
+		background-color yellow
+	to
+		background-color transparent
+
 html, body
 	margin 0
 	padding 0
@@ -68,6 +74,19 @@ td.field-sourcePoint, td.field-targetPoint
 
 	td&
 		cursor pointer
+
+	&.yellow
+		background-color yellow
+		transition background-color 0ms linear
+
+		animation-name yellowAnimate
+		animation-duration 1s
+		animation-timing-function ease
+		animation-iteration-count 1	
+		animation-direction normal
+		animation-delay 0
+		animation-play-state running
+		animation-fill-mode forwards
 
 .PointGrid
 	border-collapse collapse

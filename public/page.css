@@ -69,6 +69,54 @@ td.field-targetPoint {
 td.field-id {
   cursor: pointer;
 }
+.field-id.yellow {
+  background-color: #ff0;
+  -webkit-transition: background-color 0ms linear;
+  -moz-transition: background-color 0ms linear;
+  -o-transition: background-color 0ms linear;
+  -ms-transition: background-color 0ms linear;
+  transition: background-color 0ms linear;
+  -webkit-animation-name: yellowAnimate;
+  -moz-animation-name: yellowAnimate;
+  -o-animation-name: yellowAnimate;
+  -ms-animation-name: yellowAnimate;
+  animation-name: yellowAnimate;
+  -webkit-animation-duration: 1s;
+  -moz-animation-duration: 1s;
+  -o-animation-duration: 1s;
+  -ms-animation-duration: 1s;
+  animation-duration: 1s;
+  -webkit-animation-timing-function: ease;
+  -moz-animation-timing-function: ease;
+  -o-animation-timing-function: ease;
+  -ms-animation-timing-function: ease;
+  animation-timing-function: ease;
+  -webkit-animation-iteration-count: 1;
+  -moz-animation-iteration-count: 1;
+  -o-animation-iteration-count: 1;
+  -ms-animation-iteration-count: 1;
+  animation-iteration-count: 1;
+  -webkit-animation-direction: normal;
+  -moz-animation-direction: normal;
+  -o-animation-direction: normal;
+  -ms-animation-direction: normal;
+  animation-direction: normal;
+  -webkit-animation-delay: 0;
+  -moz-animation-delay: 0;
+  -o-animation-delay: 0;
+  -ms-animation-delay: 0;
+  animation-delay: 0;
+  -webkit-animation-play-state: running;
+  -moz-animation-play-state: running;
+  -o-animation-play-state: running;
+  -ms-animation-play-state: running;
+  animation-play-state: running;
+  -webkit-animation-fill-mode: forwards;
+  -moz-animation-fill-mode: forwards;
+  -o-animation-fill-mode: forwards;
+  -ms-animation-fill-mode: forwards;
+  animation-fill-mode: forwards;
+}
 .PointGrid {
   border-collapse: collapse;
   width: 100%;
@@ -97,4 +145,49 @@ td.field-id {
 }
 tr.dijitMenuItem td.dijitMenuItemIconCell {
   padding: 5px 3px 3px 5px;
+}
+@-moz-keyframes yellowAnimate {
+  0% {
+    background-color: #ff0;
+  }
+
+  100% {
+    background-color: transparent;
+  }
+}
+@-webkit-keyframes yellowAnimate {
+  0% {
+    background-color: #ff0;
+  }
+
+  100% {
+    background-color: transparent;
+  }
+}
+@-o-keyframes yellowAnimate {
+  0% {
+    background-color: #ff0;
+  }
+
+  100% {
+    background-color: transparent;
+  }
+}
+@-ms-keyframes yellowAnimate {
+  0% {
+    background-color: #ff0;
+  }
+
+  100% {
+    background-color: transparent;
+  }
+}
+@keyframes yellowAnimate {
+  0% {
+    background-color: #ff0;
+  }
+
+  100% {
+    background-color: transparent;
+  }
 }

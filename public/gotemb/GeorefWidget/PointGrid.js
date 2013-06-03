@@ -13,12 +13,19 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
       return this.yInput.value = this.y;
     },
     valueChanged: function() {
-      this.x = this.xInput.value;
-      this.y = this.yInput.value;
+      this.x = Number(this.xInput.value);
+      this.y = Number(this.yInput.value);
       return typeof this.onPointChanged === "function" ? this.onPointChanged({
         x: this.x,
         y: this.y
       }) : void 0;
+    },
+    setPoint: function(_arg) {
+      var x, y;
+
+      x = _arg.x, y = _arg.y;
+      this.x = this.xInput.value = x;
+      return this.y = this.yInput.value = y;
     }
   });
 });
