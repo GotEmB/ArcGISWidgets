@@ -36,6 +36,8 @@ define [
 	"dijit/Toolbar"
 	"dijit/ToolbarSeparator"
 	"dijit/form/ToggleButton"
+	"dijit/Menu"
+	"dijit/CheckedMenuItem"
 ], (declare, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template, {connect}, ArcGISImageServiceLayer, request, MosaicRule, Polygon, GeometryService, domStyle, PointGrid, Observable, Memory, TiepointsGrid, GraphicsLayer, Color, SimpleMarkerSymbol, SimpleLineSymbol, Graphic, Point) ->
 	declare [_WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin],
 		templateString: template
@@ -62,6 +64,9 @@ define [
 		tiepointsGrid: null
 		toggleTiepointsSelectionButton: null
 		tiepointsLayer: null
+		rasters_toggleReferenceLayersButton: null
+		editTiepoints_toggleReferenceLayerButton: null
+		editTiepoints_toggleRasterLayerButton: null
 		postCreate: ->
 			@imageServiceLayer = new ArcGISImageServiceLayer @imageServiceUrl
 			@geometryService = new GeometryService @geometryServiceUrl
@@ -160,6 +165,17 @@ define [
 						row.data.targetGraphic.hide()
 				@tiepointsLayer = new GraphicsLayer
 				@map.addLayer @tiepointsLayer
+				connect @tiepointsLayer, "onMouseDown", (e) =>
+					@map.disablePan()
+					@graphicBeingMoved = e.graphic
+				connect @map, "onMouseDrag", (e) =>
+					return unless @graphicBeingMoved?
+					@graphicBeingMoved.setGeometry e.mapPoint
+				connect @map, "onMouseDragEnd", (e) =>
+					return unless @graphicBeingMoved?
+					@graphicBeingMoved.setGeometry e.mapPoint
+					delete @graphicBeingMoved
+					@map.enablePan()
 		loadRastersList: (callback) ->
 			request
 				url: @imageServiceUrl + "/query"
@@ -321,6 +337,10 @@ define [
 				#(usePost: true)
 		toggleReferenceLayer: (state) ->
 			@referenceLayer.setOpacity if state then 1 else 0
+			@rasters_toggleReferenceLayersButton.set "checked", state
+			@editTiepoints_toggleReferenceLayerButton.set "checked", state
+		toggleRasterLayer: (state) ->
+			@imageServiceLayer.setOpacity if state then 1 else 0
 		startEditTiepoints: ->
 			domStyle.set @editTiepointsContainer_loading, "display", "block"
 			for display, containers of {none: [@selectRasterContainer, @tasksContainer], block: [@editTiepointsContainer]}

@@ -11,7 +11,7 @@ extend = function(obj, mixin) {
   return obj;
 };
 
-define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dijit/_WidgetsInTemplateMixin", "dojo/text!./GeorefWidget/templates/GeorefWidget.html", "dojo/_base/connect", "esri/layers/ArcGISImageServiceLayer", "esri/request", "esri/layers/MosaicRule", "esri/geometry/Polygon", "esri/tasks/GeometryService", "dojo/dom-style", "gotemb/GeorefWidget/PointGrid", "dojo/store/Observable", "dojo/store/Memory", "gotemb/GeorefWidget/TiepointsGrid", "esri/layers/GraphicsLayer", "dojo/_base/Color", "esri/symbols/SimpleMarkerSymbol", "esri/symbols/SimpleLineSymbol", "esri/graphic", "esri/geometry/Point", "dojox/form/FileInput", "dijit/form/Button", "dijit/layout/AccordionContainer", "dijit/layout/ContentPane", "gotemb/GeorefWidget/RastersGrid", "dijit/Dialog", "dijit/Toolbar", "dijit/ToolbarSeparator", "dijit/form/ToggleButton"], function(declare, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template, _arg, ArcGISImageServiceLayer, request, MosaicRule, Polygon, GeometryService, domStyle, PointGrid, Observable, Memory, TiepointsGrid, GraphicsLayer, Color, SimpleMarkerSymbol, SimpleLineSymbol, Graphic, Point) {
+define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dijit/_WidgetsInTemplateMixin", "dojo/text!./GeorefWidget/templates/GeorefWidget.html", "dojo/_base/connect", "esri/layers/ArcGISImageServiceLayer", "esri/request", "esri/layers/MosaicRule", "esri/geometry/Polygon", "esri/tasks/GeometryService", "dojo/dom-style", "gotemb/GeorefWidget/PointGrid", "dojo/store/Observable", "dojo/store/Memory", "gotemb/GeorefWidget/TiepointsGrid", "esri/layers/GraphicsLayer", "dojo/_base/Color", "esri/symbols/SimpleMarkerSymbol", "esri/symbols/SimpleLineSymbol", "esri/graphic", "esri/geometry/Point", "dojox/form/FileInput", "dijit/form/Button", "dijit/layout/AccordionContainer", "dijit/layout/ContentPane", "gotemb/GeorefWidget/RastersGrid", "dijit/Dialog", "dijit/Toolbar", "dijit/ToolbarSeparator", "dijit/form/ToggleButton", "dijit/Menu", "dijit/CheckedMenuItem"], function(declare, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template, _arg, ArcGISImageServiceLayer, request, MosaicRule, Polygon, GeometryService, domStyle, PointGrid, Observable, Memory, TiepointsGrid, GraphicsLayer, Color, SimpleMarkerSymbol, SimpleLineSymbol, Graphic, Point) {
   var connect;
 
   connect = _arg.connect;
@@ -40,6 +40,9 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
     tiepointsGrid: null,
     toggleTiepointsSelectionButton: null,
     tiepointsLayer: null,
+    rasters_toggleReferenceLayersButton: null,
+    editTiepoints_toggleReferenceLayerButton: null,
+    editTiepoints_toggleRasterLayerButton: null,
     postCreate: function() {
       var _this = this;
 
@@ -191,7 +194,25 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
           return _results;
         });
         _this.tiepointsLayer = new GraphicsLayer;
-        return _this.map.addLayer(_this.tiepointsLayer);
+        _this.map.addLayer(_this.tiepointsLayer);
+        connect(_this.tiepointsLayer, "onMouseDown", function(e) {
+          _this.map.disablePan();
+          return _this.graphicBeingMoved = e.graphic;
+        });
+        connect(_this.map, "onMouseDrag", function(e) {
+          if (_this.graphicBeingMoved == null) {
+            return;
+          }
+          return _this.graphicBeingMoved.setGeometry(e.mapPoint);
+        });
+        return connect(_this.map, "onMouseDragEnd", function(e) {
+          if (_this.graphicBeingMoved == null) {
+            return;
+          }
+          _this.graphicBeingMoved.setGeometry(e.mapPoint);
+          delete _this.graphicBeingMoved;
+          return _this.map.enablePan();
+        });
       });
     },
     loadRastersList: function(callback) {
@@ -493,7 +514,12 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
       });
     },
     toggleReferenceLayer: function(state) {
-      return this.referenceLayer.setOpacity(state ? 1 : 0);
+      this.referenceLayer.setOpacity(state ? 1 : 0);
+      this.rasters_toggleReferenceLayersButton.set("checked", state);
+      return this.editTiepoints_toggleReferenceLayerButton.set("checked", state);
+    },
+    toggleRasterLayer: function(state) {
+      return this.imageServiceLayer.setOpacity(state ? 1 : 0);
     },
     startEditTiepoints: function() {
       var container, containers, display, _i, _len, _ref,

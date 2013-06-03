@@ -21,7 +21,7 @@
 			<div data-dojo-type="dijit/Toolbar">
 				<div data-dojo-type="dijit/form/Button" data-dojo-attach-event="onClick: showAddRasterDialog">Add Raster</div>
 				<span data-dojo-type="dijit/ToolbarSeparator"></span>
-				<div data-dojo-type="dijit/form/ToggleButton" data-dojo-attach-event="onChange: toggleReferenceLayer" data-dojo-props="checked: true">Toggle Reference Layer</div>
+				<div data-dojo-type="dijit/form/ToggleButton" data-dojo-attach-point="rasters_toggleReferenceLayersButton" data-dojo-attach-event="onChange: toggleReferenceLayer" data-dojo-props="checked: true">Toggle Reference Layer</div>
 			</div>
 			<div data-dojo-type="gotemb/GeorefWidget/RastersGrid" data-dojo-attach-point="rastersGrid" style="height: 150px"></div>
 		</div>
@@ -51,8 +51,14 @@
 		<div data-dojo-type="dijit/layout/ContentPane" title="Edit Tiepoints" style="padding: 0">
 			<div data-dojo-type="dijit/Toolbar">
 				<div data-dojo-type="dijit/form/Button" data-dojo-attach-event="onClick: showAddRasterDialog">Add Point</div>
-				<span data-dojo-type="dijit/ToolbarSeparator"></span>
-				<div data-dojo-type="dijit/form/Button" data-dojo-attach-event="onClick: toggleTiepointsSelection" data-dojo-attach-point="toggleTiepointsSelectionButton">Select All</div>	
+				<div data-dojo-type="dijit/form/Button" data-dojo-attach-event="onClick: toggleTiepointsSelection" data-dojo-attach-point="toggleTiepointsSelectionButton">Select All</div>
+				<div data-dojo-type="dijit/form/DropDownButton" style="float: right; padding-right: 0.3em">
+					<span>Layers</span>
+					<div data-dojo-type="dijit/Menu">
+						<div data-dojo-type="dijit/CheckedMenuItem" data-dojo-attach-point="editTiepoints_toggleReferenceLayerButton" data-dojo-attach-event="onChange: toggleReferenceLayer" data-dojo-props="checked: true">Reference Layer</div>
+						<div data-dojo-type="dijit/CheckedMenuItem" data-dojo-attach-point="editTiepoints_toggleRasterLayerButton"  data-dojo-attach-event="onChange: toggleRasterLayer" data-dojo-props="checked: true">Raster Layer</div>
+					</div>
+				</div>
 			</div>
 			<div data-dojo-attach-point="tiepointsGrid" style="height: 300px"></div>
 			<div class="dijitDialogPaneActionBar" style="margin: 0">

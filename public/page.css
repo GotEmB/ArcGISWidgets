@@ -95,3 +95,6 @@ td.field-id {
 .dijitAccordionChildWrapper .dijitDialogPaneActionBar {
   border-top: none;
 }
+tr.dijitMenuItem td.dijitMenuItemIconCell {
+  padding: 5px 3px 3px 5px;
+}
