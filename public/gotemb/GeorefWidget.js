@@ -11,7 +11,7 @@ extend = function(obj, mixin) {
   return obj;
 };
 
-define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dijit/_WidgetsInTemplateMixin", "dojo/text!./GeorefWidget/templates/GeorefWidget.html", "dojo/_base/connect", "esri/layers/ArcGISImageServiceLayer", "esri/request", "esri/layers/MosaicRule", "esri/geometry/Polygon", "esri/tasks/GeometryService", "dojo/dom-style", "gotemb/GeorefWidget/PointGrid", "dojo/store/Observable", "dojo/store/Memory", "gotemb/GeorefWidget/TiepointsGrid", "esri/layers/GraphicsLayer", "dojo/_base/Color", "esri/symbols/PictureMarkerSymbol", "esri/graphic", "esri/geometry/Point", "dojo/window", "dojo/dom-class", "dojo/query", "dojox/form/FileInput", "dijit/form/Button", "dijit/form/DropDownButton", "dijit/layout/AccordionContainer", "dijit/layout/ContentPane", "gotemb/GeorefWidget/RastersGrid", "dijit/Dialog", "dijit/Toolbar", "dijit/ToolbarSeparator", "dijit/form/ToggleButton", "dijit/Menu", "dijit/CheckedMenuItem", "dojo/NodeList-traverse", "dojo/NodeList-dom"], function(declare, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template, _arg, ArcGISImageServiceLayer, request, MosaicRule, Polygon, GeometryService, domStyle, PointGrid, Observable, Memory, TiepointsGrid, GraphicsLayer, Color, PictureMarkerSymbol, Graphic, Point, win, domClass, query) {
+define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dijit/_WidgetsInTemplateMixin", "dojo/text!./GeorefWidget/templates/GeorefWidget.html", "dojo/_base/connect", "esri/layers/ArcGISImageServiceLayer", "esri/request", "esri/layers/MosaicRule", "esri/geometry/Polygon", "esri/tasks/GeometryService", "dojo/dom-style", "gotemb/GeorefWidget/PointGrid", "dojo/store/Observable", "dojo/store/Memory", "gotemb/GeorefWidget/TiepointsGrid", "esri/layers/GraphicsLayer", "dojo/_base/Color", "esri/symbols/SimpleMarkerSymbol", "esri/symbols/SimpleLineSymbol", "esri/graphic", "esri/geometry/Point", "dojo/window", "dojo/dom-class", "dojo/query", "dojox/form/FileInput", "dijit/form/Button", "dijit/form/DropDownButton", "dijit/layout/AccordionContainer", "dijit/layout/ContentPane", "gotemb/GeorefWidget/RastersGrid", "dijit/Dialog", "dijit/Toolbar", "dijit/ToolbarSeparator", "dijit/form/ToggleButton", "dijit/Menu", "dijit/MenuItem", "dijit/CheckedMenuItem", "dojo/NodeList-traverse", "dojo/NodeList-dom"], function(declare, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template, _arg, ArcGISImageServiceLayer, request, MosaicRule, Polygon, GeometryService, domStyle, PointGrid, Observable, Memory, TiepointsGrid, GraphicsLayer, Color, SimpleMarkerSymbol, SimpleLineSymbol, Graphic, Point, win, domClass, query) {
   var connect;
 
   connect = _arg.connect;
@@ -43,6 +43,8 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
     rasters_toggleReferenceLayersButton: null,
     editTiepoints_toggleReferenceLayerButton: null,
     editTiepoints_toggleRasterLayerButton: null,
+    tiepointsContextMenu: null,
+    resetTiepointMenuItem: null,
     postCreate: function() {
       var _this = this;
 
@@ -536,7 +538,7 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
         return console.error("No raster selected");
       }
       return request({
-        url: this.imageServiceUrl + "/computeTiePoints",
+        url: "dummyResponses/tiepoints1.json",
         content: {
           f: "json",
           rasterId: this.currentId,
@@ -556,8 +558,6 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
           return typeof callback === "function" ? callback(response) : void 0;
         },
         error: console.error
-      }, {
-        usePost: true
       });
     },
     toggleReferenceLayer: function(state) {
@@ -589,29 +589,17 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
 
         tiePoints = _arg1.tiePoints;
         domStyle.set(_this.editTiepointsContainer_loading, "display", "none");
-        sourceSymbol = new PictureMarkerSymbol({
-          xoffset: 2,
-          yoffset: 8,
-          type: "esriPMS",
-          url: "http://static.arcgis.com/images/Symbols/Basic/BlueShinyPin.png",
-          contentType: "image/png",
-          width: 24,
-          height: 24
-        });
-        targetSymbol = new PictureMarkerSymbol({
-          xoffset: 2,
-          yoffset: 8,
-          type: "esriPMS",
-          url: "http://static.arcgis.com/images/Symbols/Basic/RedShinyPin.png",
-          contentType: "image/png",
-          width: 24,
-          height: 24
-        });
+        sourceSymbol = new SimpleMarkerSymbol(SimpleMarkerSymbol.STYLE_X, 10, new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new Color([20, 20, 180]), 2), new Color([0, 0, 0]));
+        targetSymbol = new SimpleMarkerSymbol(SimpleMarkerSymbol.STYLE_X, 10, new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new Color([180, 20, 20]), 2), new Color([0, 0, 0]));
         for (i = _j = 0, _ref1 = tiePoints.sourcePoints.length; 0 <= _ref1 ? _j < _ref1 : _j > _ref1; i = 0 <= _ref1 ? ++_j : --_j) {
           _this.tiepoints.put({
             id: i + 1,
             sourcePoint: sourcePoint = new Graphic(new Point(tiePoints.sourcePoints[i]), sourceSymbol),
-            targetPoint: targetPoint = new Graphic(new Point(tiePoints.targetPoints[i]), targetSymbol)
+            targetPoint: targetPoint = new Graphic(new Point(tiePoints.targetPoints[i]), targetSymbol),
+            original: {
+              sourcePoint: new Point(tiePoints.sourcePoints[i]),
+              targetPoint: new Point(tiePoints.targetPoints[i])
+            }
           });
           _this.tiepointsLayer.add(sourcePoint);
           _this.tiepointsLayer.add(targetPoint);
@@ -655,6 +643,34 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
       } else {
         return this.tiepointsGrid.selectAll();
       }
+    },
+    tiepointsContextMenuOpen: function() {
+      return domStyle.set(this.resetTiepointMenuItem.domNode, "display", this.tiepointsGrid.cell(this.tiepointsContextMenu.currentTarget).row.data.original != null ? "table-row" : "none");
+    },
+    removeTiepoint: function() {
+      var graphic, tiepoint, _i, _len, _ref, _results;
+
+      this.tiepoints.remove((tiepoint = this.tiepointsGrid.cell(this.tiepointsContextMenu.currentTarget).row.data).id);
+      _ref = [tiepoint.sourcePoint, tiepoint.targetPoint];
+      _results = [];
+      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+        graphic = _ref[_i];
+        _results.push(this.tiepointsLayer.remove(graphic));
+      }
+      return _results;
+    },
+    resetTiepoint: function() {
+      var key, tiepoint, _i, _len, _ref, _results;
+
+      tiepoint = this.tiepointsGrid.cell(this.tiepointsContextMenu.currentTarget).row.data;
+      _ref = ["sourcePoint", "targetPoint"];
+      _results = [];
+      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+        key = _ref[_i];
+        tiepoint[key].setGeometry(tiepoint.original[key]);
+        _results.push(tiepoint[key].pointChanged());
+      }
+      return _results;
     }
   });
 });

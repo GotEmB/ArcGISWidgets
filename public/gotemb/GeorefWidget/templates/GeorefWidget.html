@@ -1,4 +1,8 @@
 <div style="width: 400px; height: 100%">
+	<div data-dojo-type="dijit/Menu" data-dojo-props="contextMenuForWindow: true, selector: 'td.field-id'" data-dojo-attach-point="tiepointsContextMenu" style="display: none" data-dojo-attach-event="onOpen: tiepointsContextMenuOpen">
+		<div data-dojo-type="dijit/MenuItem" data-dojo-attach-point="resetTiepointMenuItem" data-dojo-attach-event="onClick: resetTiepoint">Reset Tiepoint</div>
+		<div data-dojo-type="dijit/MenuItem" data-dojo-attach-event="onClick: removeTiepoint">Remove Tiepoint</div>
+	</div>
 	<div data-dojo-type="dijit/Dialog" data-dojo-attach-point="addRasterDialog" title="Add Raster">
 		<table class="dijitDialogPaneContentArea">
 			<tr>

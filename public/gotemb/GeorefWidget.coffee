@@ -22,7 +22,8 @@ define [
 	"gotemb/GeorefWidget/TiepointsGrid"
 	"esri/layers/GraphicsLayer"
 	"dojo/_base/Color"
-	"esri/symbols/PictureMarkerSymbol"
+	"esri/symbols/SimpleMarkerSymbol"
+	"esri/symbols/SimpleLineSymbol"
 	"esri/graphic"
 	"esri/geometry/Point"
 	"dojo/window"
@@ -40,10 +41,11 @@ define [
 	"dijit/ToolbarSeparator"
 	"dijit/form/ToggleButton"
 	"dijit/Menu"
+	"dijit/MenuItem"
 	"dijit/CheckedMenuItem"
 	"dojo/NodeList-traverse"
 	"dojo/NodeList-dom"
-], (declare, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template, {connect}, ArcGISImageServiceLayer, request, MosaicRule, Polygon, GeometryService, domStyle, PointGrid, Observable, Memory, TiepointsGrid, GraphicsLayer, Color, PictureMarkerSymbol, Graphic, Point, win, domClass, query) ->
+], (declare, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template, {connect}, ArcGISImageServiceLayer, request, MosaicRule, Polygon, GeometryService, domStyle, PointGrid, Observable, Memory, TiepointsGrid, GraphicsLayer, Color, SimpleMarkerSymbol, SimpleLineSymbol, Graphic, Point, win, domClass, query) ->
 	declare [_WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin],
 		templateString: template
 		baseClass: "ClassifyWidget"
@@ -72,6 +74,8 @@ define [
 		rasters_toggleReferenceLayersButton: null
 		editTiepoints_toggleReferenceLayerButton: null
 		editTiepoints_toggleRasterLayerButton: null
+		tiepointsContextMenu: null
+		resetTiepointMenuItem: null
 		postCreate: ->
 			@imageServiceLayer = new ArcGISImageServiceLayer @imageServiceUrl
 			@geometryService = new GeometryService @geometryServiceUrl
@@ -346,7 +350,7 @@ define [
 		computeTiePoints: (callback) ->
 			return console.error "No raster selected" unless @currentId?
 			request
-				url: @imageServiceUrl + "/computeTiePoints" #"dummyResponses/tiepoints1.json" 
+				url: "dummyResponses/tiepoints1.json" # @imageServiceUrl + "/computeTiePoints"
 				content:
 					f: "json"
 					rasterId: @currentId
@@ -359,7 +363,7 @@ define [
 				load: (response) ->
 					callback? response
 				error: console.error
-				(usePost: true)
+				# (usePost: true)
 		toggleReferenceLayer: (state) ->
 			@referenceLayer.setOpacity if state then 1 else 0
 			@rasters_toggleReferenceLayersButton.set "checked", state
@@ -372,27 +376,36 @@ define [
 				domStyle.set container.domNode, "display", display for container in containers
 			@computeTiePoints ({tiePoints}) =>
 				domStyle.set @editTiepointsContainer_loading, "display", "none"
-				sourceSymbol = new PictureMarkerSymbol
-					xoffset: 2
-					yoffset: 8
-					type: "esriPMS"
-					url: "http://static.arcgis.com/images/Symbols/Basic/BlueShinyPin.png"
-					contentType: "image/png"
-					width: 24
-					height: 24
-				targetSymbol = new PictureMarkerSymbol
-					xoffset: 2
-					yoffset: 8
-					type: "esriPMS"
-					url: "http://static.arcgis.com/images/Symbols/Basic/RedShinyPin.png"
-					contentType: "image/png"
-					width: 24
-					height: 24
+				sourceSymbol =
+					new SimpleMarkerSymbol(
+						SimpleMarkerSymbol.STYLE_X
+						10
+						new SimpleLineSymbol(
+							SimpleLineSymbol.STYLE_SOLID
+							new Color([20, 20, 180])
+							2
+						)
+						new Color [0, 0, 0]
+					)
+				targetSymbol =
+					new SimpleMarkerSymbol(
+						SimpleMarkerSymbol.STYLE_X
+						10
+						new SimpleLineSymbol(
+							SimpleLineSymbol.STYLE_SOLID
+							new Color([180, 20, 20])
+							2
+						)
+						new Color [0, 0, 0]
+					)
 				for i in [0...tiePoints.sourcePoints.length]
 					@tiepoints.put
 						id: i + 1
 						sourcePoint: sourcePoint = new Graphic new Point(tiePoints.sourcePoints[i]), sourceSymbol
 						targetPoint: targetPoint = new Graphic new Point(tiePoints.targetPoints[i]), targetSymbol
+						original:
+							sourcePoint: new Point tiePoints.sourcePoints[i]
+							targetPoint: new Point tiePoints.targetPoints[i]
 					@tiepointsLayer.add sourcePoint
 					@tiepointsLayer.add targetPoint
 				@tiepointsGrid.selectAll()
@@ -407,3 +420,13 @@ define [
 				@tiepointsGrid.clearSelection()
 			else
 				@tiepointsGrid.selectAll()
+		tiepointsContextMenuOpen: ->
+			domStyle.set @resetTiepointMenuItem.domNode, "display", if @tiepointsGrid.cell(@tiepointsContextMenu.currentTarget).row.data.original? then "table-row" else "none"
+		removeTiepoint: ->
+			@tiepoints.remove (tiepoint = @tiepointsGrid.cell(@tiepointsContextMenu.currentTarget).row.data).id
+			@tiepointsLayer.remove graphic for graphic in [tiepoint.sourcePoint, tiepoint.targetPoint]
+		resetTiepoint: ->
+			tiepoint = @tiepointsGrid.cell(@tiepointsContextMenu.currentTarget).row.data
+			for key in ["sourcePoint", "targetPoint"]
+				tiepoint[key].setGeometry tiepoint.original[key]
+				tiepoint[key].pointChanged()
