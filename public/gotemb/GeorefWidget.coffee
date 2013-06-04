@@ -45,7 +45,7 @@ define [
 	"dijit/CheckedMenuItem"
 	"dojo/NodeList-traverse"
 	"dojo/NodeList-dom"
-], (declare, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template, {connect}, ArcGISImageServiceLayer, request, MosaicRule, Polygon, GeometryService, domStyle, PointGrid, Observable, Memory, TiepointsGrid, GraphicsLayer, Color, SimpleMarkerSymbol, SimpleLineSymbol, Graphic, Point, win, domClass, query) ->
+], (declare, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template, {connect, disconnect}, ArcGISImageServiceLayer, request, MosaicRule, Polygon, GeometryService, domStyle, PointGrid, Observable, Memory, TiepointsGrid, GraphicsLayer, Color, SimpleMarkerSymbol, SimpleLineSymbol, Graphic, Point, win, domClass, query) ->
 	declare [_WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin],
 		templateString: template
 		baseClass: "ClassifyWidget"
@@ -76,6 +76,30 @@ define [
 		editTiepoints_toggleRasterLayerButton: null
 		tiepointsContextMenu: null
 		resetTiepointMenuItem: null
+		mouseTip: null
+		addTiepointButton: null
+		sourceSymbol:
+			new SimpleMarkerSymbol(
+				SimpleMarkerSymbol.STYLE_X
+				10
+				new SimpleLineSymbol(
+					SimpleLineSymbol.STYLE_SOLID
+					new Color([20, 20, 180])
+					2
+				)
+				new Color [0, 0, 0]
+			)
+		targetSymbol:
+			new SimpleMarkerSymbol(
+				SimpleMarkerSymbol.STYLE_X
+				10
+				new SimpleLineSymbol(
+					SimpleLineSymbol.STYLE_SOLID
+					new Color([180, 20, 20])
+					2
+				)
+				new Color [0, 0, 0]
+			)
 		postCreate: ->
 			@imageServiceLayer = new ArcGISImageServiceLayer @imageServiceUrl
 			@geometryService = new GeometryService @geometryServiceUrl
@@ -376,33 +400,11 @@ define [
 				domStyle.set container.domNode, "display", display for container in containers
 			@computeTiePoints ({tiePoints}) =>
 				domStyle.set @editTiepointsContainer_loading, "display", "none"
-				sourceSymbol =
-					new SimpleMarkerSymbol(
-						SimpleMarkerSymbol.STYLE_X
-						10
-						new SimpleLineSymbol(
-							SimpleLineSymbol.STYLE_SOLID
-							new Color([20, 20, 180])
-							2
-						)
-						new Color [0, 0, 0]
-					)
-				targetSymbol =
-					new SimpleMarkerSymbol(
-						SimpleMarkerSymbol.STYLE_X
-						10
-						new SimpleLineSymbol(
-							SimpleLineSymbol.STYLE_SOLID
-							new Color([180, 20, 20])
-							2
-						)
-						new Color [0, 0, 0]
-					)
 				for i in [0...tiePoints.sourcePoints.length]
 					@tiepoints.put
 						id: i + 1
-						sourcePoint: sourcePoint = new Graphic new Point(tiePoints.sourcePoints[i]), sourceSymbol
-						targetPoint: targetPoint = new Graphic new Point(tiePoints.targetPoints[i]), targetSymbol
+						sourcePoint: sourcePoint = new Graphic new Point(tiePoints.sourcePoints[i]), @sourceSymbol
+						targetPoint: targetPoint = new Graphic new Point(tiePoints.targetPoints[i]), @targetSymbol
 						original:
 							sourcePoint: new Point tiePoints.sourcePoints[i]
 							targetPoint: new Point tiePoints.targetPoints[i]
@@ -430,3 +432,45 @@ define [
 			for key in ["sourcePoint", "targetPoint"]
 				tiepoint[key].setGeometry tiepoint.original[key]
 				tiepoint[key].pointChanged()
+		addTiepoint: (state) ->
+			console.log "AddTiepointButton: " + state
+			if state
+				currentState = "started"
+				sourcePoint = null
+				targetPoint = null
+				@mouseTip.innerText = "Click to place Source Point on the map."
+				mouseTipMoveEvent = connect query("body")[0], "onmousemove", (e) =>
+					domStyle.set @mouseTip, "display", "block"
+					domStyle.set @mouseTip, "left", e.clientX + 20 + "px"
+					domStyle.set @mouseTip, "top", e.clientY + 20 + "px"
+				mouseTipDownEvent = connect query("body")[0], "onmousedown", (e) =>
+					console.log "Body: MouseDown"
+					return currentState = "placedSourcePoint" if currentState is "placingSourcePoint"
+					currentState = "placedTargetPoint" if currentState is "placingTargetPoint"
+					closeMouseTip?()
+					if currentState isnt "placedTargetPoint"
+						@tiepointsLayer.remove point for point in [sourcePoint, targetPoint]
+					return if @addTiepointButton.hovering
+					@addTiepointButton.set "checked", false
+				mapDownEvent = connect @map, "onMouseDown", (e) =>
+					console.log "Map: MouseDown"
+					if currentState is "started"
+						currentState = "placingSourcePoint"
+						sourcePoint = new Graphic e.mapPoint, @sourceSymbol
+						@tiepointsLayer.add sourcePoint
+						@mouseTip.innerText = "Click to place Target Point on the map."
+					else if currentState is "placedSourcePoint"
+						currentState = "placingTargetPoint"
+						targetPoint = new Graphic e.mapPoint, @targetSymbol
+						@tiepointsLayer.add targetPoint
+						@tiepoints.put tiepoint =
+							id: Math.max(@tiepoints.data.map((x) => x.id)...) + 1
+							sourcePoint: sourcePoint
+							targetPoint: targetPoint
+						@tiepointsGrid.select tiepoint
+				closeMouseTip = =>
+					disconnect mouseTipMoveEvent
+					disconnect mouseTipDownEvent
+					disconnect mapDownEvent
+					domStyle.set @mouseTip, "display", "none"
+					@mouseTip.innerText = "..."

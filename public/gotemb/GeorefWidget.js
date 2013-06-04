@@ -12,9 +12,9 @@ extend = function(obj, mixin) {
 };
 
 define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dijit/_WidgetsInTemplateMixin", "dojo/text!./GeorefWidget/templates/GeorefWidget.html", "dojo/_base/connect", "esri/layers/ArcGISImageServiceLayer", "esri/request", "esri/layers/MosaicRule", "esri/geometry/Polygon", "esri/tasks/GeometryService", "dojo/dom-style", "gotemb/GeorefWidget/PointGrid", "dojo/store/Observable", "dojo/store/Memory", "gotemb/GeorefWidget/TiepointsGrid", "esri/layers/GraphicsLayer", "dojo/_base/Color", "esri/symbols/SimpleMarkerSymbol", "esri/symbols/SimpleLineSymbol", "esri/graphic", "esri/geometry/Point", "dojo/window", "dojo/dom-class", "dojo/query", "dojox/form/FileInput", "dijit/form/Button", "dijit/form/DropDownButton", "dijit/layout/AccordionContainer", "dijit/layout/ContentPane", "gotemb/GeorefWidget/RastersGrid", "dijit/Dialog", "dijit/Toolbar", "dijit/ToolbarSeparator", "dijit/form/ToggleButton", "dijit/Menu", "dijit/MenuItem", "dijit/CheckedMenuItem", "dojo/NodeList-traverse", "dojo/NodeList-dom"], function(declare, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template, _arg, ArcGISImageServiceLayer, request, MosaicRule, Polygon, GeometryService, domStyle, PointGrid, Observable, Memory, TiepointsGrid, GraphicsLayer, Color, SimpleMarkerSymbol, SimpleLineSymbol, Graphic, Point, win, domClass, query) {
-  var connect;
+  var connect, disconnect;
 
-  connect = _arg.connect;
+  connect = _arg.connect, disconnect = _arg.disconnect;
   return declare([_WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin], {
     templateString: template,
     baseClass: "ClassifyWidget",
@@ -45,6 +45,10 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
     editTiepoints_toggleRasterLayerButton: null,
     tiepointsContextMenu: null,
     resetTiepointMenuItem: null,
+    mouseTip: null,
+    addTiepointButton: null,
+    sourceSymbol: new SimpleMarkerSymbol(SimpleMarkerSymbol.STYLE_X, 10, new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new Color([20, 20, 180]), 2), new Color([0, 0, 0])),
+    targetSymbol: new SimpleMarkerSymbol(SimpleMarkerSymbol.STYLE_X, 10, new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new Color([180, 20, 20]), 2), new Color([0, 0, 0])),
     postCreate: function() {
       var _this = this;
 
@@ -585,17 +589,15 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
         }
       }
       return this.computeTiePoints(function(_arg1) {
-        var i, sourcePoint, sourceSymbol, targetPoint, targetSymbol, tiePoints, _j, _ref1;
+        var i, sourcePoint, targetPoint, tiePoints, _j, _ref1;
 
         tiePoints = _arg1.tiePoints;
         domStyle.set(_this.editTiepointsContainer_loading, "display", "none");
-        sourceSymbol = new SimpleMarkerSymbol(SimpleMarkerSymbol.STYLE_X, 10, new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new Color([20, 20, 180]), 2), new Color([0, 0, 0]));
-        targetSymbol = new SimpleMarkerSymbol(SimpleMarkerSymbol.STYLE_X, 10, new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new Color([180, 20, 20]), 2), new Color([0, 0, 0]));
         for (i = _j = 0, _ref1 = tiePoints.sourcePoints.length; 0 <= _ref1 ? _j < _ref1 : _j > _ref1; i = 0 <= _ref1 ? ++_j : --_j) {
           _this.tiepoints.put({
             id: i + 1,
-            sourcePoint: sourcePoint = new Graphic(new Point(tiePoints.sourcePoints[i]), sourceSymbol),
-            targetPoint: targetPoint = new Graphic(new Point(tiePoints.targetPoints[i]), targetSymbol),
+            sourcePoint: sourcePoint = new Graphic(new Point(tiePoints.sourcePoints[i]), _this.sourceSymbol),
+            targetPoint: targetPoint = new Graphic(new Point(tiePoints.targetPoints[i]), _this.targetSymbol),
             original: {
               sourcePoint: new Point(tiePoints.sourcePoints[i]),
               targetPoint: new Point(tiePoints.targetPoints[i])
@@ -671,6 +673,78 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
         _results.push(tiepoint[key].pointChanged());
       }
       return _results;
+    },
+    addTiepoint: function(state) {
+      var closeMouseTip, currentState, mapDownEvent, mouseTipDownEvent, mouseTipMoveEvent, sourcePoint, targetPoint,
+        _this = this;
+
+      console.log("AddTiepointButton: " + state);
+      if (state) {
+        currentState = "started";
+        sourcePoint = null;
+        targetPoint = null;
+        this.mouseTip.innerText = "Click to place Source Point on the map.";
+        mouseTipMoveEvent = connect(query("body")[0], "onmousemove", function(e) {
+          domStyle.set(_this.mouseTip, "display", "block");
+          domStyle.set(_this.mouseTip, "left", e.clientX + 20 + "px");
+          return domStyle.set(_this.mouseTip, "top", e.clientY + 20 + "px");
+        });
+        mouseTipDownEvent = connect(query("body")[0], "onmousedown", function(e) {
+          var point, _i, _len, _ref;
+
+          console.log("Body: MouseDown");
+          if (currentState === "placingSourcePoint") {
+            return currentState = "placedSourcePoint";
+          }
+          if (currentState === "placingTargetPoint") {
+            currentState = "placedTargetPoint";
+          }
+          if (typeof closeMouseTip === "function") {
+            closeMouseTip();
+          }
+          if (currentState !== "placedTargetPoint") {
+            _ref = [sourcePoint, targetPoint];
+            for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+              point = _ref[_i];
+              _this.tiepointsLayer.remove(point);
+            }
+          }
+          if (_this.addTiepointButton.hovering) {
+            return;
+          }
+          return _this.addTiepointButton.set("checked", false);
+        });
+        mapDownEvent = connect(this.map, "onMouseDown", function(e) {
+          var tiepoint;
+
+          console.log("Map: MouseDown");
+          if (currentState === "started") {
+            currentState = "placingSourcePoint";
+            sourcePoint = new Graphic(e.mapPoint, _this.sourceSymbol);
+            _this.tiepointsLayer.add(sourcePoint);
+            return _this.mouseTip.innerText = "Click to place Target Point on the map.";
+          } else if (currentState === "placedSourcePoint") {
+            currentState = "placingTargetPoint";
+            targetPoint = new Graphic(e.mapPoint, _this.targetSymbol);
+            _this.tiepointsLayer.add(targetPoint);
+            _this.tiepoints.put(tiepoint = {
+              id: Math.max.apply(Math, _this.tiepoints.data.map(function(x) {
+                return x.id;
+              })) + 1,
+              sourcePoint: sourcePoint,
+              targetPoint: targetPoint
+            });
+            return _this.tiepointsGrid.select(tiepoint);
+          }
+        });
+        return closeMouseTip = function() {
+          disconnect(mouseTipMoveEvent);
+          disconnect(mouseTipDownEvent);
+          disconnect(mapDownEvent);
+          domStyle.set(_this.mouseTip, "display", "none");
+          return _this.mouseTip.innerText = "...";
+        };
+      }
     }
   });
 });
