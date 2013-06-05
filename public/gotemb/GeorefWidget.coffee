@@ -436,6 +436,7 @@ define [
 			console.log "AddTiepointButton: " + state
 			if state
 				currentState = "started"
+				@map.setMapCursor "crosshair"
 				sourcePoint = null
 				targetPoint = null
 				@mouseTip.innerText = "Click to place Source Point on the map."
@@ -474,3 +475,4 @@ define [
 					disconnect mapDownEvent
 					domStyle.set @mouseTip, "display", "none"
 					@mouseTip.innerText = "..."
+					@map.setMapCursor "default"

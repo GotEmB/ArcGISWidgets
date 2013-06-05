@@ -681,6 +681,7 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
       console.log("AddTiepointButton: " + state);
       if (state) {
         currentState = "started";
+        this.map.setMapCursor("crosshair");
         sourcePoint = null;
         targetPoint = null;
         this.mouseTip.innerText = "Click to place Source Point on the map.";
@@ -742,7 +743,8 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
           disconnect(mouseTipDownEvent);
           disconnect(mapDownEvent);
           domStyle.set(_this.mouseTip, "display", "none");
-          return _this.mouseTip.innerText = "...";
+          _this.mouseTip.innerText = "...";
+          return _this.map.setMapCursor("default");
         };
       }
     }
