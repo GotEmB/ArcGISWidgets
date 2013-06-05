@@ -38,7 +38,7 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
     editTiepointsContainer_loading: null,
     tiepoints: null,
     tiepointsGrid: null,
-    toggleTiepointsSelectionButton: null,
+    toggleTiepointsSelectionMenuItem: null,
     tiepointsLayer: null,
     rasters_toggleReferenceLayersButton: null,
     editTiepoints_toggleReferenceLayerButton: null,
@@ -47,6 +47,8 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
     resetTiepointMenuItem: null,
     mouseTip: null,
     addTiepointButton: null,
+    removeSelectedTiepointsMenuItem: null,
+    resetSelectedTiepointsMenuItem: null,
     sourceSymbol: new SimpleMarkerSymbol(SimpleMarkerSymbol.STYLE_X, 10, new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new Color([20, 20, 180]), 2), new Color([0, 0, 0])),
     targetSymbol: new SimpleMarkerSymbol(SimpleMarkerSymbol.STYLE_X, 10, new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new Color([180, 20, 20]), 2), new Color([0, 0, 0])),
     postCreate: function() {
@@ -206,28 +208,40 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
           var row, rows, _i, _len, _results;
 
           rows = _arg1.rows;
-          _this.toggleTiepointsSelectionButton.set("label", "Clear Selection");
+          _this.toggleTiepointsSelectionMenuItem.set("label", "Clear Selection");
+          domStyle.set(_this.removeSelectedTiepointsMenuItem.domNode, "display", "table-row");
           _results = [];
           for (_i = 0, _len = rows.length; _i < _len; _i++) {
             row = rows[_i];
+            if (row.data.original != null) {
+              domStyle.set(_this.resetSelectedTiepointsMenuItem.domNode, "display", "table-row");
+            }
             row.data.sourcePoint.show();
             _results.push(row.data.targetPoint.show());
           }
           return _results;
         });
         _this.tiepointsGrid.on("dgrid-deselect", function(_arg1) {
-          var bool, noneSelected, row, rowId, rows, _i, _len, _ref, _results;
+          var bool, noneSelected, row, rowId, rows, showReset, _i, _len, _ref, _results;
 
           rows = _arg1.rows;
           _ref = _this.tiepointsGrid.selection;
           for (rowId in _ref) {
             bool = _ref[rowId];
-            if (bool) {
-              noneSelected = false;
+            if (!(bool)) {
+              continue;
+            }
+            noneSelected = false;
+            if (_this.tiepointsGrid.row(rowId).data.original != null) {
+              showReset = true;
             }
           }
           if (!((noneSelected != null) && !noneSelected)) {
-            _this.toggleTiepointsSelectionButton.set("label", "Select All");
+            _this.toggleTiepointsSelectionMenuItem.set("label", "Select All");
+            domStyle.set(_this.removeSelectedTiepointsMenuItem.domNode, "display", "none");
+          }
+          if (!showReset) {
+            domStyle.set(_this.resetSelectedTiepointsMenuItem.domNode, "display", "none");
           }
           _results = [];
           for (_i = 0, _len = rows.length; _i < _len; _i++) {
@@ -466,83 +480,87 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
       var _this = this;
 
       return this.computeTiePoints(function(_arg1) {
-        var point, tiePoints;
+        var tiePoints;
 
         tiePoints = _arg1.tiePoints;
-        return request({
-          url: _this.imageServiceUrl + "/update",
-          content: {
-            f: "json",
-            rasterId: _this.currentId,
-            geodataTransforms: JSON.stringify([
-              {
-                geodataTransform: "Polynomial",
-                geodataTransformArguments: {
-                  sourcePoints: (function() {
-                    var _i, _len, _ref, _results;
+        return _this.applyTransform(tiePoints);
+      });
+    },
+    applyTransform: function(tiePoints, callback) {
+      var point,
+        _this = this;
 
-                    _ref = tiePoints.sourcePoints;
-                    _results = [];
-                    for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-                      point = _ref[_i];
-                      _results.push({
-                        x: point.x,
-                        y: point.y
-                      });
-                    }
-                    return _results;
-                  })(),
-                  targetPoints: (function() {
-                    var _i, _len, _ref, _results;
+      return request({
+        url: this.imageServiceUrl + "/update",
+        content: {
+          f: "json",
+          rasterId: this.currentId,
+          geodataTransforms: JSON.stringify([
+            {
+              geodataTransform: "Polynomial",
+              geodataTransformArguments: {
+                sourcePoints: (function() {
+                  var _i, _len, _ref, _results;
 
-                    _ref = tiePoints.targetPoints;
-                    _results = [];
-                    for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-                      point = _ref[_i];
-                      _results.push({
-                        x: point.x,
-                        y: point.y
-                      });
-                    }
-                    return _results;
-                  })(),
-                  polynomialOrder: 1,
-                  spatialReference: tiePoints.sourcePoints[0].spatialReference
-                }
+                  _ref = tiePoints.sourcePoints;
+                  _results = [];
+                  for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+                    point = _ref[_i];
+                    _results.push({
+                      x: point.x,
+                      y: point.y
+                    });
+                  }
+                  return _results;
+                })(),
+                targetPoints: (function() {
+                  var _i, _len, _ref, _results;
+
+                  _ref = tiePoints.targetPoints;
+                  _results = [];
+                  for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+                    point = _ref[_i];
+                    _results.push({
+                      x: point.x,
+                      y: point.y
+                    });
+                  }
+                  return _results;
+                })(),
+                polynomialOrder: 1,
+                spatialReference: tiePoints.sourcePoints[0].spatialReference
               }
-            ])
-          },
-          handleAs: "json",
-          load: function() {
-            return request({
-              url: _this.imageServiceUrl + "/query",
-              content: {
-                objectIds: _this.currentId,
-                returnGeometry: true,
-                outFields: "",
-                f: "json"
-              },
-              handleAs: "json",
-              load: function(response2) {
-                return _this.map.setExtent(new Polygon(response2.features[0].geometry).getExtent().expand(2));
-              },
-              error: console.error
-            });
-          },
-          error: console.error
-        }, {
-          usePost: true
-        });
+            }
+          ])
+        },
+        handleAs: "json",
+        load: function() {
+          return request({
+            url: _this.imageServiceUrl + "/query",
+            content: {
+              objectIds: _this.currentId,
+              returnGeometry: true,
+              outFields: "",
+              f: "json"
+            },
+            handleAs: "json",
+            load: function(response2) {
+              _this.map.setExtent(new Polygon(response2.features[0].geometry).getExtent().expand(2));
+              return typeof callback === "function" ? callback() : void 0;
+            },
+            error: console.error
+          });
+        },
+        error: console.error
+      }, {
+        usePost: true
       });
     },
     computeTiePoints: function(callback) {
       var _this = this;
 
-      if (this.currentId == null) {
-        return console.error("No raster selected");
-      }
       return request({
-        url: "dummyResponses/tiepoints1.json",
+        url: this.imageServiceUrl + "/computeTiePoints",
         content: {
           f: "json",
           rasterId: this.currentId,
@@ -562,6 +580,8 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
           return typeof callback === "function" ? callback(response) : void 0;
         },
         error: console.error
+      }, {
+        usePost: true
       });
     },
     toggleReferenceLayer: function(state) {
@@ -640,7 +660,7 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
       return _results;
     },
     toggleTiepointsSelection: function() {
-      if (this.toggleTiepointsSelectionButton.label === "Clear Selection") {
+      if (this.toggleTiepointsSelectionMenuItem.label === "Clear Selection") {
         return this.tiepointsGrid.clearSelection();
       } else {
         return this.tiepointsGrid.selectAll();
@@ -675,7 +695,7 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
       return _results;
     },
     addTiepoint: function(state) {
-      var closeMouseTip, currentState, mapDownEvent, mouseTipDownEvent, mouseTipMoveEvent, sourcePoint, targetPoint,
+      var closeMouseTip, currentState, mapDownEvent, mapDragEvent, mapUpEvent, mouseTipDownEvent, mouseTipMoveEvent, sourcePoint, targetPoint,
         _this = this;
 
       console.log("AddTiepointButton: " + state);
@@ -695,58 +715,154 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
 
           console.log("Body: MouseDown");
           if (currentState === "placingSourcePoint") {
-            return currentState = "placedSourcePoint";
+            return currentState = "placingSourcePoint.1";
           }
           if (currentState === "placingTargetPoint") {
-            currentState = "placedTargetPoint";
+            return currentState = "placingTargetPoint.1";
           }
           if (typeof closeMouseTip === "function") {
             closeMouseTip();
           }
-          if (currentState !== "placedTargetPoint") {
-            _ref = [sourcePoint, targetPoint];
-            for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-              point = _ref[_i];
-              _this.tiepointsLayer.remove(point);
-            }
+          _ref = [sourcePoint, targetPoint];
+          for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+            point = _ref[_i];
+            _this.tiepointsLayer.remove(point);
           }
-          if (_this.addTiepointButton.hovering) {
-            return;
+          if (!_this.addTiepointButton.hovering) {
+            return _this.addTiepointButton.set("checked", false);
           }
-          return _this.addTiepointButton.set("checked", false);
         });
         mapDownEvent = connect(this.map, "onMouseDown", function(e) {
-          var tiepoint;
-
           console.log("Map: MouseDown");
-          if (currentState === "started") {
-            currentState = "placingSourcePoint";
+          return currentState = (function() {
+            switch (currentState) {
+              case "started":
+                return "placingSourcePoint";
+              case "placedSourcePoint":
+                return "placingTargetPoint";
+              default:
+                return currentState;
+            }
+          })();
+        });
+        mapUpEvent = connect(this.map, "onMouseUp", function(e) {
+          var lastId, tiepoint;
+
+          console.log("Map: MouseUp");
+          if (currentState === "placingSourcePoint.1") {
+            currentState = "placedSourcePoint";
             sourcePoint = new Graphic(e.mapPoint, _this.sourceSymbol);
             _this.tiepointsLayer.add(sourcePoint);
             return _this.mouseTip.innerText = "Click to place Target Point on the map.";
-          } else if (currentState === "placedSourcePoint") {
-            currentState = "placingTargetPoint";
+          } else if (currentState === "placingTargetPoint.1") {
+            currentState = "placedTargetPoint";
             targetPoint = new Graphic(e.mapPoint, _this.targetSymbol);
             _this.tiepointsLayer.add(targetPoint);
             _this.tiepoints.put(tiepoint = {
-              id: Math.max.apply(Math, _this.tiepoints.data.map(function(x) {
+              id: lastId = Math.max.apply(Math, _this.tiepoints.data.map(function(x) {
                 return x.id;
-              })) + 1,
+              }).concat(0)) + 1,
               sourcePoint: sourcePoint,
               targetPoint: targetPoint
             });
-            return _this.tiepointsGrid.select(tiepoint);
+            _this.tiepointsGrid.select(tiepoint);
+            closeMouseTip();
+            return _this.addTiepointButton.set("checked", false);
           }
+        });
+        mapDragEvent = connect(this.map, "onMouseDrag", function(e) {
+          console.log("Map: MouseDrag");
+          return currentState = (function() {
+            switch (currentState) {
+              case "placingSourcePoint.1":
+                return "started";
+              case "placingTargetPoint.1":
+                return "placingTargetPoint";
+              default:
+                return currentState;
+            }
+          })();
         });
         return closeMouseTip = function() {
           disconnect(mouseTipMoveEvent);
           disconnect(mouseTipDownEvent);
           disconnect(mapDownEvent);
+          disconnect(mapUpEvent);
+          disconnect(mapDragEvent);
           domStyle.set(_this.mouseTip, "display", "none");
           _this.mouseTip.innerText = "...";
-          return _this.map.setMapCursor("default");
+          _this.map.setMapCursor("default");
+          return currentState = "placedTiepoint";
         };
       }
+    },
+    removeSelectedTiepoints: function() {
+      var bool, graphic, rowId, tiepoint, _ref, _results;
+
+      _ref = this.tiepointsGrid.selection;
+      _results = [];
+      for (rowId in _ref) {
+        bool = _ref[rowId];
+        if (!(bool)) {
+          continue;
+        }
+        this.tiepoints.remove((tiepoint = this.tiepointsGrid.row(rowId).data).id);
+        _results.push((function() {
+          var _i, _len, _ref1, _results1;
+
+          _ref1 = [tiepoint.sourcePoint, tiepoint.targetPoint];
+          _results1 = [];
+          for (_i = 0, _len = _ref1.length; _i < _len; _i++) {
+            graphic = _ref1[_i];
+            _results1.push(this.tiepointsLayer.remove(graphic));
+          }
+          return _results1;
+        }).call(this));
+      }
+      return _results;
+    },
+    resetSelectedTiepoints: function() {
+      var bool, key, rowId, tiepoint, _ref, _results;
+
+      _ref = this.tiepointsGrid.selection;
+      _results = [];
+      for (rowId in _ref) {
+        bool = _ref[rowId];
+        if (!(bool)) {
+          continue;
+        }
+        tiepoint = this.tiepointsGrid.row(rowId).data;
+        if (tiepoint.original == null) {
+          continue;
+        }
+        _results.push((function() {
+          var _i, _len, _ref1, _results1;
+
+          _ref1 = ["sourcePoint", "targetPoint"];
+          _results1 = [];
+          for (_i = 0, _len = _ref1.length; _i < _len; _i++) {
+            key = _ref1[_i];
+            tiepoint[key].setGeometry(tiepoint.original[key]);
+            _results1.push(tiepoint[key].pointChanged());
+          }
+          return _results1;
+        })());
+      }
+      return _results;
+    },
+    applyManualTransform: function() {
+      var _this = this;
+
+      return this.applyTransform({
+        sourcePoints: this.tiepoints.data.map(function(x) {
+          return x.sourcePoint.geometry.toJson();
+        }),
+        targetPoints: this.tiepoints.data.map(function(x) {
+          return x.targetPoint.geometry.toJson();
+        })
+      }, function() {
+        return _this.closeEditTiepoints();
+      });
     }
   });
 });

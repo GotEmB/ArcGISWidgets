@@ -56,7 +56,14 @@
 		<div data-dojo-type="dijit/layout/ContentPane" title="Edit Tiepoints" style="padding: 0">
 			<div data-dojo-type="dijit/Toolbar">
 				<div data-dojo-type="dijit/form/ToggleButton" data-dojo-attach-point="addTiepointButton" data-dojo-attach-event="onChange: addTiepoint">Add Point</div>
-				<div data-dojo-type="dijit/form/Button" data-dojo-attach-event="onClick: toggleTiepointsSelection" data-dojo-attach-point="toggleTiepointsSelectionButton">Select All</div>
+				<div data-dojo-type="dijit/form/DropDownButton">
+					<span>Selection</span>
+					<div data-dojo-type="dijit/Menu">
+						<div data-dojo-type="dijit/MenuItem" data-dojo-attach-point="toggleTiepointsSelectionMenuItem" data-dojo-attach-event="onClick: toggleTiepointsSelection">Select All</div>
+						<div data-dojo-type="dijit/MenuItem" data-dojo-attach-point="resetSelectedTiepointsMenuItem" data-dojo-attach-event="onClick: resetSelectedTiepoints">Reset Selected Tiepoints</div>
+						<div data-dojo-type="dijit/MenuItem" data-dojo-attach-point="removeSelectedTiepointsMenuItem" data-dojo-attach-event="onClick: removeSelectedTiepoints">Remove Selected Tiepoints</div>
+					</div>
+				</div>
 				<div data-dojo-type="dijit/form/DropDownButton" style="float: right; padding-right: 0.3em">
 					<span>Layers</span>
 					<div data-dojo-type="dijit/Menu">
@@ -68,7 +75,7 @@
 			<div data-dojo-attach-point="tiepointsGrid" style="height: 300px"></div>
 			<div class="dijitDialogPaneActionBar" style="margin: 0">
 				<button data-dojo-type="dijit/form/Button" type="button" data-dojo-attach-event="onClick: closeEditTiepoints">Cancel</button>
-				<button data-dojo-type="dijit/form/Button" type="button" data-dojo-attach-event="onClick: closeEditTiepoints">Apply Transform</button>
+				<button data-dojo-type="dijit/form/Button" type="button" data-dojo-attach-event="onClick: applyManualTransform">Apply Transform</button>
 			</div>
 			<div style="position: absolute; width: 100%; height: 100%; top: 0; display: none; z-index: 1" data-dojo-attach-point="editTiepointsContainer_loading">
 				<div style="position: absolute; background: white; opacity: 0.75; width: 100%; height: 100%"></div>

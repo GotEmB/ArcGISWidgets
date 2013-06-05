@@ -69,7 +69,7 @@ define [
 		editTiepointsContainer_loading: null
 		tiepoints: null
 		tiepointsGrid: null
-		toggleTiepointsSelectionButton: null
+		toggleTiepointsSelectionMenuItem: null
 		tiepointsLayer: null
 		rasters_toggleReferenceLayersButton: null
 		editTiepoints_toggleReferenceLayerButton: null
@@ -78,6 +78,8 @@ define [
 		resetTiepointMenuItem: null
 		mouseTip: null
 		addTiepointButton: null
+		removeSelectedTiepointsMenuItem: null
+		resetSelectedTiepointsMenuItem: null
 		sourceSymbol:
 			new SimpleMarkerSymbol(
 				SimpleMarkerSymbol.STYLE_X
@@ -199,14 +201,20 @@ define [
 					else
 						@tiepointsGrid.select row
 				@tiepointsGrid.on "dgrid-select", ({rows}) =>
-					@toggleTiepointsSelectionButton.set "label", "Clear Selection"
+					@toggleTiepointsSelectionMenuItem.set "label", "Clear Selection"
+					domStyle.set @removeSelectedTiepointsMenuItem.domNode, "display", "table-row"
 					for row in rows
+						domStyle.set @resetSelectedTiepointsMenuItem.domNode, "display", "table-row" if row.data.original?
 						row.data.sourcePoint.show()
 						row.data.targetPoint.show()
 				@tiepointsGrid.on "dgrid-deselect", ({rows}) =>
 					for rowId, bool of @tiepointsGrid.selection when bool
 						noneSelected = false
-					@toggleTiepointsSelectionButton.set "label", "Select All" unless noneSelected? and not noneSelected	
+						showReset = true if @tiepointsGrid.row(rowId).data.original?
+					unless noneSelected? and not noneSelected
+						@toggleTiepointsSelectionMenuItem.set "label", "Select All"
+						domStyle.set @removeSelectedTiepointsMenuItem.domNode, "display", "none"
+					domStyle.set @resetSelectedTiepointsMenuItem.domNode, "display", "none" unless showReset
 					for row in rows
 						row.data.sourcePoint.hide()
 						row.data.targetPoint.hide()
@@ -343,38 +351,40 @@ define [
 				(usePost: true)
 		computeAndTransform: ->
 			@computeTiePoints ({tiePoints}) =>
-				request
-					url: @imageServiceUrl + "/update"
-					content:
-						f: "json"
-						rasterId: @currentId
-						geodataTransforms: JSON.stringify [
-							geodataTransform: "Polynomial"
-							geodataTransformArguments:
-								sourcePoints: x: point.x, y: point.y for point in tiePoints.sourcePoints
-								targetPoints: x: point.x, y: point.y for point in tiePoints.targetPoints
-								polynomialOrder: 1
-								spatialReference: tiePoints.sourcePoints[0].spatialReference
-						]
-					handleAs: "json"
-					load: =>
-						request
-							url: @imageServiceUrl + "/query"
-							content:
-								objectIds: @currentId
-								returnGeometry: true
-								outFields: ""
-								f: "json"
-							handleAs: "json"
-							load: (response2) =>
-								@map.setExtent new Polygon(response2.features[0].geometry).getExtent().expand 2
-							error: console.error
-					error: console.error
-					(usePost: true)
-		computeTiePoints: (callback) ->
-			return console.error "No raster selected" unless @currentId?
+				@applyTransform tiePoints
+		applyTransform: (tiePoints, callback) ->
 			request
-				url: "dummyResponses/tiepoints1.json" # @imageServiceUrl + "/computeTiePoints"
+				url: @imageServiceUrl + "/update"
+				content:
+					f: "json"
+					rasterId: @currentId
+					geodataTransforms: JSON.stringify [
+						geodataTransform: "Polynomial"
+						geodataTransformArguments:
+							sourcePoints: x: point.x, y: point.y for point in tiePoints.sourcePoints
+							targetPoints: x: point.x, y: point.y for point in tiePoints.targetPoints
+							polynomialOrder: 1
+							spatialReference: tiePoints.sourcePoints[0].spatialReference
+					]
+				handleAs: "json"
+				load: =>
+					request
+						url: @imageServiceUrl + "/query"
+						content:
+							objectIds: @currentId
+							returnGeometry: true
+							outFields: ""
+							f: "json"
+						handleAs: "json"
+						load: (response2) =>
+							@map.setExtent new Polygon(response2.features[0].geometry).getExtent().expand 2
+							callback?()
+						error: console.error
+				error: console.error
+				(usePost: true)
+		computeTiePoints: (callback) ->
+			request
+				url: @imageServiceUrl + "/computeTiePoints" # "dummyResponses/tiepoints1.json"
 				content:
 					f: "json"
 					rasterId: @currentId
@@ -387,7 +397,7 @@ define [
 				load: (response) ->
 					callback? response
 				error: console.error
-				# (usePost: true)
+				(usePost: true)
 		toggleReferenceLayer: (state) ->
 			@referenceLayer.setOpacity if state then 1 else 0
 			@rasters_toggleReferenceLayersButton.set "checked", state
@@ -418,7 +428,7 @@ define [
 			for display, containers of {block: [@selectRasterContainer, @tasksContainer], none: [@editTiepointsContainer]}
 				domStyle.set container.domNode, "display", display for container in containers
 		toggleTiepointsSelection: ->
-			if @toggleTiepointsSelectionButton.label is "Clear Selection"
+			if @toggleTiepointsSelectionMenuItem.label is "Clear Selection"
 				@tiepointsGrid.clearSelection()
 			else
 				@tiepointsGrid.selectAll()
@@ -446,33 +456,64 @@ define [
 					domStyle.set @mouseTip, "top", e.clientY + 20 + "px"
 				mouseTipDownEvent = connect query("body")[0], "onmousedown", (e) =>
 					console.log "Body: MouseDown"
-					return currentState = "placedSourcePoint" if currentState is "placingSourcePoint"
-					currentState = "placedTargetPoint" if currentState is "placingTargetPoint"
+					return currentState = "placingSourcePoint.1" if currentState is "placingSourcePoint"
+					return currentState = "placingTargetPoint.1" if currentState is "placingTargetPoint"
 					closeMouseTip?()
-					if currentState isnt "placedTargetPoint"
-						@tiepointsLayer.remove point for point in [sourcePoint, targetPoint]
-					return if @addTiepointButton.hovering
-					@addTiepointButton.set "checked", false
+					@tiepointsLayer.remove point for point in [sourcePoint, targetPoint]
+					@addTiepointButton.set "checked", false unless @addTiepointButton.hovering
 				mapDownEvent = connect @map, "onMouseDown", (e) =>
 					console.log "Map: MouseDown"
-					if currentState is "started"
-						currentState = "placingSourcePoint"
+					currentState = switch currentState
+						when "started" then "placingSourcePoint"
+						when "placedSourcePoint" then "placingTargetPoint"
+						else currentState
+				mapUpEvent = connect @map, "onMouseUp", (e) =>
+					console.log "Map: MouseUp"
+					if currentState is "placingSourcePoint.1"
+						currentState = "placedSourcePoint"
 						sourcePoint = new Graphic e.mapPoint, @sourceSymbol
 						@tiepointsLayer.add sourcePoint
 						@mouseTip.innerText = "Click to place Target Point on the map."
-					else if currentState is "placedSourcePoint"
-						currentState = "placingTargetPoint"
+					else if currentState is "placingTargetPoint.1"
+						currentState = "placedTargetPoint"
 						targetPoint = new Graphic e.mapPoint, @targetSymbol
 						@tiepointsLayer.add targetPoint
 						@tiepoints.put tiepoint =
-							id: Math.max(@tiepoints.data.map((x) => x.id)...) + 1
+							id: lastId = Math.max(@tiepoints.data.map((x) => x.id).concat(0)...) + 1
 							sourcePoint: sourcePoint
 							targetPoint: targetPoint
 						@tiepointsGrid.select tiepoint
+						closeMouseTip()
+						@addTiepointButton.set "checked", false
+				mapDragEvent = connect @map, "onMouseDrag", (e) =>
+					console.log "Map: MouseDrag"
+					currentState = switch currentState
+						when "placingSourcePoint.1" then "started"
+						when "placingTargetPoint.1" then "placingTargetPoint"
+						else currentState
 				closeMouseTip = =>
 					disconnect mouseTipMoveEvent
 					disconnect mouseTipDownEvent
 					disconnect mapDownEvent
+					disconnect mapUpEvent
+					disconnect mapDragEvent
 					domStyle.set @mouseTip, "display", "none"
 					@mouseTip.innerText = "..."
 					@map.setMapCursor "default"
+					currentState = "placedTiepoint"
+		removeSelectedTiepoints: ->
+			for rowId, bool of @tiepointsGrid.selection when bool
+				@tiepoints.remove (tiepoint = @tiepointsGrid.row(rowId).data).id
+				@tiepointsLayer.remove graphic for graphic in [tiepoint.sourcePoint, tiepoint.targetPoint]
+		resetSelectedTiepoints: ->
+			for rowId, bool of @tiepointsGrid.selection when bool
+				tiepoint = @tiepointsGrid.row(rowId).data
+				continue unless tiepoint.original?
+				for key in ["sourcePoint", "targetPoint"]
+					tiepoint[key].setGeometry tiepoint.original[key]
+					tiepoint[key].pointChanged()
+		applyManualTransform: ->
+			@applyTransform
+				sourcePoints: @tiepoints.data.map (x) => x.sourcePoint.geometry.toJson()
+				targetPoints: @tiepoints.data.map (x) => x.targetPoint.geometry.toJson()
+				=> @closeEditTiepoints()
