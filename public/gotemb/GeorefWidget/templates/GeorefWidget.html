@@ -36,7 +36,7 @@
 			<table style="width: 100%">
 				<tr>
 					<td style="height: 25px; vertical-align: middle; text-align: center">
-						<button class="fixedWidth250" data-dojo-type="dijit/form/Button" style="margin-top: 0; margin-bottom: 0; margin-right: 0" data-dojo-attach-event="onClick: roughTransform">Move raster to current view</button>
+						<button class="fixedWidth250" data-dojo-type="dijit/form/Button" style="margin-top: 0; margin-bottom: 0; margin-right: 0" data-dojo-attach-event="onClick: openRoughTransform">Manual Transform</button>
 					</td>
 				</tr>
 				<tr>
@@ -73,13 +73,64 @@
 				</div>
 			</div>
 			<div data-dojo-attach-point="tiepointsGrid" style="height: 300px"></div>
-			<div class="dijitDialogPaneActionBar" style="margin: 0">
+			<div class="dijitDialogPaneActionBar">
 				<button data-dojo-type="dijit/form/Button" type="button" data-dojo-attach-event="onClick: closeEditTiepoints">Cancel</button>
 				<button data-dojo-type="dijit/form/Button" type="button" data-dojo-attach-event="onClick: applyManualTransform">Apply Transform</button>
 			</div>
 			<div style="position: absolute; width: 100%; height: 100%; top: 0; display: none; z-index: 1" data-dojo-attach-point="editTiepointsContainer_loading">
 				<div style="position: absolute; background: white; opacity: 0.75; width: 100%; height: 100%"></div>
 				<div style="position: absolute; width: 100%; text-align: center; top: 50%; line-height: 0">Computing Tiepoints...</div>
+			</div>
+		</div>
+	</div>
+	<div data-dojo-type="dijit/layout/AccordionContainer" data-dojo-attach-point="manualTransformContainer" style="display: none">
+		<div data-dojo-type="dijit/layout/ContentPane" title="Manual Transform">
+			<table style="width: 100%">
+				<tr>
+					<td style="height: 25px; vertical-align: middle; text-align: center">
+						<button class="fixedWidth250" data-dojo-type="dijit/form/Button" style="margin-top: 0; margin-bottom: 0; margin-right: 0" data-dojo-attach-event="onClick: rt_fit">Fit Raster to Current View</button>
+					</td>
+				</tr>
+				<tr>
+					<td style="height: 25px; vertical-align: middle; text-align: center">
+						<button class="fixedWidth250" data-dojo-type="dijit/form/ToggleButton" style="margin-top: 0; margin-bottom: 0; margin-right: 0" data-dojo-attach-event="onChange: rt_move" data-dojo-attach-point="rt_moveButton">Move Raster</button>
+					</td>
+				</tr>
+				<tr>
+					<td style="height: 25px; vertical-align: middle; text-align: center">
+						<button class="fixedWidth250" data-dojo-type="dijit/form/ToggleButton" style="margin-top: 0; margin-bottom: 0; margin-right: 0" data-dojo-attach-event="onChange: rt_scale" data-dojo-attach-point="rt_scaleButton">Scale Raster</button>
+					</td>
+				</tr>
+				<tr>
+					<td style="height: 25px; vertical-align: middle; text-align: center">
+						<button class="fixedWidth250" data-dojo-type="dijit/form/ToggleButton" style="margin-top: 0; margin-bottom: 0; margin-right: 0" data-dojo-attach-event="onChange: rt_rotate" data-dojo-attach-point="rt_rotateButton">Rotate Raster</button>
+					</td>
+				</tr>
+			</table>
+			<div class="dijitDialogPaneActionBar">
+				<button data-dojo-type="dijit/form/Button" type="button" data-dojo-attach-event="onClick: closeRoughTransform">Done</button>
+			</div>
+		</div>
+	</div>
+	<div data-dojo-type="dijit/layout/AccordionContainer" data-dojo-attach-point="rtMoveContainer" style="display: none">
+		<div data-dojo-type="dijit/layout/ContentPane" title="Move raster" style="padding: 0">
+			<table style="width: 100%; text-align: center; border-collapse: collapse; border: 1px solid #DDD">
+				<tr>
+					<th style="border: 1px solid #DDD; background-color: #EEE; padding: 5px">From</th>
+					<th style="border: 1px solid #DDD; background-color: #EEE; padding: 5px">To</th>
+				</tr>
+				<tr>
+					<td style="padding: 0; border: 1px solid #DDD"><div data-dojo-type="gotemb/GeorefWidget/PointGrid" data-dojo-attach-point="rtMoveFromGrid"></div></td>
+					<td style="padding: 0; border: 1px solid #DDD"><div data-dojo-type="gotemb/GeorefWidget/PointGrid" data-dojo-attach-point="rtMoveToGrid"></div></td>
+				</tr>
+				<tr>
+					<td style="border: 1px solid #DDD"><button data-dojo-type="dijit/form/ToggleButton" data-dojo-attach-event="onChange: rtMoveFromPick" data-dojo-attach-point="rtMoveFromPickButton">Pick Point</button></td>
+					<td style="border: 1px solid #DDD"><button data-dojo-type="dijit/form/ToggleButton" data-dojo-attach-event="onChange: rtMoveToPick" data-dojo-attach-point="rtMoveToPickButton">Pick Point</button></td>
+				</tr>
+			</table>
+			<div class="dijitDialogPaneActionBar">
+				<button data-dojo-type="dijit/form/Button" type="button" data-dojo-attach-event="onClick: rt_moveClose">Cancel</button>
+				<button data-dojo-type="dijit/form/Button" type="button" data-dojo-attach-event="onClick: rt_moveClose">Transform</button>
 			</div>
 		</div>
 	</div>

@@ -32,7 +32,7 @@ html, body
 .dgrid-cell-padding
 	padding 3px 9px
 
-.fixedWidth250.dijitButton .dijitButtonNode
+.fixedWidth250 .dijitButtonNode
 	width: 250px
 
 .dijitBorderContainer
@@ -111,9 +111,14 @@ td.field-sourcePoint, td.field-targetPoint
 			padding 0
 			font-size 1em
 
-.dijitAccordionChildWrapper
+.dijitAccordionContainer-dijitContentPane
 	.dijitDialogPaneActionBar
-		border-top none
+		margin 9px -9px -9px
+
+	&[style*="padding: 0px;"]
+		.dijitDialogPaneActionBar
+			border-top none
+			margin 0
 
 tr.dijitMenuItem
 	td.dijitMenuItemIconCell

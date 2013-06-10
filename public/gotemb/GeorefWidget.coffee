@@ -80,6 +80,16 @@ define [
 		addTiepointButton: null
 		removeSelectedTiepointsMenuItem: null
 		resetSelectedTiepointsMenuItem: null
+		manualTransformContainer: null
+		rtMoveContainer: null
+		rtMoveFromGrid: null
+		rtMoveToGrid: null
+		rt_moveButton: null
+		rt_scaleButton: null
+		rt_rotateButton: null
+		rtMoveFromPickButton: null
+		rtMoveToPickButton: null
+		miscGraphicsLayer: null
 		sourceSymbol:
 			new SimpleMarkerSymbol(
 				SimpleMarkerSymbol.STYLE_X
@@ -220,11 +230,19 @@ define [
 						row.data.targetPoint.hide()
 				@tiepointsLayer = new GraphicsLayer
 				@map.addLayer @tiepointsLayer
+				@miscGraphicsLayer = new GraphicsLayer
+				@map.addLayer @miscGraphicsLayer
 				connect @tiepointsLayer, "onMouseDown", (e) =>
 					@map.disablePan()
 					@graphicBeingMoved = e.graphic
 					@graphicBeingMoved.gotoPointGrid()
 				connect @tiepointsLayer, "onClick onDblClick", (e) =>
+					delete @graphicBeingMoved
+					@map.enablePan()
+				connect @miscGraphicsLayer, "onMouseDown", (e) =>
+					@map.disablePan()
+					@graphicBeingMoved = e.graphic
+				connect @miscGraphicsLayer, "onClick onDblClick", (e) =>
 					delete @graphicBeingMoved
 					@map.enablePan()
 				connect @map, "onMouseDrag", (e) =>
@@ -285,66 +303,6 @@ define [
 									@addRasterDialog.hide()
 									@rastersGrid.clearSelection()
 									@rastersGrid.select @rasters.length - 1 if @rasters.length > 0
-						error: console.error
-						(usePost: true)
-				error: console.error
-				(usePost: true)
-		roughTransform: ->
-			return console.error "No raster selected" unless @currentId?
-			request
-				url: @imageServiceUrl + "/#{@currentId}/info"
-				content: f: "json"
-				handleAs: "json"
-				load: (response1) =>
-					src = response1.extent
-					request
-						url: @imageServiceUrl + "/update"
-						content:
-							f: "json"
-							rasterId: @currentId
-							geodataTransforms: JSON.stringify [
-								geodataTransform: "Polynomial"
-								geodataTransformArguments:
-									sourcePoints: [
-										{x: src.xmin, y: src.ymin}
-										{x: src.xmin, y: src.ymax}
-										{x: src.xmax, y: src.ymin}
-									]
-									targetPoints: do =>
-										aspectRatio = (src.xmax - src.xmin) / (src.ymax - src.ymin)
-										map =
-											width: @map.extent.getWidth()
-											height: @map.extent.getHeight()
-											center: @map.extent.getCenter().toJson()
-										dest =
-											width: Math.min map.width, map.height * aspectRatio
-											height: Math.min map.height, map.width / aspectRatio
-										dest.xmin = map.center.x - dest.width / 2
-										dest.xmax = map.center.x + dest.width / 2
-										dest.ymin = map.center.y - dest.height / 2
-										dest.ymax = map.center.y + dest.height / 2
-										[
-											{x: dest.xmin, y: dest.ymin}
-											{x: dest.xmin, y: dest.ymax}
-											{x: dest.xmax, y: dest.ymin}
-										]
-									polynomialOrder: 1
-									spatialReference: src.spatialReference
-							]
-						handleAs: "json"
-						load: =>
-							request
-								url: @imageServiceUrl + "/query"
-								content:
-									objectIds: @currentId
-									returnGeometry: true
-									outFields: ""
-									f: "json"
-								handleAs: "json"
-								load: (response3) =>
-									@map.setExtent new Polygon(response3.features[0].geometry).getExtent().expand 2
-								error: console.error
-								(usePost: true)
 						error: console.error
 						(usePost: true)
 				error: console.error
@@ -443,7 +401,6 @@ define [
 				tiepoint[key].setGeometry tiepoint.original[key]
 				tiepoint[key].pointChanged()
 		addTiepoint: (state) ->
-			console.log "AddTiepointButton: " + state
 			if state
 				currentState = "started"
 				@map.setMapCursor "crosshair"
@@ -455,20 +412,17 @@ define [
 					domStyle.set @mouseTip, "left", e.clientX + 20 + "px"
 					domStyle.set @mouseTip, "top", e.clientY + 20 + "px"
 				mouseTipDownEvent = connect query("body")[0], "onmousedown", (e) =>
-					console.log "Body: MouseDown"
 					return currentState = "placingSourcePoint.1" if currentState is "placingSourcePoint"
 					return currentState = "placingTargetPoint.1" if currentState is "placingTargetPoint"
 					closeMouseTip?()
 					@tiepointsLayer.remove point for point in [sourcePoint, targetPoint]
 					@addTiepointButton.set "checked", false unless @addTiepointButton.hovering
 				mapDownEvent = connect @map, "onMouseDown", (e) =>
-					console.log "Map: MouseDown"
 					currentState = switch currentState
 						when "started" then "placingSourcePoint"
 						when "placedSourcePoint" then "placingTargetPoint"
 						else currentState
 				mapUpEvent = connect @map, "onMouseUp", (e) =>
-					console.log "Map: MouseUp"
 					if currentState is "placingSourcePoint.1"
 						currentState = "placedSourcePoint"
 						sourcePoint = new Graphic e.mapPoint, @sourceSymbol
@@ -486,7 +440,6 @@ define [
 						closeMouseTip()
 						@addTiepointButton.set "checked", false
 				mapDragEvent = connect @map, "onMouseDrag", (e) =>
-					console.log "Map: MouseDrag"
 					currentState = switch currentState
 						when "placingSourcePoint.1" then "started"
 						when "placingTargetPoint.1" then "placingTargetPoint"
@@ -517,3 +470,136 @@ define [
 				sourcePoints: @tiepoints.data.map (x) => x.sourcePoint.geometry.toJson()
 				targetPoints: @tiepoints.data.map (x) => x.targetPoint.geometry.toJson()
 				=> @closeEditTiepoints()
+		openRoughTransform: ->
+			for display, containers of {none: [@selectRasterContainer, @tasksContainer], block: [@manualTransformContainer]}
+				domStyle.set container.domNode, "display", display for container in containers
+		rt_fit: ->
+			return console.error "No raster selected" unless @currentId?
+			request
+				url: @imageServiceUrl + "/#{@currentId}/info"
+				content: f: "json"
+				handleAs: "json"
+				load: (response1) =>
+					src = response1.extent
+					request
+						url: @imageServiceUrl + "/update"
+						content:
+							f: "json"
+							rasterId: @currentId
+							geodataTransforms: JSON.stringify [
+								geodataTransform: "Polynomial"
+								geodataTransformArguments:
+									sourcePoints: [
+										{x: src.xmin, y: src.ymin}
+										{x: src.xmin, y: src.ymax}
+										{x: src.xmax, y: src.ymin}
+									]
+									targetPoints: do =>
+										aspectRatio = (src.xmax - src.xmin) / (src.ymax - src.ymin)
+										map =
+											width: @map.extent.getWidth()
+											height: @map.extent.getHeight()
+											center: @map.extent.getCenter().toJson()
+										dest =
+											width: Math.min map.width, map.height * aspectRatio
+											height: Math.min map.height, map.width / aspectRatio
+										dest.xmin = map.center.x - dest.width / 2
+										dest.xmax = map.center.x + dest.width / 2
+										dest.ymin = map.center.y - dest.height / 2
+										dest.ymax = map.center.y + dest.height / 2
+										[
+											{x: dest.xmin, y: dest.ymin}
+											{x: dest.xmin, y: dest.ymax}
+											{x: dest.xmax, y: dest.ymin}
+										]
+									polynomialOrder: 1
+									spatialReference: src.spatialReference
+							]
+						handleAs: "json"
+						load: =>
+							request
+								url: @imageServiceUrl + "/query"
+								content:
+									objectIds: @currentId
+									returnGeometry: true
+									outFields: ""
+									f: "json"
+								handleAs: "json"
+								load: (response3) =>
+									@map.setExtent new Polygon(response3.features[0].geometry).getExtent().expand 2
+								error: console.error
+								(usePost: true)
+						error: console.error
+						(usePost: true)
+				error: console.error
+				(usePost: true)
+		rt_move: (state) ->
+			if state
+				domStyle.set @rtMoveContainer.domNode, "display", "block"
+			else
+				domStyle.set @rtMoveContainer.domNode, "display", "none"
+				for theGrid in [@rtMoveFromGrid, @rtMoveToGrid]
+					theGrid.setPoint x: "", y: ""
+					theGrid.set "onPointChanged", null
+					@miscGraphicsLayer.remove theGrid.graphic if theGrid.graphic?
+		rt_moveClose: ->
+			@rt_moveButton.set "checked", false
+		rt_scale: (state) ->
+		rt_rotate: (state) ->
+		closeRoughTransform: ->
+			for display, containers of {block: [@selectRasterContainer, @tasksContainer], none: [@manualTransformContainer]}
+				domStyle.set container.domNode, "display", display for container in containers
+		rtMovePick: ({which, state}) ->
+			if state
+				currentState = "started"
+				@map.setMapCursor "crosshair"
+				thePoint = null
+				theButton = if which is "from" then @rtMoveFromPickButton else @rtMoveToPickButton
+				theGrid = if which is "from" then @rtMoveFromGrid else @rtMoveToGrid
+				@mouseTip.innerText = "Click to place #{if which is "from" then "Source" else "Target"} Point on the map."
+				mouseTipMoveEvent = connect query("body")[0], "onmousemove", (e) =>
+					domStyle.set @mouseTip, "display", "block"
+					domStyle.set @mouseTip, "left", e.clientX + 20 + "px"
+					domStyle.set @mouseTip, "top", e.clientY + 20 + "px"
+				mouseTipDownEvent = connect query("body")[0], "onmousedown", (e) =>
+					return currentState = "placingPoint.1" if currentState is "placingPoint"
+					closeMouseTip?()
+					@miscGraphicsLayer.remove thePoint
+					theButton.set "checked", false unless theButton.hovering
+				mapDownEvent = connect @map, "onMouseDown", (e) =>
+					currentState = "placingPoint" if currentState is "started"
+				mapUpEvent = connect @map, "onMouseUp", (e) =>
+					if currentState is "placingPoint.1"
+						currentState = "placedPoint"
+						thePoint = new Graphic e.mapPoint, if which is "from" then @sourceSymbol else @targetSymbol
+						@miscGraphicsLayer.remove theGrid.graphic if theGrid.graphic?
+						@miscGraphicsLayer.add thePoint
+						theGrid.setPoint x: e.mapPoint.x, y: e.mapPoint.y
+						theGrid.set "onPointChanged", ({x, y}) =>
+							point = new Point thePoint.geometry
+							point.x = x
+							point.y = y
+							thePoint.setGeometry point
+						thePoint.pointChanged = =>
+							theGrid.setPoint x: thePoint.geometry.x, y: thePoint.geometry.y
+						theGrid.graphic = thePoint
+						closeMouseTip()
+						theButton.set "checked", false
+				mapDragEvent = connect @map, "onMouseDrag", (e) =>
+					currentState = switch currentState
+						when "placingPoint.1" then "started"
+						else currentState
+				closeMouseTip = =>
+					disconnect mouseTipMoveEvent
+					disconnect mouseTipDownEvent
+					disconnect mapDownEvent
+					disconnect mapUpEvent
+					disconnect mapDragEvent
+					domStyle.set @mouseTip, "display", "none"
+					@mouseTip.innerText = "..."
+					@map.setMapCursor "default"
+					currentState = "placedMovePoint"
+		rtMoveFromPick: (state) ->
+			@rtMovePick which: "from", state: state
+		rtMoveToPick: (state) ->
+			@rtMovePick which: "to", state: state

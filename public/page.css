@@ -25,7 +25,7 @@ body {
 .dgrid-cell-padding {
   padding: 3px 9px;
 }
-.fixedWidth250.dijitButton .dijitButtonNode {
+.fixedWidth250 .dijitButtonNode {
   width: 250px;
 }
 .dijitBorderContainer {
@@ -140,8 +140,12 @@ td.field-id {
   padding: 0;
   font-size: 1em;
 }
-.dijitAccordionChildWrapper .dijitDialogPaneActionBar {
+.dijitAccordionContainer-dijitContentPane .dijitDialogPaneActionBar {
+  margin: 9px -9px -9px;
+}
+.dijitAccordionContainer-dijitContentPane[style*="padding: 0px;"] .dijitDialogPaneActionBar {
   border-top: none;
+  margin: 0;
 }
 tr.dijitMenuItem td.dijitMenuItemIconCell {
   padding: 5px 3px 3px 5px;

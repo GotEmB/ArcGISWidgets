@@ -49,6 +49,16 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
     addTiepointButton: null,
     removeSelectedTiepointsMenuItem: null,
     resetSelectedTiepointsMenuItem: null,
+    manualTransformContainer: null,
+    rtMoveContainer: null,
+    rtMoveFromGrid: null,
+    rtMoveToGrid: null,
+    rt_moveButton: null,
+    rt_scaleButton: null,
+    rt_rotateButton: null,
+    rtMoveFromPickButton: null,
+    rtMoveToPickButton: null,
+    miscGraphicsLayer: null,
     sourceSymbol: new SimpleMarkerSymbol(SimpleMarkerSymbol.STYLE_X, 10, new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new Color([20, 20, 180]), 2), new Color([0, 0, 0])),
     targetSymbol: new SimpleMarkerSymbol(SimpleMarkerSymbol.STYLE_X, 10, new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new Color([180, 20, 20]), 2), new Color([0, 0, 0])),
     postCreate: function() {
@@ -253,12 +263,22 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
         });
         _this.tiepointsLayer = new GraphicsLayer;
         _this.map.addLayer(_this.tiepointsLayer);
+        _this.miscGraphicsLayer = new GraphicsLayer;
+        _this.map.addLayer(_this.miscGraphicsLayer);
         connect(_this.tiepointsLayer, "onMouseDown", function(e) {
           _this.map.disablePan();
           _this.graphicBeingMoved = e.graphic;
           return _this.graphicBeingMoved.gotoPointGrid();
         });
         connect(_this.tiepointsLayer, "onClick onDblClick", function(e) {
+          delete _this.graphicBeingMoved;
+          return _this.map.enablePan();
+        });
+        connect(_this.miscGraphicsLayer, "onMouseDown", function(e) {
+          _this.map.disablePan();
+          return _this.graphicBeingMoved = e.graphic;
+        });
+        connect(_this.miscGraphicsLayer, "onClick onDblClick", function(e) {
           delete _this.graphicBeingMoved;
           return _this.map.enablePan();
         });
@@ -363,108 +383,6 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
                   }
                 });
               }
-            },
-            error: console.error
-          }, {
-            usePost: true
-          });
-        },
-        error: console.error
-      }, {
-        usePost: true
-      });
-    },
-    roughTransform: function() {
-      var _this = this;
-
-      if (this.currentId == null) {
-        return console.error("No raster selected");
-      }
-      return request({
-        url: this.imageServiceUrl + ("/" + this.currentId + "/info"),
-        content: {
-          f: "json"
-        },
-        handleAs: "json",
-        load: function(response1) {
-          var src;
-
-          src = response1.extent;
-          return request({
-            url: _this.imageServiceUrl + "/update",
-            content: {
-              f: "json",
-              rasterId: _this.currentId,
-              geodataTransforms: JSON.stringify([
-                {
-                  geodataTransform: "Polynomial",
-                  geodataTransformArguments: {
-                    sourcePoints: [
-                      {
-                        x: src.xmin,
-                        y: src.ymin
-                      }, {
-                        x: src.xmin,
-                        y: src.ymax
-                      }, {
-                        x: src.xmax,
-                        y: src.ymin
-                      }
-                    ],
-                    targetPoints: (function() {
-                      var aspectRatio, dest, map;
-
-                      aspectRatio = (src.xmax - src.xmin) / (src.ymax - src.ymin);
-                      map = {
-                        width: _this.map.extent.getWidth(),
-                        height: _this.map.extent.getHeight(),
-                        center: _this.map.extent.getCenter().toJson()
-                      };
-                      dest = {
-                        width: Math.min(map.width, map.height * aspectRatio),
-                        height: Math.min(map.height, map.width / aspectRatio)
-                      };
-                      dest.xmin = map.center.x - dest.width / 2;
-                      dest.xmax = map.center.x + dest.width / 2;
-                      dest.ymin = map.center.y - dest.height / 2;
-                      dest.ymax = map.center.y + dest.height / 2;
-                      return [
-                        {
-                          x: dest.xmin,
-                          y: dest.ymin
-                        }, {
-                          x: dest.xmin,
-                          y: dest.ymax
-                        }, {
-                          x: dest.xmax,
-                          y: dest.ymin
-                        }
-                      ];
-                    })(),
-                    polynomialOrder: 1,
-                    spatialReference: src.spatialReference
-                  }
-                }
-              ])
-            },
-            handleAs: "json",
-            load: function() {
-              return request({
-                url: _this.imageServiceUrl + "/query",
-                content: {
-                  objectIds: _this.currentId,
-                  returnGeometry: true,
-                  outFields: "",
-                  f: "json"
-                },
-                handleAs: "json",
-                load: function(response3) {
-                  return _this.map.setExtent(new Polygon(response3.features[0].geometry).getExtent().expand(2));
-                },
-                error: console.error
-              }, {
-                usePost: true
-              });
             },
             error: console.error
           }, {
@@ -698,7 +616,6 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
       var closeMouseTip, currentState, mapDownEvent, mapDragEvent, mapUpEvent, mouseTipDownEvent, mouseTipMoveEvent, sourcePoint, targetPoint,
         _this = this;
 
-      console.log("AddTiepointButton: " + state);
       if (state) {
         currentState = "started";
         this.map.setMapCursor("crosshair");
@@ -713,7 +630,6 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
         mouseTipDownEvent = connect(query("body")[0], "onmousedown", function(e) {
           var point, _i, _len, _ref;
 
-          console.log("Body: MouseDown");
           if (currentState === "placingSourcePoint") {
             return currentState = "placingSourcePoint.1";
           }
@@ -733,7 +649,6 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
           }
         });
         mapDownEvent = connect(this.map, "onMouseDown", function(e) {
-          console.log("Map: MouseDown");
           return currentState = (function() {
             switch (currentState) {
               case "started":
@@ -748,7 +663,6 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
         mapUpEvent = connect(this.map, "onMouseUp", function(e) {
           var lastId, tiepoint;
 
-          console.log("Map: MouseUp");
           if (currentState === "placingSourcePoint.1") {
             currentState = "placedSourcePoint";
             sourcePoint = new Graphic(e.mapPoint, _this.sourceSymbol);
@@ -771,7 +685,6 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
           }
         });
         mapDragEvent = connect(this.map, "onMouseDrag", function(e) {
-          console.log("Map: MouseDrag");
           return currentState = (function() {
             switch (currentState) {
               case "placingSourcePoint.1":
@@ -862,6 +775,285 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
         })
       }, function() {
         return _this.closeEditTiepoints();
+      });
+    },
+    openRoughTransform: function() {
+      var container, containers, display, _ref, _results;
+
+      _ref = {
+        none: [this.selectRasterContainer, this.tasksContainer],
+        block: [this.manualTransformContainer]
+      };
+      _results = [];
+      for (display in _ref) {
+        containers = _ref[display];
+        _results.push((function() {
+          var _i, _len, _results1;
+
+          _results1 = [];
+          for (_i = 0, _len = containers.length; _i < _len; _i++) {
+            container = containers[_i];
+            _results1.push(domStyle.set(container.domNode, "display", display));
+          }
+          return _results1;
+        })());
+      }
+      return _results;
+    },
+    rt_fit: function() {
+      var _this = this;
+
+      if (this.currentId == null) {
+        return console.error("No raster selected");
+      }
+      return request({
+        url: this.imageServiceUrl + ("/" + this.currentId + "/info"),
+        content: {
+          f: "json"
+        },
+        handleAs: "json",
+        load: function(response1) {
+          var src;
+
+          src = response1.extent;
+          return request({
+            url: _this.imageServiceUrl + "/update",
+            content: {
+              f: "json",
+              rasterId: _this.currentId,
+              geodataTransforms: JSON.stringify([
+                {
+                  geodataTransform: "Polynomial",
+                  geodataTransformArguments: {
+                    sourcePoints: [
+                      {
+                        x: src.xmin,
+                        y: src.ymin
+                      }, {
+                        x: src.xmin,
+                        y: src.ymax
+                      }, {
+                        x: src.xmax,
+                        y: src.ymin
+                      }
+                    ],
+                    targetPoints: (function() {
+                      var aspectRatio, dest, map;
+
+                      aspectRatio = (src.xmax - src.xmin) / (src.ymax - src.ymin);
+                      map = {
+                        width: _this.map.extent.getWidth(),
+                        height: _this.map.extent.getHeight(),
+                        center: _this.map.extent.getCenter().toJson()
+                      };
+                      dest = {
+                        width: Math.min(map.width, map.height * aspectRatio),
+                        height: Math.min(map.height, map.width / aspectRatio)
+                      };
+                      dest.xmin = map.center.x - dest.width / 2;
+                      dest.xmax = map.center.x + dest.width / 2;
+                      dest.ymin = map.center.y - dest.height / 2;
+                      dest.ymax = map.center.y + dest.height / 2;
+                      return [
+                        {
+                          x: dest.xmin,
+                          y: dest.ymin
+                        }, {
+                          x: dest.xmin,
+                          y: dest.ymax
+                        }, {
+                          x: dest.xmax,
+                          y: dest.ymin
+                        }
+                      ];
+                    })(),
+                    polynomialOrder: 1,
+                    spatialReference: src.spatialReference
+                  }
+                }
+              ])
+            },
+            handleAs: "json",
+            load: function() {
+              return request({
+                url: _this.imageServiceUrl + "/query",
+                content: {
+                  objectIds: _this.currentId,
+                  returnGeometry: true,
+                  outFields: "",
+                  f: "json"
+                },
+                handleAs: "json",
+                load: function(response3) {
+                  return _this.map.setExtent(new Polygon(response3.features[0].geometry).getExtent().expand(2));
+                },
+                error: console.error
+              }, {
+                usePost: true
+              });
+            },
+            error: console.error
+          }, {
+            usePost: true
+          });
+        },
+        error: console.error
+      }, {
+        usePost: true
+      });
+    },
+    rt_move: function(state) {
+      var theGrid, _i, _len, _ref, _results;
+
+      if (state) {
+        return domStyle.set(this.rtMoveContainer.domNode, "display", "block");
+      } else {
+        domStyle.set(this.rtMoveContainer.domNode, "display", "none");
+        _ref = [this.rtMoveFromGrid, this.rtMoveToGrid];
+        _results = [];
+        for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+          theGrid = _ref[_i];
+          theGrid.setPoint({
+            x: "",
+            y: ""
+          });
+          theGrid.set("onPointChanged", null);
+          if (theGrid.graphic != null) {
+            _results.push(this.miscGraphicsLayer.remove(theGrid.graphic));
+          } else {
+            _results.push(void 0);
+          }
+        }
+        return _results;
+      }
+    },
+    rt_moveClose: function() {
+      return this.rt_moveButton.set("checked", false);
+    },
+    rt_scale: function(state) {},
+    rt_rotate: function(state) {},
+    closeRoughTransform: function() {
+      var container, containers, display, _ref, _results;
+
+      _ref = {
+        block: [this.selectRasterContainer, this.tasksContainer],
+        none: [this.manualTransformContainer]
+      };
+      _results = [];
+      for (display in _ref) {
+        containers = _ref[display];
+        _results.push((function() {
+          var _i, _len, _results1;
+
+          _results1 = [];
+          for (_i = 0, _len = containers.length; _i < _len; _i++) {
+            container = containers[_i];
+            _results1.push(domStyle.set(container.domNode, "display", display));
+          }
+          return _results1;
+        })());
+      }
+      return _results;
+    },
+    rtMovePick: function(_arg1) {
+      var closeMouseTip, currentState, mapDownEvent, mapDragEvent, mapUpEvent, mouseTipDownEvent, mouseTipMoveEvent, state, theButton, theGrid, thePoint, which,
+        _this = this;
+
+      which = _arg1.which, state = _arg1.state;
+      if (state) {
+        currentState = "started";
+        this.map.setMapCursor("crosshair");
+        thePoint = null;
+        theButton = which === "from" ? this.rtMoveFromPickButton : this.rtMoveToPickButton;
+        theGrid = which === "from" ? this.rtMoveFromGrid : this.rtMoveToGrid;
+        this.mouseTip.innerText = "Click to place " + (which === "from" ? "Source" : "Target") + " Point on the map.";
+        mouseTipMoveEvent = connect(query("body")[0], "onmousemove", function(e) {
+          domStyle.set(_this.mouseTip, "display", "block");
+          domStyle.set(_this.mouseTip, "left", e.clientX + 20 + "px");
+          return domStyle.set(_this.mouseTip, "top", e.clientY + 20 + "px");
+        });
+        mouseTipDownEvent = connect(query("body")[0], "onmousedown", function(e) {
+          if (currentState === "placingPoint") {
+            return currentState = "placingPoint.1";
+          }
+          if (typeof closeMouseTip === "function") {
+            closeMouseTip();
+          }
+          _this.miscGraphicsLayer.remove(thePoint);
+          if (!theButton.hovering) {
+            return theButton.set("checked", false);
+          }
+        });
+        mapDownEvent = connect(this.map, "onMouseDown", function(e) {
+          if (currentState === "started") {
+            return currentState = "placingPoint";
+          }
+        });
+        mapUpEvent = connect(this.map, "onMouseUp", function(e) {
+          if (currentState === "placingPoint.1") {
+            currentState = "placedPoint";
+            thePoint = new Graphic(e.mapPoint, which === "from" ? _this.sourceSymbol : _this.targetSymbol);
+            if (theGrid.graphic != null) {
+              _this.miscGraphicsLayer.remove(theGrid.graphic);
+            }
+            _this.miscGraphicsLayer.add(thePoint);
+            theGrid.setPoint({
+              x: e.mapPoint.x,
+              y: e.mapPoint.y
+            });
+            theGrid.set("onPointChanged", function(_arg2) {
+              var point, x, y;
+
+              x = _arg2.x, y = _arg2.y;
+              point = new Point(thePoint.geometry);
+              point.x = x;
+              point.y = y;
+              return thePoint.setGeometry(point);
+            });
+            thePoint.pointChanged = function() {
+              return theGrid.setPoint({
+                x: thePoint.geometry.x,
+                y: thePoint.geometry.y
+              });
+            };
+            theGrid.graphic = thePoint;
+            closeMouseTip();
+            return theButton.set("checked", false);
+          }
+        });
+        mapDragEvent = connect(this.map, "onMouseDrag", function(e) {
+          return currentState = (function() {
+            switch (currentState) {
+              case "placingPoint.1":
+                return "started";
+              default:
+                return currentState;
+            }
+          })();
+        });
+        return closeMouseTip = function() {
+          disconnect(mouseTipMoveEvent);
+          disconnect(mouseTipDownEvent);
+          disconnect(mapDownEvent);
+          disconnect(mapUpEvent);
+          disconnect(mapDragEvent);
+          domStyle.set(_this.mouseTip, "display", "none");
+          _this.mouseTip.innerText = "...";
+          _this.map.setMapCursor("default");
+          return currentState = "placedMovePoint";
+        };
+      }
+    },
+    rtMoveFromPick: function(state) {
+      return this.rtMovePick({
+        which: "from",
+        state: state
+      });
+    },
+    rtMoveToPick: function(state) {
+      return this.rtMovePick({
+        which: "to",
+        state: state
       });
     }
   });
