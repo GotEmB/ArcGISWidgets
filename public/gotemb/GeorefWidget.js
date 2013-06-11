@@ -903,28 +903,60 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
       });
     },
     rt_move: function(state) {
-      var theGrid, _i, _len, _ref, _results;
+      var theGrid, _i, _j, _len, _len1, _ref, _ref1, _results, _results1,
+        _this = this;
 
       if (state) {
-        return domStyle.set(this.rtMoveContainer.domNode, "display", "block");
-      } else {
-        domStyle.set(this.rtMoveContainer.domNode, "display", "none");
+        domStyle.set(this.rtMoveContainer.domNode, "display", "block");
         _ref = [this.rtMoveFromGrid, this.rtMoveToGrid];
         _results = [];
         for (_i = 0, _len = _ref.length; _i < _len; _i++) {
           theGrid = _ref[_i];
+          _results.push(theGrid.set("onPointChanged", function() {
+            var thePoint;
+
+            thePoint = new Graphic(new Point({
+              x: Number(theGrid.get("x")),
+              y: Number(theGrid.get("y")),
+              spatialReference: _this.imageServiceLayer.spatialReference
+            }), theGrid === _this.rtMoveFromGrid ? _this.sourceSymbol : _this.targetSymbol);
+            _this.miscGraphicsLayer.add(thePoint);
+            theGrid.set("onPointChanged", function(_arg1) {
+              var point, x, y;
+
+              x = _arg1.x, y = _arg1.y;
+              point = new Point(thePoint.geometry);
+              point.x = x;
+              point.y = y;
+              return thePoint.setGeometry(point);
+            });
+            thePoint.pointChanged = function() {
+              return theGrid.setPoint({
+                x: thePoint.geometry.x,
+                y: thePoint.geometry.y
+              });
+            };
+            return theGrid.graphic = thePoint;
+          }));
+        }
+        return _results;
+      } else {
+        domStyle.set(this.rtMoveContainer.domNode, "display", "none");
+        _ref1 = [this.rtMoveFromGrid, this.rtMoveToGrid];
+        _results1 = [];
+        for (_j = 0, _len1 = _ref1.length; _j < _len1; _j++) {
+          theGrid = _ref1[_j];
           theGrid.setPoint({
             x: "",
             y: ""
           });
           theGrid.set("onPointChanged", null);
           if (theGrid.graphic != null) {
-            _results.push(this.miscGraphicsLayer.remove(theGrid.graphic));
-          } else {
-            _results.push(void 0);
+            this.miscGraphicsLayer.remove(theGrid.graphic);
           }
+          _results1.push(delete theGrid.graphic);
         }
-        return _results;
+        return _results1;
       }
     },
     rt_moveClose: function() {
@@ -1054,6 +1086,43 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
       return this.rtMovePick({
         which: "to",
         state: state
+      });
+    },
+    rt_moveTransform: function() {
+      var offsets, point,
+        _this = this;
+
+      return this.applyTransform({
+        sourcePoints: (function() {
+          var _i, _len, _ref, _results;
+
+          _ref = [[0, 0], [100, 0], [0, 100]];
+          _results = [];
+          for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+            offsets = _ref[_i];
+            point = new Point(this.rtMoveFromGrid.graphic.geometry);
+            point.x += offsets[0];
+            point.y += offsets[1];
+            _results.push(point);
+          }
+          return _results;
+        }).call(this),
+        targetPoints: (function() {
+          var _i, _len, _ref, _results;
+
+          _ref = [[0, 0], [100, 0], [0, 100]];
+          _results = [];
+          for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+            offsets = _ref[_i];
+            point = new Point(this.rtMoveToGrid.graphic.geometry);
+            point.x += offsets[0];
+            point.y += offsets[1];
+            _results.push(point);
+          }
+          return _results;
+        }).call(this)
+      }, function() {
+        return _this.rt_moveClose();
       });
     }
   });

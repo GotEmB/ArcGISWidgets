@@ -536,12 +536,31 @@ define [
 		rt_move: (state) ->
 			if state
 				domStyle.set @rtMoveContainer.domNode, "display", "block"
+				for theGrid in [@rtMoveFromGrid, @rtMoveToGrid]
+					theGrid.set "onPointChanged", =>
+						thePoint = new Graphic(
+							new Point
+								x: Number theGrid.get "x"
+								y: Number theGrid.get "y"
+								spatialReference: @imageServiceLayer.spatialReference
+							if theGrid is @rtMoveFromGrid then @sourceSymbol else @targetSymbol
+						)
+						@miscGraphicsLayer.add thePoint
+						theGrid.set "onPointChanged", ({x, y}) =>
+							point = new Point thePoint.geometry
+							point.x = x
+							point.y = y
+							thePoint.setGeometry point
+						thePoint.pointChanged = =>
+							theGrid.setPoint x: thePoint.geometry.x, y: thePoint.geometry.y
+						theGrid.graphic = thePoint
 			else
 				domStyle.set @rtMoveContainer.domNode, "display", "none"
 				for theGrid in [@rtMoveFromGrid, @rtMoveToGrid]
 					theGrid.setPoint x: "", y: ""
 					theGrid.set "onPointChanged", null
 					@miscGraphicsLayer.remove theGrid.graphic if theGrid.graphic?
+					delete theGrid.graphic
 		rt_moveClose: ->
 			@rt_moveButton.set "checked", false
 		rt_scale: (state) ->
@@ -603,3 +622,16 @@ define [
 			@rtMovePick which: "from", state: state
 		rtMoveToPick: (state) ->
 			@rtMovePick which: "to", state: state
+		rt_moveTransform: ->
+			@applyTransform
+				sourcePoints: for offsets in [[0, 0], [100, 0], [0, 100]]
+					point = new Point @rtMoveFromGrid.graphic.geometry
+					point.x += offsets[0]
+					point.y += offsets[1]
+					point
+				targetPoints: for offsets in [[0, 0], [100, 0], [0, 100]]
+					point = new Point @rtMoveToGrid.graphic.geometry
+					point.x += offsets[0]
+					point.y += offsets[1]
+					point
+				=> @rt_moveClose()
