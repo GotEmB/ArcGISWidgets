@@ -29,13 +29,14 @@ define [
 	"dojo/window"
 	"dojo/dom-class"
 	"dojo/query"
+	"dgrid/editor"
+	"gotemb/GeorefWidget/RastersGrid"
 	# ---
 	"dojox/form/FileInput"
 	"dijit/form/Button"
 	"dijit/form/DropDownButton"
 	"dijit/layout/AccordionContainer"
 	"dijit/layout/ContentPane"
-	"gotemb/GeorefWidget/RastersGrid"
 	"dijit/Dialog"
 	"dijit/Toolbar"
 	"dijit/ToolbarSeparator"
@@ -45,7 +46,7 @@ define [
 	"dijit/CheckedMenuItem"
 	"dojo/NodeList-traverse"
 	"dojo/NodeList-dom"
-], (declare, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template, {connect, disconnect}, ArcGISImageServiceLayer, request, MosaicRule, Polygon, GeometryService, domStyle, PointGrid, Observable, Memory, TiepointsGrid, GraphicsLayer, Color, SimpleMarkerSymbol, SimpleLineSymbol, Graphic, Point, win, domClass, query) ->
+], (declare, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template, {connect, disconnect}, ArcGISImageServiceLayer, request, MosaicRule, Polygon, GeometryService, domStyle, PointGrid, Observable, Memory, TiepointsGrid, GraphicsLayer, Color, SimpleMarkerSymbol, SimpleLineSymbol, Graphic, Point, win, domClass, query, editor, RastersGrid) ->
 	declare [_WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin],
 		templateString: template
 		baseClass: "ClassifyWidget"
@@ -123,24 +124,36 @@ define [
 				@map.addLayer @referenceLayer = new ArcGISImageServiceLayer @referenceLayerUrl
 				@imageServiceLayer.setOpacity 0
 				@map.addLayer @imageServiceLayer
-				@rastersGrid.set "columns", [
-					label: "Raster Id"
-					field: "rasterId"
-					sortable: false
-				,
-					label: "Name"
-					field: "name"
-					sortable: false
-				]
-				@rastersGrid.set "selectionMode", "single"
-				@loadRastersList()
+				@rasters = new Observable new Memory idProperty: "rasterId"
+				@rastersGrid = new RastersGrid
+					columns: [
+						editor
+							label: " "
+							field: "display"
+							editor: "CheckBox"
+							autoSave: true
+					,	
+						label: "Raster Id"
+						field: "rasterId"
+						sortable: false
+					,
+						label: "Name"
+						field: "name"
+						sortable: false
+					]
+					store: @rasters
+					selectionMode: "single"
+					@rastersGrid
+				@rastersGrid.startup()
+				@loadRastersList =>
+					domStyle.set @selectRasterContainer.domNode, "display", "block"
 				@rastersGrid.on "dgrid-select", ({rows}) =>
 					return if @currentId is rows[0].data.rasterId
 					@currentId = rows[0].data.rasterId
 					@imageServiceLayer.setMosaicRule extend(
 						new MosaicRule
 						method: MosaicRule.METHOD_LOCKRASTER
-						lockRasterIds: [@currentId]
+						lockRasterIds: raster.rasterId for raster in @rasters.data when raster.display
 					), true
 					request
 						url: @imageServiceUrl + "/query"
@@ -156,6 +169,12 @@ define [
 							domStyle.set @tasksContainer.domNode, "display", "block"
 						error: console.error
 						(usePost: true)
+				@rastersGrid.on "dgrid-datachange", ({cell, value}) =>
+					@imageServiceLayer.setMosaicRule extend(
+						new MosaicRule
+						method: MosaicRule.METHOD_LOCKRASTER
+						lockRasterIds: raster.rasterId for raster in @rasters.data when (raster isnt cell.row.data and raster.display) or (raster is cell.row.data and value)
+					)
 				@tiepoints = new Observable new Memory idProperty: "id"
 				@tiepointsGrid = new TiepointsGrid
 					columns: [
@@ -180,8 +199,10 @@ define [
 							value.gotoPointGrid = =>
 								win.scrollIntoView pointGrid.domNode
 								tdId = new query.NodeList(pointGrid.domNode).parent().parent().children().first()
-								tdId.removeClass "yellow"
-								setTimeout (=> tdId.addClass "yellow"), 0
+								tdId.addClass "yellow"
+								mouseUpEvent = connect value, "onMouseUp", =>
+									tdId.removeClass "yellow"
+									disconnect mouseUpEvent
 							pointGrid.domNode
 					,
 						label: "Target Point"
@@ -267,13 +288,12 @@ define [
 					outFields: "OBJECTID, Name"
 				handlesAs: "json"
 				load: (response) =>
-					@rasters =
-						for feature in response.features
+					for feature in response.features
+						@rasters.put
 							rasterId: feature.attributes.OBJECTID
 							name: feature.attributes.Name
 							spatialReference: feature.geometry.spatialReference
-					@rastersGrid.refresh()
-					@rastersGrid.renderArray @rasters
+							display: true
 					callback?()
 				error: console.error
 				(usePost: true)
@@ -306,7 +326,7 @@ define [
 								@loadRastersList =>
 									@addRasterDialog.hide()
 									@rastersGrid.clearSelection()
-									@rastersGrid.select @rasters.length - 1 if @rasters.length > 0
+									@rastersGrid.select @rasters.data.length - 1 if @rasters.data.length > 0
 						error: console.error
 						(usePost: true)
 				error: console.error
@@ -353,7 +373,7 @@ define [
 					geodataTransforms: JSON.stringify [
 						geodataTransform: "Identity"
 						geodataTransformArguments:
-							spatialReference: @rasters.filter((x) => x.rasterId is @currentId)[0].spatialReference
+							spatialReference: @rasters.data.filter((x) => x.rasterId is @currentId)[0].spatialReference
 					]
 				handleAs: "json"
 				load: (response) ->

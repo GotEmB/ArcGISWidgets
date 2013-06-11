@@ -11,7 +11,7 @@ extend = function(obj, mixin) {
   return obj;
 };
 
-define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dijit/_WidgetsInTemplateMixin", "dojo/text!./GeorefWidget/templates/GeorefWidget.html", "dojo/_base/connect", "esri/layers/ArcGISImageServiceLayer", "esri/request", "esri/layers/MosaicRule", "esri/geometry/Polygon", "esri/tasks/GeometryService", "dojo/dom-style", "gotemb/GeorefWidget/PointGrid", "dojo/store/Observable", "dojo/store/Memory", "gotemb/GeorefWidget/TiepointsGrid", "esri/layers/GraphicsLayer", "dojo/_base/Color", "esri/symbols/SimpleMarkerSymbol", "esri/symbols/SimpleLineSymbol", "esri/graphic", "esri/geometry/Point", "dojo/window", "dojo/dom-class", "dojo/query", "dojox/form/FileInput", "dijit/form/Button", "dijit/form/DropDownButton", "dijit/layout/AccordionContainer", "dijit/layout/ContentPane", "gotemb/GeorefWidget/RastersGrid", "dijit/Dialog", "dijit/Toolbar", "dijit/ToolbarSeparator", "dijit/form/ToggleButton", "dijit/Menu", "dijit/MenuItem", "dijit/CheckedMenuItem", "dojo/NodeList-traverse", "dojo/NodeList-dom"], function(declare, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template, _arg, ArcGISImageServiceLayer, request, MosaicRule, Polygon, GeometryService, domStyle, PointGrid, Observable, Memory, TiepointsGrid, GraphicsLayer, Color, SimpleMarkerSymbol, SimpleLineSymbol, Graphic, Point, win, domClass, query) {
+define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dijit/_WidgetsInTemplateMixin", "dojo/text!./GeorefWidget/templates/GeorefWidget.html", "dojo/_base/connect", "esri/layers/ArcGISImageServiceLayer", "esri/request", "esri/layers/MosaicRule", "esri/geometry/Polygon", "esri/tasks/GeometryService", "dojo/dom-style", "gotemb/GeorefWidget/PointGrid", "dojo/store/Observable", "dojo/store/Memory", "gotemb/GeorefWidget/TiepointsGrid", "esri/layers/GraphicsLayer", "dojo/_base/Color", "esri/symbols/SimpleMarkerSymbol", "esri/symbols/SimpleLineSymbol", "esri/graphic", "esri/geometry/Point", "dojo/window", "dojo/dom-class", "dojo/query", "dgrid/editor", "gotemb/GeorefWidget/RastersGrid", "dojox/form/FileInput", "dijit/form/Button", "dijit/form/DropDownButton", "dijit/layout/AccordionContainer", "dijit/layout/ContentPane", "dijit/Dialog", "dijit/Toolbar", "dijit/ToolbarSeparator", "dijit/form/ToggleButton", "dijit/Menu", "dijit/MenuItem", "dijit/CheckedMenuItem", "dojo/NodeList-traverse", "dojo/NodeList-dom"], function(declare, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template, _arg, ArcGISImageServiceLayer, request, MosaicRule, Polygon, GeometryService, domStyle, PointGrid, Observable, Memory, TiepointsGrid, GraphicsLayer, Color, SimpleMarkerSymbol, SimpleLineSymbol, Graphic, Point, win, domClass, query, editor, RastersGrid) {
   var connect, disconnect;
 
   connect = _arg.connect, disconnect = _arg.disconnect;
@@ -74,21 +74,35 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
         _this.map.addLayer(_this.referenceLayer = new ArcGISImageServiceLayer(_this.referenceLayerUrl));
         _this.imageServiceLayer.setOpacity(0);
         _this.map.addLayer(_this.imageServiceLayer);
-        _this.rastersGrid.set("columns", [
-          {
-            label: "Raster Id",
-            field: "rasterId",
-            sortable: false
-          }, {
-            label: "Name",
-            field: "name",
-            sortable: false
-          }
-        ]);
-        _this.rastersGrid.set("selectionMode", "single");
-        _this.loadRastersList();
+        _this.rasters = new Observable(new Memory({
+          idProperty: "rasterId"
+        }));
+        _this.rastersGrid = new RastersGrid({
+          columns: [
+            editor({
+              label: " ",
+              field: "display",
+              editor: "CheckBox",
+              autoSave: true
+            }), {
+              label: "Raster Id",
+              field: "rasterId",
+              sortable: false
+            }, {
+              label: "Name",
+              field: "name",
+              sortable: false
+            }
+          ],
+          store: _this.rasters,
+          selectionMode: "single"
+        }, _this.rastersGrid);
+        _this.rastersGrid.startup();
+        _this.loadRastersList(function() {
+          return domStyle.set(_this.selectRasterContainer.domNode, "display", "block");
+        });
         _this.rastersGrid.on("dgrid-select", function(_arg1) {
-          var rows;
+          var raster, rows;
 
           rows = _arg1.rows;
           if (_this.currentId === rows[0].data.rasterId) {
@@ -97,7 +111,19 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
           _this.currentId = rows[0].data.rasterId;
           _this.imageServiceLayer.setMosaicRule(extend(new MosaicRule, {
             method: MosaicRule.METHOD_LOCKRASTER,
-            lockRasterIds: [_this.currentId]
+            lockRasterIds: (function() {
+              var _i, _len, _ref, _results;
+
+              _ref = this.rasters.data;
+              _results = [];
+              for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+                raster = _ref[_i];
+                if (raster.display) {
+                  _results.push(raster.rasterId);
+                }
+              }
+              return _results;
+            }).call(_this)
           }), true);
           return request({
             url: _this.imageServiceUrl + "/query",
@@ -117,6 +143,27 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
           }, {
             usePost: true
           });
+        });
+        _this.rastersGrid.on("dgrid-datachange", function(_arg1) {
+          var cell, raster, value;
+
+          cell = _arg1.cell, value = _arg1.value;
+          return _this.imageServiceLayer.setMosaicRule(extend(new MosaicRule, {
+            method: MosaicRule.METHOD_LOCKRASTER,
+            lockRasterIds: (function() {
+              var _i, _len, _ref, _results;
+
+              _ref = this.rasters.data;
+              _results = [];
+              for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+                raster = _ref[_i];
+                if ((raster !== cell.row.data && raster.display) || (raster === cell.row.data && value)) {
+                  _results.push(raster.rasterId);
+                }
+              }
+              return _results;
+            }).call(_this)
+          }));
         });
         _this.tiepoints = new Observable(new Memory({
           idProperty: "id"
@@ -154,14 +201,15 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
                   });
                 };
                 value.gotoPointGrid = function() {
-                  var tdId;
+                  var mouseUpEvent, tdId;
 
                   win.scrollIntoView(pointGrid.domNode);
                   tdId = new query.NodeList(pointGrid.domNode).parent().parent().children().first();
-                  tdId.removeClass("yellow");
-                  return setTimeout((function() {
-                    return tdId.addClass("yellow");
-                  }), 0);
+                  tdId.addClass("yellow");
+                  return mouseUpEvent = connect(value, "onMouseUp", function() {
+                    tdId.removeClass("yellow");
+                    return disconnect(mouseUpEvent);
+                  });
                 };
                 return pointGrid.domNode;
               }
@@ -315,25 +363,18 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
         },
         handlesAs: "json",
         load: function(response) {
-          var feature;
+          var feature, _i, _len, _ref;
 
-          _this.rasters = (function() {
-            var _i, _len, _ref, _results;
-
-            _ref = response.features;
-            _results = [];
-            for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-              feature = _ref[_i];
-              _results.push({
-                rasterId: feature.attributes.OBJECTID,
-                name: feature.attributes.Name,
-                spatialReference: feature.geometry.spatialReference
-              });
-            }
-            return _results;
-          })();
-          _this.rastersGrid.refresh();
-          _this.rastersGrid.renderArray(_this.rasters);
+          _ref = response.features;
+          for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+            feature = _ref[_i];
+            _this.rasters.put({
+              rasterId: feature.attributes.OBJECTID,
+              name: feature.attributes.Name,
+              spatialReference: feature.geometry.spatialReference,
+              display: true
+            });
+          }
           return typeof callback === "function" ? callback() : void 0;
         },
         error: console.error
@@ -382,8 +423,8 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
                 return _this.loadRastersList(function() {
                   _this.addRasterDialog.hide();
                   _this.rastersGrid.clearSelection();
-                  if (_this.rasters.length > 0) {
-                    return _this.rastersGrid.select(_this.rasters.length - 1);
+                  if (_this.rasters.data.length > 0) {
+                    return _this.rastersGrid.select(_this.rasters.data.length - 1);
                   }
                 });
               }
@@ -490,7 +531,7 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
             {
               geodataTransform: "Identity",
               geodataTransformArguments: {
-                spatialReference: this.rasters.filter(function(x) {
+                spatialReference: this.rasters.data.filter(function(x) {
                   return x.rasterId === _this.currentId;
                 })[0].spatialReference
               }
