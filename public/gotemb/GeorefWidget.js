@@ -59,6 +59,8 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
     rtMoveFromPickButton: null,
     rtMoveToPickButton: null,
     miscGraphicsLayer: null,
+    rtScaleContainer: null,
+    rtScaleFactorInput: null,
     sourceSymbol: new SimpleMarkerSymbol(SimpleMarkerSymbol.STYLE_X, 10, new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new Color([20, 20, 180]), 2), new Color([0, 0, 0])),
     targetSymbol: new SimpleMarkerSymbol(SimpleMarkerSymbol.STYLE_X, 10, new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new Color([180, 20, 20]), 2), new Color([0, 0, 0])),
     postCreate: function() {
@@ -800,6 +802,28 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
       }
       return _results;
     },
+    closeRoughTransform: function() {
+      var button, container, containers, display, _i, _j, _len, _len1, _ref, _ref1, _results;
+
+      _ref = {
+        block: [this.selectRasterContainer, this.tasksContainer],
+        none: [this.manualTransformContainer]
+      };
+      for (display in _ref) {
+        containers = _ref[display];
+        for (_i = 0, _len = containers.length; _i < _len; _i++) {
+          container = containers[_i];
+          domStyle.set(container.domNode, "display", display);
+        }
+      }
+      _ref1 = [this.rt_moveButton, this.rt_scaleButton];
+      _results = [];
+      for (_j = 0, _len1 = _ref1.length; _j < _len1; _j++) {
+        button = _ref1[_j];
+        _results.push(button.set("checked", false));
+      }
+      return _results;
+    },
     rt_fit: function() {
       var _this = this;
 
@@ -903,15 +927,20 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
       });
     },
     rt_move: function(state) {
-      var theGrid, _i, _j, _len, _len1, _ref, _ref1, _results, _results1,
+      var button, theGrid, _i, _j, _k, _len, _len1, _len2, _ref, _ref1, _ref2, _results, _results1,
         _this = this;
 
       if (state) {
         domStyle.set(this.rtMoveContainer.domNode, "display", "block");
-        _ref = [this.rtMoveFromGrid, this.rtMoveToGrid];
-        _results = [];
+        _ref = [this.rt_scaleButton];
         for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-          theGrid = _ref[_i];
+          button = _ref[_i];
+          button.set("checked", false);
+        }
+        _ref1 = [this.rtMoveFromGrid, this.rtMoveToGrid];
+        _results = [];
+        for (_j = 0, _len1 = _ref1.length; _j < _len1; _j++) {
+          theGrid = _ref1[_j];
           _results.push(theGrid.set("onPointChanged", function() {
             var thePoint;
 
@@ -942,10 +971,10 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
         return _results;
       } else {
         domStyle.set(this.rtMoveContainer.domNode, "display", "none");
-        _ref1 = [this.rtMoveFromGrid, this.rtMoveToGrid];
+        _ref2 = [this.rtMoveFromGrid, this.rtMoveToGrid];
         _results1 = [];
-        for (_j = 0, _len1 = _ref1.length; _j < _len1; _j++) {
-          theGrid = _ref1[_j];
+        for (_k = 0, _len2 = _ref2.length; _k < _len2; _k++) {
+          theGrid = _ref2[_k];
           theGrid.setPoint({
             x: "",
             y: ""
@@ -961,31 +990,6 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
     },
     rt_moveClose: function() {
       return this.rt_moveButton.set("checked", false);
-    },
-    rt_scale: function(state) {},
-    rt_rotate: function(state) {},
-    closeRoughTransform: function() {
-      var container, containers, display, _ref, _results;
-
-      _ref = {
-        block: [this.selectRasterContainer, this.tasksContainer],
-        none: [this.manualTransformContainer]
-      };
-      _results = [];
-      for (display in _ref) {
-        containers = _ref[display];
-        _results.push((function() {
-          var _i, _len, _results1;
-
-          _results1 = [];
-          for (_i = 0, _len = containers.length; _i < _len; _i++) {
-            container = containers[_i];
-            _results1.push(domStyle.set(container.domNode, "display", display));
-          }
-          return _results1;
-        })());
-      }
-      return _results;
     },
     rtMovePick: function(_arg1) {
       var closeMouseTip, currentState, mapDownEvent, mapDragEvent, mapUpEvent, mouseTipDownEvent, mouseTipMoveEvent, state, theButton, theGrid, thePoint, which,
@@ -1094,13 +1098,13 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
 
       return this.applyTransform({
         sourcePoints: (function() {
-          var _i, _len, _ref, _results;
+          var _i, _len, _ref, _ref1, _results;
 
           _ref = [[0, 0], [100, 0], [0, 100]];
           _results = [];
           for (_i = 0, _len = _ref.length; _i < _len; _i++) {
             offsets = _ref[_i];
-            point = new Point(this.rtMoveFromGrid.graphic.geometry);
+            point = new Point((_ref1 = this.rtMoveFromGrid.graphic) != null ? _ref1.geometry : void 0);
             point.x += offsets[0];
             point.y += offsets[1];
             _results.push(point);
@@ -1108,13 +1112,13 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
           return _results;
         }).call(this),
         targetPoints: (function() {
-          var _i, _len, _ref, _results;
+          var _i, _len, _ref, _ref1, _results;
 
           _ref = [[0, 0], [100, 0], [0, 100]];
           _results = [];
           for (_i = 0, _len = _ref.length; _i < _len; _i++) {
             offsets = _ref[_i];
-            point = new Point(this.rtMoveToGrid.graphic.geometry);
+            point = new Point((_ref1 = this.rtMoveToGrid.graphic) != null ? _ref1.geometry : void 0);
             point.x += offsets[0];
             point.y += offsets[1];
             _results.push(point);
@@ -1124,6 +1128,82 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
       }, function() {
         return _this.rt_moveClose();
       });
-    }
+    },
+    rt_scale: function(state) {
+      var button, _i, _len, _ref, _results;
+
+      if (state) {
+        domStyle.set(this.rtScaleContainer.domNode, "display", "block");
+        _ref = [this.rt_moveButton];
+        _results = [];
+        for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+          button = _ref[_i];
+          _results.push(button.set("checked", false));
+        }
+        return _results;
+      } else {
+        domStyle.set(this.rtScaleContainer.domNode, "display", "none");
+        return this.rtScaleFactorInput.value = "";
+      }
+    },
+    rt_scaleClose: function() {
+      return this.rt_scaleButton.set("checked", false);
+    },
+    rt_scaleTransform: function() {
+      var _this = this;
+
+      return request({
+        url: this.imageServiceUrl + "/query",
+        content: {
+          objectIds: this.currentId,
+          returnGeometry: true,
+          outFields: "",
+          f: "json"
+        },
+        handleAs: "json",
+        load: function(response) {
+          var centerPoint, offsets, point, scaleFactor;
+
+          scaleFactor = !isNaN(_this.rtScaleFactorInput.value) ? Number(_this.rtScaleFactorInput.value) : 1;
+          centerPoint = new Polygon(response.features[0].geometry).getExtent().getCenter();
+          return _this.applyTransform({
+            sourcePoints: (function() {
+              var _i, _len, _ref, _results;
+
+              _ref = [[0, 0], [100, 0], [0, 100]];
+              _results = [];
+              for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+                offsets = _ref[_i];
+                point = new Point(centerPoint);
+                point.x += offsets[0];
+                point.y += offsets[1];
+                _results.push(point);
+              }
+              return _results;
+            })(),
+            targetPoints: (function() {
+              var _i, _len, _ref, _results;
+
+              _ref = [[0, 0], [100 * scaleFactor, 0], [0, 100 * scaleFactor]];
+              _results = [];
+              for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+                offsets = _ref[_i];
+                point = new Point(centerPoint);
+                point.x += offsets[0];
+                point.y += offsets[1];
+                _results.push(point);
+              }
+              return _results;
+            })()
+          }, function() {
+            return _this.rt_scaleClose();
+          });
+        },
+        error: console.error
+      }, {
+        usePost: true
+      });
+    },
+    rt_rotate: function(state) {}
   });
 });

@@ -113,7 +113,7 @@
 		</div>
 	</div>
 	<div data-dojo-type="dijit/layout/AccordionContainer" data-dojo-attach-point="rtMoveContainer" style="display: none">
-		<div data-dojo-type="dijit/layout/ContentPane" title="Move raster" style="padding: 0">
+		<div data-dojo-type="dijit/layout/ContentPane" title="Move Raster" style="padding: 0">
 			<table style="width: 100%; text-align: center; border-collapse: collapse; border: 1px solid #DDD">
 				<tr>
 					<th style="border: 1px solid #DDD; background-color: #EEE; padding: 5px">From</th>
@@ -130,7 +130,19 @@
 			</table>
 			<div class="dijitDialogPaneActionBar">
 				<button data-dojo-type="dijit/form/Button" type="button" data-dojo-attach-event="onClick: rt_moveClose">Cancel</button>
-				<button data-dojo-type="dijit/form/Button" type="button" data-dojo-attach-event="onClick: rt_moveTransform">Transform</button>
+				<button data-dojo-type="dijit/form/Button" type="button" data-dojo-attach-event="onClick: rt_moveTransform">Move</button>
+			</div>
+		</div>
+	</div>
+	<div data-dojo-type="dijit/layout/AccordionContainer" data-dojo-attach-point="rtScaleContainer" style="display: none">
+		<div data-dojo-type="dijit/layout/ContentPane" title="Scale Raster" style="text-align: center">
+			<form style="display: inline-block">
+				<label>Scale Factor:</label>
+				<input type="text" data-dojo-attach-point="rtScaleFactorInput">
+			</form>
+			<div class="dijitDialogPaneActionBar">
+				<button data-dojo-type="dijit/form/Button" type="button" data-dojo-attach-event="onClick: rt_scaleClose">Cancel</button>
+				<button data-dojo-type="dijit/form/Button" type="button" data-dojo-attach-event="onClick: rt_scaleTransform">Scale</button>
 			</div>
 		</div>
 	</div>

@@ -90,6 +90,8 @@ define [
 		rtMoveFromPickButton: null
 		rtMoveToPickButton: null
 		miscGraphicsLayer: null
+		rtScaleContainer: null
+		rtScaleFactorInput: null
 		sourceSymbol:
 			new SimpleMarkerSymbol(
 				SimpleMarkerSymbol.STYLE_X
@@ -473,6 +475,11 @@ define [
 		openRoughTransform: ->
 			for display, containers of {none: [@selectRasterContainer, @tasksContainer], block: [@manualTransformContainer]}
 				domStyle.set container.domNode, "display", display for container in containers
+		closeRoughTransform: ->
+			for display, containers of {block: [@selectRasterContainer, @tasksContainer], none: [@manualTransformContainer]}
+				domStyle.set container.domNode, "display", display for container in containers
+			for button in [@rt_moveButton, @rt_scaleButton]
+				button.set "checked", false
 		rt_fit: ->
 			return console.error "No raster selected" unless @currentId?
 			request
@@ -536,6 +543,8 @@ define [
 		rt_move: (state) ->
 			if state
 				domStyle.set @rtMoveContainer.domNode, "display", "block"
+				for button in [@rt_scaleButton]
+					button.set "checked", false
 				for theGrid in [@rtMoveFromGrid, @rtMoveToGrid]
 					theGrid.set "onPointChanged", =>
 						thePoint = new Graphic(
@@ -563,11 +572,6 @@ define [
 					delete theGrid.graphic
 		rt_moveClose: ->
 			@rt_moveButton.set "checked", false
-		rt_scale: (state) ->
-		rt_rotate: (state) ->
-		closeRoughTransform: ->
-			for display, containers of {block: [@selectRasterContainer, @tasksContainer], none: [@manualTransformContainer]}
-				domStyle.set container.domNode, "display", display for container in containers
 		rtMovePick: ({which, state}) ->
 			if state
 				currentState = "started"
@@ -625,13 +629,51 @@ define [
 		rt_moveTransform: ->
 			@applyTransform
 				sourcePoints: for offsets in [[0, 0], [100, 0], [0, 100]]
-					point = new Point @rtMoveFromGrid.graphic.geometry
+					point = new Point @rtMoveFromGrid.graphic?.geometry
 					point.x += offsets[0]
 					point.y += offsets[1]
 					point
 				targetPoints: for offsets in [[0, 0], [100, 0], [0, 100]]
-					point = new Point @rtMoveToGrid.graphic.geometry
+					point = new Point @rtMoveToGrid.graphic?.geometry
 					point.x += offsets[0]
 					point.y += offsets[1]
 					point
 				=> @rt_moveClose()
+		rt_scale: (state) ->
+			if state
+				domStyle.set @rtScaleContainer.domNode, "display", "block"
+				for button in [@rt_moveButton]
+					button.set "checked", false
+			else
+				domStyle.set @rtScaleContainer.domNode, "display", "none"
+				@rtScaleFactorInput.value = ""
+		rt_scaleClose: ->
+			@rt_scaleButton.set "checked", false
+		rt_scaleTransform: ->
+			request
+				url: @imageServiceUrl + "/query"
+				content:
+					objectIds: @currentId
+					returnGeometry: true
+					outFields: ""
+					f: "json"
+				handleAs: "json"
+				load: (response) =>
+					scaleFactor = unless isNaN @rtScaleFactorInput.value then Number @rtScaleFactorInput.value else 1
+					centerPoint = new Polygon(response.features[0].geometry).getExtent().getCenter()
+					@applyTransform
+						sourcePoints: for offsets in [[0, 0], [100, 0], [0, 100]]
+							point = new Point centerPoint
+							point.x += offsets[0]
+							point.y += offsets[1]
+							point
+						targetPoints: for offsets in [[0, 0], [100 * scaleFactor, 0], [0, 100 * scaleFactor]]
+							point = new Point centerPoint
+							point.x += offsets[0]
+							point.y += offsets[1]
+							point
+						=> @rt_scaleClose()
+				error: console.error
+				(usePost: true)
+
+		rt_rotate: (state) ->
