@@ -61,6 +61,8 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
     miscGraphicsLayer: null,
     rtScaleContainer: null,
     rtScaleFactorInput: null,
+    rtRotateContainer: null,
+    rtRotateDegreesInput: null,
     sourceSymbol: new SimpleMarkerSymbol(SimpleMarkerSymbol.STYLE_X, 10, new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new Color([20, 20, 180]), 2), new Color([0, 0, 0])),
     targetSymbol: new SimpleMarkerSymbol(SimpleMarkerSymbol.STYLE_X, 10, new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new Color([180, 20, 20]), 2), new Color([0, 0, 0])),
     postCreate: function() {
@@ -816,7 +818,7 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
           domStyle.set(container.domNode, "display", display);
         }
       }
-      _ref1 = [this.rt_moveButton, this.rt_scaleButton];
+      _ref1 = [this.rt_moveButton, this.rt_scaleButton, this.rt_rotateButton];
       _results = [];
       for (_j = 0, _len1 = _ref1.length; _j < _len1; _j++) {
         button = _ref1[_j];
@@ -932,7 +934,7 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
 
       if (state) {
         domStyle.set(this.rtMoveContainer.domNode, "display", "block");
-        _ref = [this.rt_scaleButton];
+        _ref = [this.rt_scaleButton, this.rt_rotateButton];
         for (_i = 0, _len = _ref.length; _i < _len; _i++) {
           button = _ref[_i];
           button.set("checked", false);
@@ -1134,7 +1136,7 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
 
       if (state) {
         domStyle.set(this.rtScaleContainer.domNode, "display", "block");
-        _ref = [this.rt_moveButton];
+        _ref = [this.rt_moveButton, this.rt_rotateButton];
         _results = [];
         for (_i = 0, _len = _ref.length; _i < _len; _i++) {
           button = _ref[_i];
@@ -1204,6 +1206,81 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
         usePost: true
       });
     },
-    rt_rotate: function(state) {}
+    rt_rotate: function(state) {
+      var button, _i, _len, _ref, _results;
+
+      if (state) {
+        domStyle.set(this.rtRotateContainer.domNode, "display", "block");
+        _ref = [this.rt_moveButton, this.rt_scaleButton];
+        _results = [];
+        for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+          button = _ref[_i];
+          _results.push(button.set("checked", false));
+        }
+        return _results;
+      } else {
+        domStyle.set(this.rtRotateContainer.domNode, "display", "none");
+        return this.rtRotateDegreesInput.value = "";
+      }
+    },
+    rt_rotateClose: function() {
+      return this.rt_rotateButton.set("checked", false);
+    },
+    rt_rotateTransform: function() {
+      var _this = this;
+
+      return request({
+        url: this.imageServiceUrl + "/query",
+        content: {
+          objectIds: this.currentId,
+          returnGeometry: true,
+          outFields: "",
+          f: "json"
+        },
+        handleAs: "json",
+        load: function(response) {
+          var PI, centerPoint, cos, offsets, point, sin, theta;
+
+          sin = Math.sin, cos = Math.cos, PI = Math.PI;
+          theta = !isNaN(_this.rtRotateDegreesInput.value) ? PI / 180 * Number(_this.rtRotateDegreesInput.value) : 0;
+          centerPoint = new Polygon(response.features[0].geometry).getExtent().getCenter();
+          return _this.applyTransform({
+            sourcePoints: (function() {
+              var _i, _len, _ref, _results;
+
+              _ref = [[0, 0], [100, 0], [0, 100]];
+              _results = [];
+              for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+                offsets = _ref[_i];
+                point = new Point(centerPoint);
+                point.x += offsets[0];
+                point.y += offsets[1];
+                _results.push(point);
+              }
+              return _results;
+            })(),
+            targetPoints: (function() {
+              var _i, _len, _ref, _results;
+
+              _ref = [[0, 0], [100 * cos(theta), 100 * -sin(theta)], [100 * sin(theta), 100 * cos(theta)]];
+              _results = [];
+              for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+                offsets = _ref[_i];
+                point = new Point(centerPoint);
+                point.x += offsets[0];
+                point.y += offsets[1];
+                _results.push(point);
+              }
+              return _results;
+            })()
+          }, function() {
+            return _this.rt_rotateClose();
+          });
+        },
+        error: console.error
+      }, {
+        usePost: true
+      });
+    }
   });
 });

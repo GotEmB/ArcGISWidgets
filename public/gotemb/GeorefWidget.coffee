@@ -92,6 +92,8 @@ define [
 		miscGraphicsLayer: null
 		rtScaleContainer: null
 		rtScaleFactorInput: null
+		rtRotateContainer: null
+		rtRotateDegreesInput: null
 		sourceSymbol:
 			new SimpleMarkerSymbol(
 				SimpleMarkerSymbol.STYLE_X
@@ -478,7 +480,7 @@ define [
 		closeRoughTransform: ->
 			for display, containers of {block: [@selectRasterContainer, @tasksContainer], none: [@manualTransformContainer]}
 				domStyle.set container.domNode, "display", display for container in containers
-			for button in [@rt_moveButton, @rt_scaleButton]
+			for button in [@rt_moveButton, @rt_scaleButton, @rt_rotateButton]
 				button.set "checked", false
 		rt_fit: ->
 			return console.error "No raster selected" unless @currentId?
@@ -543,7 +545,7 @@ define [
 		rt_move: (state) ->
 			if state
 				domStyle.set @rtMoveContainer.domNode, "display", "block"
-				for button in [@rt_scaleButton]
+				for button in [@rt_scaleButton, @rt_rotateButton]
 					button.set "checked", false
 				for theGrid in [@rtMoveFromGrid, @rtMoveToGrid]
 					theGrid.set "onPointChanged", =>
@@ -642,7 +644,7 @@ define [
 		rt_scale: (state) ->
 			if state
 				domStyle.set @rtScaleContainer.domNode, "display", "block"
-				for button in [@rt_moveButton]
+				for button in [@rt_moveButton, @rt_rotateButton]
 					button.set "checked", false
 			else
 				domStyle.set @rtScaleContainer.domNode, "display", "none"
@@ -675,5 +677,40 @@ define [
 						=> @rt_scaleClose()
 				error: console.error
 				(usePost: true)
-
 		rt_rotate: (state) ->
+			if state
+				domStyle.set @rtRotateContainer.domNode, "display", "block"
+				for button in [@rt_moveButton, @rt_scaleButton]
+					button.set "checked", false
+			else
+				domStyle.set @rtRotateContainer.domNode, "display", "none"
+				@rtRotateDegreesInput.value = ""
+		rt_rotateClose: ->
+			@rt_rotateButton.set "checked", false
+		rt_rotateTransform: ->
+			request
+				url: @imageServiceUrl + "/query"
+				content:
+					objectIds: @currentId
+					returnGeometry: true
+					outFields: ""
+					f: "json"
+				handleAs: "json"
+				load: (response) =>
+					{sin, cos, PI} = Math
+					theta = unless isNaN @rtRotateDegreesInput.value then PI / 180 * Number @rtRotateDegreesInput.value else 0
+					centerPoint = new Polygon(response.features[0].geometry).getExtent().getCenter()
+					@applyTransform
+						sourcePoints: for offsets in [[0, 0], [100, 0], [0, 100]]
+							point = new Point centerPoint
+							point.x += offsets[0]
+							point.y += offsets[1]
+							point
+						targetPoints: for offsets in [[0, 0], [100 * cos(theta), 100 * -sin(theta)], [100 * sin(theta), 100 * cos(theta)]]
+							point = new Point centerPoint
+							point.x += offsets[0]
+							point.y += offsets[1]
+							point
+						=> @rt_rotateClose()
+				error: console.error
+				(usePost: true)

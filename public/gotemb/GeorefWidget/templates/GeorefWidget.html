@@ -146,4 +146,16 @@
 			</div>
 		</div>
 	</div>
+	<div data-dojo-type="dijit/layout/AccordionContainer" data-dojo-attach-point="rtRotateContainer" style="display: none">
+		<div data-dojo-type="dijit/layout/ContentPane" title="Rotate Raster" style="text-align: center">
+			<form style="display: inline-block">
+				<label>Rotate By (clockwise degrees):</label>
+				<input type="text" data-dojo-attach-point="rtRotateDegreesInput">
+			</form>
+			<div class="dijitDialogPaneActionBar">
+				<button data-dojo-type="dijit/form/Button" type="button" data-dojo-attach-event="onClick: rt_rotateClose">Cancel</button>
+				<button data-dojo-type="dijit/form/Button" type="button" data-dojo-attach-event="onClick: rt_rotateTransform">Rotate</button>
+			</div>
+		</div>
+	</div>
 </div>
