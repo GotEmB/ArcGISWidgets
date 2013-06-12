@@ -72,7 +72,6 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
       this.geometryService = new GeometryService(this.geometryServiceUrl);
       return connect(this.imageServiceLayer, "onLoad", function() {
         _this.map.addLayer(_this.referenceLayer = new ArcGISImageServiceLayer(_this.referenceLayerUrl));
-        _this.imageServiceLayer.setOpacity(0);
         _this.map.addLayer(_this.imageServiceLayer);
         _this.rasters = new Observable(new Memory({
           idProperty: "rasterId"
@@ -82,8 +81,7 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
             editor({
               label: " ",
               field: "display",
-              editor: "CheckBox",
-              autoSave: true
+              editor: "CheckBox"
             }), {
               label: "Raster Id",
               field: "rasterId",
@@ -95,36 +93,25 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
             }
           ],
           store: _this.rasters,
-          selectionMode: "single"
+          selectionMode: "none"
         }, _this.rastersGrid);
         _this.rastersGrid.startup();
         _this.loadRastersList(function() {
-          return domStyle.set(_this.selectRasterContainer.domNode, "display", "block");
+          domStyle.set(_this.selectRasterContainer.domNode, "display", "block");
+          return _this.setImageServiceMosaicRule();
+        });
+        _this.rastersGrid.on(".field-rasterId:click, .field-name:click", function(e) {
+          _this.rastersGrid.clearSelection();
+          return _this.rastersGrid.select(_this.rastersGrid.cell(e).row);
         });
         _this.rastersGrid.on("dgrid-select", function(_arg1) {
-          var raster, rows;
+          var rows;
 
           rows = _arg1.rows;
           if (_this.currentId === rows[0].data.rasterId) {
             return;
           }
           _this.currentId = rows[0].data.rasterId;
-          _this.imageServiceLayer.setMosaicRule(extend(new MosaicRule, {
-            method: MosaicRule.METHOD_LOCKRASTER,
-            lockRasterIds: (function() {
-              var _i, _len, _ref, _results;
-
-              _ref = this.rasters.data;
-              _results = [];
-              for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-                raster = _ref[_i];
-                if (raster.display) {
-                  _results.push(raster.rasterId);
-                }
-              }
-              return _results;
-            }).call(_this)
-          }), true);
           return request({
             url: _this.imageServiceUrl + "/query",
             content: {
@@ -136,7 +123,6 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
             handleAs: "json",
             load: function(response3) {
               _this.map.setExtent(new Polygon(response3.features[0].geometry).getExtent().expand(2));
-              _this.imageServiceLayer.setOpacity(1);
               return domStyle.set(_this.tasksContainer.domNode, "display", "block");
             },
             error: console.error
@@ -145,25 +131,11 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
           });
         });
         _this.rastersGrid.on("dgrid-datachange", function(_arg1) {
-          var cell, raster, value;
+          var cell, value;
 
           cell = _arg1.cell, value = _arg1.value;
-          return _this.imageServiceLayer.setMosaicRule(extend(new MosaicRule, {
-            method: MosaicRule.METHOD_LOCKRASTER,
-            lockRasterIds: (function() {
-              var _i, _len, _ref, _results;
-
-              _ref = this.rasters.data;
-              _results = [];
-              for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-                raster = _ref[_i];
-                if ((raster !== cell.row.data && raster.display) || (raster === cell.row.data && value)) {
-                  _results.push(raster.rasterId);
-                }
-              }
-              return _results;
-            }).call(_this)
-          }));
+          cell.row.data.display = value;
+          return _this.setImageServiceMosaicRule();
         });
         _this.tiepoints = new Observable(new Memory({
           idProperty: "id"
@@ -206,7 +178,7 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
                   win.scrollIntoView(pointGrid.domNode);
                   tdId = new query.NodeList(pointGrid.domNode).parent().parent().children().first();
                   tdId.addClass("yellow");
-                  return mouseUpEvent = connect(value, "onMouseUp", function() {
+                  return mouseUpEvent = connect(_this.tiepointsLayer, "onMouseUp", function() {
                     tdId.removeClass("yellow");
                     return disconnect(mouseUpEvent);
                   });
@@ -240,14 +212,15 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
                   });
                 };
                 value.gotoPointGrid = function() {
-                  var tdId;
+                  var mouseUpEvent, tdId;
 
                   win.scrollIntoView(pointGrid.domNode);
                   tdId = new query.NodeList(pointGrid.domNode).parent().parent().children().first();
-                  tdId.removeClass("yellow");
-                  return setTimeout((function() {
-                    return tdId.addClass("yellow");
-                  }), 0);
+                  tdId.addClass("yellow");
+                  return mouseUpEvent = connect(_this.tiepointsLayer, "onMouseUp", function() {
+                    tdId.removeClass("yellow");
+                    return disconnect(mouseUpEvent);
+                  });
                 };
                 return pointGrid.domNode;
               }
@@ -351,6 +324,30 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
           return _this.map.enablePan();
         });
       });
+    },
+    setImageServiceMosaicRule: function() {
+      var raster;
+
+      return this.imageServiceLayer.setMosaicRule(extend(new MosaicRule, {
+        method: MosaicRule.METHOD_LOCKRASTER,
+        lockRasterIds: (function() {
+          var _i, _len, _ref, _results;
+
+          if (domStyle.get(this.selectRasterContainer.domNode, "display") === "block" || (this.currentId == null)) {
+            _ref = this.rasters.data;
+            _results = [];
+            for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+              raster = _ref[_i];
+              if (raster.display) {
+                _results.push(raster.rasterId);
+              }
+            }
+            return _results;
+          } else {
+            return [this.currentId];
+          }
+        }).call(this)
+      }));
     },
     loadRastersList: function(callback) {
       var _this = this;
@@ -523,7 +520,7 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
       var _this = this;
 
       return request({
-        url: this.imageServiceUrl + "/computeTiePoints",
+        url: "dummyResponses/tiepoints1.json",
         content: {
           f: "json",
           rasterId: this.currentId,
@@ -543,8 +540,6 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
           return typeof callback === "function" ? callback(response) : void 0;
         },
         error: console.error
-      }, {
-        usePost: true
       });
     },
     toggleReferenceLayer: function(state) {
@@ -571,6 +566,7 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
           domStyle.set(container.domNode, "display", display);
         }
       }
+      this.setImageServiceMosaicRule();
       return this.computeTiePoints(function(_arg1) {
         var i, sourcePoint, targetPoint, tiePoints, _j, _ref1;
 
@@ -593,7 +589,7 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
       });
     },
     closeEditTiepoints: function() {
-      var container, containers, display, tiepoint, _i, _len, _ref, _ref1, _results;
+      var container, containers, display, tiepoint, _i, _j, _len, _len1, _ref, _ref1;
 
       domStyle.set(this.editTiepointsContainer_loading, "display", "none");
       this.tiepointsLayer.clear();
@@ -606,21 +602,14 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
         block: [this.selectRasterContainer, this.tasksContainer],
         none: [this.editTiepointsContainer]
       };
-      _results = [];
       for (display in _ref1) {
         containers = _ref1[display];
-        _results.push((function() {
-          var _j, _len1, _results1;
-
-          _results1 = [];
-          for (_j = 0, _len1 = containers.length; _j < _len1; _j++) {
-            container = containers[_j];
-            _results1.push(domStyle.set(container.domNode, "display", display));
-          }
-          return _results1;
-        })());
+        for (_j = 0, _len1 = containers.length; _j < _len1; _j++) {
+          container = containers[_j];
+          domStyle.set(container.domNode, "display", display);
+        }
       }
-      return _results;
+      return this.setImageServiceMosaicRule();
     },
     toggleTiepointsSelection: function() {
       if (this.toggleTiepointsSelectionMenuItem.label === "Clear Selection") {
@@ -823,30 +812,23 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
       });
     },
     openRoughTransform: function() {
-      var container, containers, display, _ref, _results;
+      var container, containers, display, _i, _len, _ref;
 
       _ref = {
         none: [this.selectRasterContainer, this.tasksContainer],
         block: [this.manualTransformContainer]
       };
-      _results = [];
       for (display in _ref) {
         containers = _ref[display];
-        _results.push((function() {
-          var _i, _len, _results1;
-
-          _results1 = [];
-          for (_i = 0, _len = containers.length; _i < _len; _i++) {
-            container = containers[_i];
-            _results1.push(domStyle.set(container.domNode, "display", display));
-          }
-          return _results1;
-        })());
+        for (_i = 0, _len = containers.length; _i < _len; _i++) {
+          container = containers[_i];
+          domStyle.set(container.domNode, "display", display);
+        }
       }
-      return _results;
+      return this.setImageServiceMosaicRule();
     },
     closeRoughTransform: function() {
-      var button, container, containers, display, _i, _j, _len, _len1, _ref, _ref1, _results;
+      var button, container, containers, display, _i, _j, _len, _len1, _ref, _ref1;
 
       _ref = {
         block: [this.selectRasterContainer, this.tasksContainer],
@@ -860,12 +842,11 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
         }
       }
       _ref1 = [this.rt_moveButton, this.rt_scaleButton, this.rt_rotateButton];
-      _results = [];
       for (_j = 0, _len1 = _ref1.length; _j < _len1; _j++) {
         button = _ref1[_j];
-        _results.push(button.set("checked", false));
+        button.set("checked", false);
       }
-      return _results;
+      return this.setImageServiceMosaicRule();
     },
     rt_fit: function() {
       var _this = this;

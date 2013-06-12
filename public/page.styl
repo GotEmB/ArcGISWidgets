@@ -79,6 +79,7 @@ td.field-sourcePoint, td.field-targetPoint
 	padding 0
 	vertical-align middle
 	text-align center
+	transition background-color 250ms linear
 
 	td&
 		cursor pointer
@@ -86,15 +87,6 @@ td.field-sourcePoint, td.field-targetPoint
 	&.yellow
 		background-color yellow
 		transition background-color 0ms linear
-
-		animation-name yellowAnimate
-		animation-duration 1s
-		animation-timing-function ease
-		animation-iteration-count 1	
-		animation-direction normal
-		animation-delay 0
-		animation-play-state running
-		animation-fill-mode forwards
 
 .PointGrid
 	border-collapse collapse

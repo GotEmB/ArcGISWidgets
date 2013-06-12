@@ -122,7 +122,6 @@ define [
 			@geometryService = new GeometryService @geometryServiceUrl
 			connect @imageServiceLayer, "onLoad", =>
 				@map.addLayer @referenceLayer = new ArcGISImageServiceLayer @referenceLayerUrl
-				@imageServiceLayer.setOpacity 0
 				@map.addLayer @imageServiceLayer
 				@rasters = new Observable new Memory idProperty: "rasterId"
 				@rastersGrid = new RastersGrid
@@ -131,7 +130,7 @@ define [
 							label: " "
 							field: "display"
 							editor: "CheckBox"
-							autoSave: true
+							#autoSave: true
 					,	
 						label: "Raster Id"
 						field: "rasterId"
@@ -142,19 +141,18 @@ define [
 						sortable: false
 					]
 					store: @rasters
-					selectionMode: "single"
+					selectionMode: "none"
 					@rastersGrid
 				@rastersGrid.startup()
 				@loadRastersList =>
 					domStyle.set @selectRasterContainer.domNode, "display", "block"
+					@setImageServiceMosaicRule()
+				@rastersGrid.on ".field-rasterId:click, .field-name:click", (e) =>
+					@rastersGrid.clearSelection()
+					@rastersGrid.select @rastersGrid.cell(e).row
 				@rastersGrid.on "dgrid-select", ({rows}) =>
 					return if @currentId is rows[0].data.rasterId
 					@currentId = rows[0].data.rasterId
-					@imageServiceLayer.setMosaicRule extend(
-						new MosaicRule
-						method: MosaicRule.METHOD_LOCKRASTER
-						lockRasterIds: raster.rasterId for raster in @rasters.data when raster.display
-					), true
 					request
 						url: @imageServiceUrl + "/query"
 						content:
@@ -165,16 +163,12 @@ define [
 						handleAs: "json"
 						load: (response3) =>
 							@map.setExtent new Polygon(response3.features[0].geometry).getExtent().expand 2
-							@imageServiceLayer.setOpacity 1
 							domStyle.set @tasksContainer.domNode, "display", "block"
 						error: console.error
 						(usePost: true)
 				@rastersGrid.on "dgrid-datachange", ({cell, value}) =>
-					@imageServiceLayer.setMosaicRule extend(
-						new MosaicRule
-						method: MosaicRule.METHOD_LOCKRASTER
-						lockRasterIds: raster.rasterId for raster in @rasters.data when (raster isnt cell.row.data and raster.display) or (raster is cell.row.data and value)
-					)
+					cell.row.data.display = value
+					@setImageServiceMosaicRule()
 				@tiepoints = new Observable new Memory idProperty: "id"
 				@tiepointsGrid = new TiepointsGrid
 					columns: [
@@ -200,7 +194,7 @@ define [
 								win.scrollIntoView pointGrid.domNode
 								tdId = new query.NodeList(pointGrid.domNode).parent().parent().children().first()
 								tdId.addClass "yellow"
-								mouseUpEvent = connect value, "onMouseUp", =>
+								mouseUpEvent = connect @tiepointsLayer, "onMouseUp", =>
 									tdId.removeClass "yellow"
 									disconnect mouseUpEvent
 							pointGrid.domNode
@@ -222,8 +216,10 @@ define [
 							value.gotoPointGrid = =>
 								win.scrollIntoView pointGrid.domNode
 								tdId = new query.NodeList(pointGrid.domNode).parent().parent().children().first()
-								tdId.removeClass "yellow"
-								setTimeout (=> tdId.addClass "yellow"), 0
+								tdId.addClass "yellow"
+								mouseUpEvent = connect @tiepointsLayer, "onMouseUp", =>
+									tdId.removeClass "yellow"
+									disconnect mouseUpEvent
 							pointGrid.domNode
 					]
 					store: @tiepoints
@@ -280,6 +276,16 @@ define [
 					@graphicBeingMoved.pointChanged()
 					delete @graphicBeingMoved
 					@map.enablePan()
+		setImageServiceMosaicRule: ->
+			@imageServiceLayer.setMosaicRule extend(
+				new MosaicRule
+				method: MosaicRule.METHOD_LOCKRASTER
+				lockRasterIds:
+					if domStyle.get(@selectRasterContainer.domNode, "display") is "block" or not @currentId?
+						raster.rasterId for raster in @rasters.data when raster.display
+					else
+						[@currentId]
+			)
 		loadRastersList: (callback) ->
 			request
 				url: @imageServiceUrl + "/query"
@@ -366,7 +372,7 @@ define [
 				(usePost: true)
 		computeTiePoints: (callback) ->
 			request
-				url: @imageServiceUrl + "/computeTiePoints" # "dummyResponses/tiepoints1.json"
+				url: "dummyResponses/tiepoints1.json" # @imageServiceUrl + "/computeTiePoints"
 				content:
 					f: "json"
 					rasterId: @currentId
@@ -379,7 +385,7 @@ define [
 				load: (response) ->
 					callback? response
 				error: console.error
-				(usePost: true)
+				#(usePost: true)
 		toggleReferenceLayer: (state) ->
 			@referenceLayer.setOpacity if state then 1 else 0
 			@rasters_toggleReferenceLayersButton.set "checked", state
@@ -390,6 +396,7 @@ define [
 			domStyle.set @editTiepointsContainer_loading, "display", "block"
 			for display, containers of {none: [@selectRasterContainer, @tasksContainer], block: [@editTiepointsContainer]}
 				domStyle.set container.domNode, "display", display for container in containers
+			@setImageServiceMosaicRule()
 			@computeTiePoints ({tiePoints}) =>
 				domStyle.set @editTiepointsContainer_loading, "display", "none"
 				for i in [0...tiePoints.sourcePoints.length]
@@ -409,6 +416,7 @@ define [
 			@tiepoints.remove tiepoint.id for tiepoint in @tiepoints.data.splice 0
 			for display, containers of {block: [@selectRasterContainer, @tasksContainer], none: [@editTiepointsContainer]}
 				domStyle.set container.domNode, "display", display for container in containers
+			@setImageServiceMosaicRule()
 		toggleTiepointsSelection: ->
 			if @toggleTiepointsSelectionMenuItem.label is "Clear Selection"
 				@tiepointsGrid.clearSelection()
@@ -497,11 +505,13 @@ define [
 		openRoughTransform: ->
 			for display, containers of {none: [@selectRasterContainer, @tasksContainer], block: [@manualTransformContainer]}
 				domStyle.set container.domNode, "display", display for container in containers
+			@setImageServiceMosaicRule()
 		closeRoughTransform: ->
 			for display, containers of {block: [@selectRasterContainer, @tasksContainer], none: [@manualTransformContainer]}
 				domStyle.set container.domNode, "display", display for container in containers
 			for button in [@rt_moveButton, @rt_scaleButton, @rt_rotateButton]
 				button.set "checked", false
+			@setImageServiceMosaicRule()
 		rt_fit: ->
 			return console.error "No raster selected" unless @currentId?
 			request
