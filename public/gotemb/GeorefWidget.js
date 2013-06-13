@@ -357,7 +357,7 @@
                 },
                 handleAs: "json",
                 load: function(response) {
-                  if (new Polygon(response.features[0].geometry).getExtent().contains(e.mapPoint)) {
+                  if (new Polygon(response.features[0].geometry).contains(e.mapPoint)) {
                     _this.rastersGrid.clearSelection();
                     return _this.rastersGrid.select(row);
                   } else {
@@ -569,7 +569,7 @@
         var _this = this;
 
         return request({
-          url: "dummyResponses/tiepoints1.json",
+          url: this.imageServiceUrl + "/computeTiePoints",
           content: {
             f: "json",
             rasterId: this.currentId,

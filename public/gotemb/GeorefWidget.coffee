@@ -292,7 +292,7 @@ do ->
 									f: "json"
 								handleAs: "json"
 								load: (response) =>
-									if new Polygon(response.features[0].geometry).getExtent().contains e.mapPoint
+									if new Polygon(response.features[0].geometry).contains e.mapPoint
 										@rastersGrid.clearSelection()
 										@rastersGrid.select row
 									else
@@ -396,7 +396,7 @@ do ->
 					(usePost: true)
 			computeTiePoints: (callback) ->
 				request
-					url: "dummyResponses/tiepoints1.json" # @imageServiceUrl + "/computeTiePoints"
+					url: @imageServiceUrl + "/computeTiePoints" # "dummyResponses/tiepoints1.json"
 					content:
 						f: "json"
 						rasterId: @currentId
