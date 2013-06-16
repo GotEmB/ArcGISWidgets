@@ -494,7 +494,7 @@
         });
       },
       applyTransform: function(tiePoints, callback) {
-        var point,
+        var point, _ref, _ref1,
           _this = this;
 
         return request({
@@ -509,33 +509,41 @@
                   sourcePoints: (function() {
                     var _i, _len, _ref, _results;
 
-                    _ref = tiePoints.sourcePoints;
-                    _results = [];
-                    for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-                      point = _ref[_i];
-                      _results.push({
-                        x: point.x,
-                        y: point.y
-                      });
+                    if (tiePoints.sourcePoints != null) {
+                      _ref = tiePoints.sourcePoints;
+                      _results = [];
+                      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+                        point = _ref[_i];
+                        _results.push({
+                          x: point.x,
+                          y: point.y
+                        });
+                      }
+                      return _results;
                     }
-                    return _results;
                   })(),
                   targetPoints: (function() {
                     var _i, _len, _ref, _results;
 
-                    _ref = tiePoints.targetPoints;
-                    _results = [];
-                    for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-                      point = _ref[_i];
-                      _results.push({
-                        x: point.x,
-                        y: point.y
-                      });
+                    if (tiePoints.targetPoints != null) {
+                      _ref = tiePoints.targetPoints;
+                      _results = [];
+                      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+                        point = _ref[_i];
+                        _results.push({
+                          x: point.x,
+                          y: point.y
+                        });
+                      }
+                      return _results;
                     }
-                    return _results;
                   })(),
                   polynomialOrder: 1,
-                  spatialReference: tiePoints.sourcePoints[0].spatialReference
+                  coeffx: tiePoints.x,
+                  coeffy: tiePoints.y,
+                  spatialReference: (_ref = (_ref1 = tiePoints.sourcePoints) != null ? _ref1[0].spatialReference : void 0) != null ? _ref : this.rasters.data.filter(function(x) {
+                    return x.rasterId === _this.currentId;
+                  })[0].spatialReference
                 }
               }
             ])
@@ -1169,38 +1177,14 @@
         });
       },
       rt_moveTransform: function() {
-        var offsets, point,
+        var newFromPoint, newToPoint, _ref, _ref1,
           _this = this;
 
+        newFromPoint = new Point((_ref = this.rtMoveFromGrid.graphic) != null ? _ref.geometry : void 0);
+        newToPoint = new Point((_ref1 = this.rtMoveToGrid.graphic) != null ? _ref1.geometry : void 0);
         return this.applyTransform({
-          sourcePoints: (function() {
-            var _i, _len, _ref, _ref1, _results;
-
-            _ref = [[0, 0], [100, 0], [0, 100]];
-            _results = [];
-            for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-              offsets = _ref[_i];
-              point = new Point((_ref1 = this.rtMoveFromGrid.graphic) != null ? _ref1.geometry : void 0);
-              point.x += offsets[0];
-              point.y += offsets[1];
-              _results.push(point);
-            }
-            return _results;
-          }).call(this),
-          targetPoints: (function() {
-            var _i, _len, _ref, _ref1, _results;
-
-            _ref = [[0, 0], [100, 0], [0, 100]];
-            _results = [];
-            for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-              offsets = _ref[_i];
-              point = new Point((_ref1 = this.rtMoveToGrid.graphic) != null ? _ref1.geometry : void 0);
-              point.x += offsets[0];
-              point.y += offsets[1];
-              _results.push(point);
-            }
-            return _results;
-          }).call(this)
+          x: [1, 0, newToPoint.x - newFromPoint.x],
+          y: [0, 1, newToPoint.y - newFromPoint.y]
         }, function() {
           return _this.rt_moveClose();
         });

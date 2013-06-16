@@ -372,10 +372,12 @@ do ->
 						geodataTransforms: JSON.stringify [
 							geodataTransform: "Polynomial"
 							geodataTransformArguments:
-								sourcePoints: x: point.x, y: point.y for point in tiePoints.sourcePoints
-								targetPoints: x: point.x, y: point.y for point in tiePoints.targetPoints
+								sourcePoints: x: point.x, y: point.y for point in tiePoints.sourcePoints if tiePoints.sourcePoints?
+								targetPoints: x: point.x, y: point.y for point in tiePoints.targetPoints if tiePoints.targetPoints?
 								polynomialOrder: 1
-								spatialReference: tiePoints.sourcePoints[0].spatialReference
+								coeffx: tiePoints.x
+								coeffy: tiePoints.y
+								spatialReference: tiePoints.sourcePoints?[0].spatialReference ? @rasters.data.filter((x) => x.rasterId is @currentId)[0].spatialReference
 						]
 					handleAs: "json"
 					load: =>
@@ -687,17 +689,11 @@ do ->
 			rtMoveToPick: (state) ->
 				@rtMovePick which: "to", state: state
 			rt_moveTransform: ->
+				newFromPoint = new Point @rtMoveFromGrid.graphic?.geometry
+				newToPoint = new Point @rtMoveToGrid.graphic?.geometry
 				@applyTransform
-					sourcePoints: for offsets in [[0, 0], [100, 0], [0, 100]]
-						point = new Point @rtMoveFromGrid.graphic?.geometry
-						point.x += offsets[0]
-						point.y += offsets[1]
-						point
-					targetPoints: for offsets in [[0, 0], [100, 0], [0, 100]]
-						point = new Point @rtMoveToGrid.graphic?.geometry
-						point.x += offsets[0]
-						point.y += offsets[1]
-						point
+					x: [1, 0, newToPoint.x - newFromPoint.x]
+					y: [0, 1, newToPoint.y - newFromPoint.y]
 					=> @rt_moveClose()
 			rt_scale: (state) ->
 				if state
