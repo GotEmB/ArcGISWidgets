@@ -33,6 +33,9 @@ do ->
 		"dgrid/editor"
 		"gotemb/GeorefWidget/RastersGrid"
 		"esri/geometry/Extent"
+		"esri/tasks/ProjectParameters"
+		"esri/SpatialReference"
+		"dojo/_base/url"
 		# ---
 		"dojox/form/FileInput"
 		"dijit/form/Button"
@@ -48,18 +51,18 @@ do ->
 		"dijit/CheckedMenuItem"
 		"dojo/NodeList-traverse"
 		"dojo/NodeList-dom"
-	], (declare, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template, {connect, disconnect}, ArcGISImageServiceLayer, request, MosaicRule, Polygon, GeometryService, domStyle, PointGrid, Observable, Memory, TiepointsGrid, GraphicsLayer, Color, SimpleMarkerSymbol, SimpleLineSymbol, Graphic, Point, win, domClass, query, editor, RastersGrid, Extent) ->
+	], (declare, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template, {connect, disconnect}, ArcGISImageServiceLayer, request, MosaicRule, Polygon, GeometryService, domStyle, PointGrid, Observable, Memory, TiepointsGrid, GraphicsLayer, Color, SimpleMarkerSymbol, SimpleLineSymbol, Graphic, Point, win, domClass, query, editor, RastersGrid, Extent, ProjectParameters, SpatialReference, Url) ->
 		declare [_WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin],
 			templateString: template
 			baseClass: "ClassifyWidget"
 			map: null # should be bound to a `Map` instance before using the widget
 			imageFile: null
 			uploadForm: null
-			imageServiceUrl: "http://eg1109:6080/arcgis/rest/services/amberg_wgs/ImageServer"
+			imageServiceUrl: "http://eg1109.uae.esri.com:6080/arcgis/rest/services/amberg_wgs/ImageServer"
 			imageServiceLayer: null
-			referenceLayerUrl: "http://eg1109:6080/arcgis/rest/services/amberg_wgs_reference/ImageServer"
+			referenceLayerUrl: "http://eg1109.uae.esri.com:6080/arcgis/rest/services/amberg_wgs_reference/ImageServer"
 			referenceLayer: null
-			geometryServiceUrl: "http://lamborghini:6080/arcgis/rest/services/Utilities/Geometry/GeometryServer"
+			geometryServiceUrl: "http://tasks.arcgisonline.com/arcgis/rest/services/Geometry/GeometryServer"
 			geometryService: null
 			rastertype: null
 			currentId: null
@@ -97,13 +100,14 @@ do ->
 			rtScaleFactorInput: null
 			rtRotateContainer: null
 			rtRotateDegreesInput: null
+			rasterNotSelectedDialog: null
 			sourceSymbol:
 				new SimpleMarkerSymbol(
 					SimpleMarkerSymbol.STYLE_X
 					10
 					new SimpleLineSymbol(
 						SimpleLineSymbol.STYLE_SOLID
-						new Color([20, 20, 180])
+						new Color [20, 20, 180]
 						2
 					)
 					new Color [0, 0, 0]
@@ -114,15 +118,42 @@ do ->
 					10
 					new SimpleLineSymbol(
 						SimpleLineSymbol.STYLE_SOLID
-						new Color([180, 20, 20])
+						new Color [180, 20, 20]
 						2
 					)
 					new Color [0, 0, 0]
 				)
+			selectedSourceSymbol:
+				new SimpleMarkerSymbol(
+					SimpleMarkerSymbol.STYLE_X
+					16
+					new SimpleLineSymbol(
+						SimpleLineSymbol.STYLE_SOLID
+						new Color [20, 20, 180]
+						3
+					)
+					new Color [0, 0, 0]
+				)
+			selectedTargetSymbol:
+				new SimpleMarkerSymbol(
+					SimpleMarkerSymbol.STYLE_X
+					16
+					new SimpleLineSymbol(
+						SimpleLineSymbol.STYLE_SOLID
+						new Color [180, 20, 20]
+						3
+					)
+					new Color [0, 0, 0]
+				)
 			postCreate: ->
+				imageServiceAuthority = new Url(@imageServiceUrl).authority
+				corsEnabledServers = esri.config.defaults.io.corsEnabledServers
+				corsEnabledServers.push imageServiceAuthority unless corsEnabledServers.some (x) => x is imageServiceAuthority
 				@imageServiceLayer = new ArcGISImageServiceLayer @imageServiceUrl
 				@geometryService = new GeometryService @geometryServiceUrl
-				connect @imageServiceLayer, "onLoad", =>
+				onceDone = false
+				@watch "map", (attr, oldMap, newMap) =>
+					if onceDone then return else onceDone = true
 					@map.addLayer @referenceLayer = new ArcGISImageServiceLayer @referenceLayerUrl
 					@map.addLayer @imageServiceLayer
 					@rasters = new Observable new Memory idProperty: "rasterId"
@@ -164,8 +195,7 @@ do ->
 							handleAs: "json"
 							load: (response3) =>
 								@map.setExtent new Polygon(response3.features[0].geometry).getExtent().expand 2
-								domStyle.set @tasksContainer.domNode, "display", "block"
-							error: console.error
+							error: ({message}) => console.error message
 							(usePost: true)
 					@rastersGrid.on "dgrid-datachange", ({cell, value}) =>
 						cell.row.data.display = value
@@ -237,8 +267,8 @@ do ->
 						domStyle.set @removeSelectedTiepointsMenuItem.domNode, "display", "table-row"
 						for row in rows
 							domStyle.set @resetSelectedTiepointsMenuItem.domNode, "display", "table-row" if row.data.original?
-							row.data.sourcePoint.show()
-							row.data.targetPoint.show()
+							row.data.sourcePoint.setSymbol @selectedSourceSymbol
+							row.data.targetPoint.setSymbol @selectedTargetSymbol
 					@tiepointsGrid.on "dgrid-deselect", ({rows}) =>
 						for rowId, bool of @tiepointsGrid.selection when bool
 							noneSelected = false
@@ -248,8 +278,8 @@ do ->
 							domStyle.set @removeSelectedTiepointsMenuItem.domNode, "display", "none"
 						domStyle.set @resetSelectedTiepointsMenuItem.domNode, "display", "none" unless showReset
 						for row in rows
-							row.data.sourcePoint.hide()
-							row.data.targetPoint.hide()
+							row.data.sourcePoint.setSymbol @sourceSymbol
+							row.data.targetPoint.setSymbol @targetSymbol
 					@tiepointsLayer = new GraphicsLayer
 					@map.addLayer @tiepointsLayer
 					@miscGraphicsLayer = new GraphicsLayer
@@ -297,7 +327,7 @@ do ->
 										@rastersGrid.select row
 									else
 										do rec
-								error: console.error
+								error: ({message}) => console.error message
 								(usePost: true)
 			refreshMosaicRule: ->
 				@imageServiceLayer.setMosaicRule extend(
@@ -321,10 +351,10 @@ do ->
 							@rasters.put
 								rasterId: feature.attributes.OBJECTID
 								name: feature.attributes.Name
-								spatialReference: feature.geometry.spatialReference
+								spatialReference: new SpatialReference feature.geometry.spatialReference
 								display: true
 						callback?()
-					error: console.error
+					error: ({message}) => console.error message; console.log esri.config.defaults.io.corsEnabledServers
 					(usePost: true)
 			showAddRasterDialog: ->
 				@addRasterDialog.show()
@@ -356,11 +386,12 @@ do ->
 										@addRasterDialog.hide()
 										@rastersGrid.clearSelection()
 										@rastersGrid.select @rasters.data.length - 1 if @rasters.data.length > 0
-							error: console.error
+							error: ({message}) => console.error message
 							(usePost: true)
-					error: console.error
+					error: ({message}) => console.error message
 					(usePost: true)
 			computeAndTransform: ->
+				return @showRasterNotSelectedDialog() unless @currentId?
 				@computeTiePoints ({tiePoints}) =>
 					@applyTransform tiePoints
 			applyTransform: (tiePoints, callback) ->
@@ -390,9 +421,9 @@ do ->
 							load: (response2) =>
 								@map.setExtent new Polygon(response2.features[0].geometry).getExtent().expand 2
 								callback?()
-							error: console.error
+							error: ({message}) => console.error message
 							(usePost: true)
-					error: console.error
+					error: ({message}) => console.error message
 					(usePost: true)
 			computeTiePoints: (callback) ->
 				request
@@ -408,7 +439,7 @@ do ->
 					handleAs: "json"
 					load: (response) ->
 						callback? response
-					error: console.error
+					error: ({message}) => console.error message
 					#(usePost: true)
 			toggleReferenceLayer: (state) ->
 				@referenceLayer.setOpacity if state then 1 else 0
@@ -417,6 +448,7 @@ do ->
 			toggleRasterLayer: (state) ->
 				@imageServiceLayer.setOpacity if state then 1 else 0
 			startEditTiepoints: ->
+				return @showRasterNotSelectedDialog() unless @currentId?
 				domStyle.set @editTiepointsContainer_loading, "display", "block"
 				for display, containers of {none: [@selectRasterContainer, @tasksContainer], block: [@editTiepointsContainer]}
 					domStyle.set container.domNode, "display", display for container in containers
@@ -433,7 +465,6 @@ do ->
 								targetPoint: new Point tiePoints.targetPoints[i]
 						@tiepointsLayer.add sourcePoint
 						@tiepointsLayer.add targetPoint
-					@tiepointsGrid.selectAll()
 			closeEditTiepoints: ->
 				domStyle.set @editTiepointsContainer_loading, "display", "none"
 				@tiepointsLayer.clear()
@@ -523,10 +554,11 @@ do ->
 						tiepoint[key].pointChanged()
 			applyManualTransform: ->
 				@applyTransform
-					sourcePoints: @tiepoints.data.map (x) => x.sourcePoint.geometry.toJson()
-					targetPoints: @tiepoints.data.map (x) => x.targetPoint.geometry.toJson()
+					sourcePoints: @tiepoints.data.map (x) => x.sourcePoint.geometry
+					targetPoints: @tiepoints.data.map (x) => x.targetPoint.geometry
 					=> @closeEditTiepoints()
 			openRoughTransform: ->
+				return @showRasterNotSelectedDialog() unless @currentId?
 				for display, containers of {none: [@selectRasterContainer, @tasksContainer], block: [@manualTransformContainer]}
 					domStyle.set container.domNode, "display", display for container in containers
 				@refreshMosaicRule()
@@ -536,6 +568,17 @@ do ->
 				for button in [@rt_moveButton, @rt_scaleButton, @rt_rotateButton]
 					button.set "checked", false
 				@refreshMosaicRule()
+			projectIfReq: ({geometries, outSR}, callback) ->
+				return callback? geometries if geometries.every (x) => x.spatialReference.equals outSR
+				@geometryService.project(
+					extend(
+						new ProjectParameters
+						geometries: geometries
+						outSR: outSR
+					)
+					(geometries) =>
+						callback? geometries
+				)
 			rt_fit: ->
 				return console.error "No raster selected" unless @currentId?
 				request
@@ -548,57 +591,61 @@ do ->
 					handleAs: "json"
 					load: (response1) =>
 						src = new Polygon(response1.features[0].geometry).getExtent()
-						request
-							url: @imageServiceUrl + "/update"
-							content:
-								f: "json"
-								rasterId: @currentId
-								geodataTransforms: JSON.stringify [
-									geodataTransform: "Polynomial"
-									geodataTransformArguments:
-										sourcePoints: [
-											{x: src.xmin, y: src.ymin}
-											{x: src.xmin, y: src.ymax}
-											{x: src.xmax, y: src.ymin}
-										]
-										targetPoints: do =>
-											aspectRatio = (src.xmax - src.xmin) / (src.ymax - src.ymin)
-											map =
-												width: @map.extent.getWidth()
-												height: @map.extent.getHeight()
-												center: @map.extent.getCenter().toJson()
-											dest =
-												width: Math.min map.width, map.height * aspectRatio
-												height: Math.min map.height, map.width / aspectRatio
-											dest.xmin = map.center.x - dest.width / 2
-											dest.xmax = map.center.x + dest.width / 2
-											dest.ymin = map.center.y - dest.height / 2
-											dest.ymax = map.center.y + dest.height / 2
-											[
-												{x: dest.xmin, y: dest.ymin}
-												{x: dest.xmin, y: dest.ymax}
-												{x: dest.xmax, y: dest.ymin}
-											]
-										polynomialOrder: 1
-										spatialReference: src.spatialReference
-								]
-							handleAs: "json"
-							load: =>
+						@projectIfReq
+							geometries: [@map.extent]
+							outSR: src.spatialReference
+							([mapExtent]) =>
 								request
-									url: @imageServiceUrl + "/query"
+									url: @imageServiceUrl + "/update"
 									content:
-										objectIds: @currentId
-										returnGeometry: true
-										outFields: ""
 										f: "json"
+										rasterId: @currentId
+										geodataTransforms: JSON.stringify [
+											geodataTransform: "Polynomial"
+											geodataTransformArguments:
+												sourcePoints: [
+													{x: src.xmin, y: src.ymin}
+													{x: src.xmin, y: src.ymax}
+													{x: src.xmax, y: src.ymin}
+												]
+												targetPoints: do =>
+													aspectRatio = (src.xmax - src.xmin) / (src.ymax - src.ymin)
+													map =
+														width: mapExtent.getWidth()
+														height: mapExtent.getHeight()
+														center: mapExtent.getCenter()
+													dest =
+														width: Math.min map.width, map.height * aspectRatio
+														height: Math.min map.height, map.width / aspectRatio
+													dest.xmin = map.center.x - dest.width / 2
+													dest.xmax = map.center.x + dest.width / 2
+													dest.ymin = map.center.y - dest.height / 2
+													dest.ymax = map.center.y + dest.height / 2
+													[
+														{x: dest.xmin, y: dest.ymin}
+														{x: dest.xmin, y: dest.ymax}
+														{x: dest.xmax, y: dest.ymin}
+													]
+												polynomialOrder: 1
+												spatialReference: src.spatialReference
+										]
 									handleAs: "json"
-									load: (response3) =>
-										@map.setExtent new Polygon(response3.features[0].geometry).getExtent().expand 2
-									error: console.error
+									load: =>
+										request
+											url: @imageServiceUrl + "/query"
+											content:
+												objectIds: @currentId
+												returnGeometry: true
+												outFields: ""
+												f: "json"
+											handleAs: "json"
+											load: (response3) =>
+												@map.setExtent new Polygon(response3.features[0].geometry).getExtent().expand 2
+											error: ({message}) => console.error message
+											(usePost: true)
+									error: ({message}) => console.error message
 									(usePost: true)
-							error: console.error
-							(usePost: true)
-					error: console.error
+					error: ({message}) => console.error message
 					(usePost: true)
 			rt_move: (state) ->
 				if state
@@ -611,7 +658,7 @@ do ->
 								new Point
 									x: Number theGrid.get "x"
 									y: Number theGrid.get "y"
-									spatialReference: @imageServiceLayer.spatialReference
+									spatialReference: @map.spatialReference
 								if theGrid is @rtMoveFromGrid then @sourceSymbol else @targetSymbol
 							)
 							@miscGraphicsLayer.add thePoint
@@ -687,18 +734,22 @@ do ->
 			rtMoveToPick: (state) ->
 				@rtMovePick which: "to", state: state
 			rt_moveTransform: ->
-				@applyTransform
-					sourcePoints: for offsets in [[0, 0], [100, 0], [0, 100]]
-						point = new Point @rtMoveFromGrid.graphic?.geometry
-						point.x += offsets[0]
-						point.y += offsets[1]
-						point
-					targetPoints: for offsets in [[0, 0], [100, 0], [0, 100]]
-						point = new Point @rtMoveToGrid.graphic?.geometry
-						point.x += offsets[0]
-						point.y += offsets[1]
-						point
-					=> @rt_moveClose()
+				@projectIfReq
+					geometries: [new Point(@rtMoveFromGrid.graphic?.geometry), new Point(@rtMoveToGrid.graphic?.geometry)]
+					outSR: @rasters.data.filter((x) => x.rasterId is @currentId)[0].spatialReference
+					([fromPoint, toPoint]) =>
+						@applyTransform
+							sourcePoints: for offsets in [[0, 0], [10, 0], [0, 10]]
+								point = new Point fromPoint
+								point.x += offsets[0]
+								point.y += offsets[1]
+								point
+							targetPoints: for offsets in [[0, 0], [10, 0], [0, 10]]
+								point = new Point toPoint
+								point.x += offsets[0]
+								point.y += offsets[1]
+								point
+							=> @rt_moveClose()
 			rt_scale: (state) ->
 				if state
 					domStyle.set @rtScaleContainer.domNode, "display", "block"
@@ -722,18 +773,18 @@ do ->
 						scaleFactor = unless isNaN @rtScaleFactorInput.value then Number @rtScaleFactorInput.value else 1
 						centerPoint = new Polygon(response.features[0].geometry).getExtent().getCenter()
 						@applyTransform
-							sourcePoints: for offsets in [[0, 0], [100, 0], [0, 100]]
+							sourcePoints: for offsets in [[0, 0], [10, 0], [0, 10]]
 								point = new Point centerPoint
 								point.x += offsets[0]
 								point.y += offsets[1]
 								point
-							targetPoints: for offsets in [[0, 0], [100 * scaleFactor, 0], [0, 100 * scaleFactor]]
+							targetPoints: for offsets in [[0, 0], [10 * scaleFactor, 0], [0, 10 * scaleFactor]]
 								point = new Point centerPoint
 								point.x += offsets[0]
 								point.y += offsets[1]
 								point
 							=> @rt_scaleClose()
-					error: console.error
+					error: ({message}) => console.error message
 					(usePost: true)
 			rt_rotate: (state) ->
 				if state
@@ -759,16 +810,20 @@ do ->
 						theta = unless isNaN @rtRotateDegreesInput.value then PI / 180 * Number @rtRotateDegreesInput.value else 0
 						centerPoint = new Polygon(response.features[0].geometry).getExtent().getCenter()
 						@applyTransform
-							sourcePoints: for offsets in [[0, 0], [100, 0], [0, 100]]
+							sourcePoints: for offsets in [[0, 0], [10, 0], [0, 10]]
 								point = new Point centerPoint
 								point.x += offsets[0]
 								point.y += offsets[1]
 								point
-							targetPoints: for offsets in [[0, 0], [100 * cos(theta), 100 * -sin(theta)], [100 * sin(theta), 100 * cos(theta)]]
+							targetPoints: for offsets in [[0, 0], [10 * cos(theta), 10 * -sin(theta)], [10 * sin(theta), 10 * cos(theta)]]
 								point = new Point centerPoint
 								point.x += offsets[0]
 								point.y += offsets[1]
 								point
 							=> @rt_rotateClose()
-					error: console.error
+					error: ({message}) => console.error message
 					(usePost: true)
+			showRasterNotSelectedDialog: ->
+				@rasterNotSelectedDialog.show()
+			hideRasterNotSelectedDialog: ->
+				@rasterNotSelectedDialog.hide()

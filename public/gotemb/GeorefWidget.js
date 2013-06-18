@@ -11,7 +11,7 @@
     }
     return obj;
   };
-  return define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dijit/_WidgetsInTemplateMixin", "dojo/text!./GeorefWidget/templates/GeorefWidget.html", "dojo/_base/connect", "esri/layers/ArcGISImageServiceLayer", "esri/request", "esri/layers/MosaicRule", "esri/geometry/Polygon", "esri/tasks/GeometryService", "dojo/dom-style", "gotemb/GeorefWidget/PointGrid", "dojo/store/Observable", "dojo/store/Memory", "gotemb/GeorefWidget/TiepointsGrid", "esri/layers/GraphicsLayer", "dojo/_base/Color", "esri/symbols/SimpleMarkerSymbol", "esri/symbols/SimpleLineSymbol", "esri/graphic", "esri/geometry/Point", "dojo/window", "dojo/dom-class", "dojo/query", "dgrid/editor", "gotemb/GeorefWidget/RastersGrid", "esri/geometry/Extent", "dojox/form/FileInput", "dijit/form/Button", "dijit/form/DropDownButton", "dijit/layout/AccordionContainer", "dijit/layout/ContentPane", "dijit/Dialog", "dijit/Toolbar", "dijit/ToolbarSeparator", "dijit/form/ToggleButton", "dijit/Menu", "dijit/MenuItem", "dijit/CheckedMenuItem", "dojo/NodeList-traverse", "dojo/NodeList-dom"], function(declare, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template, _arg, ArcGISImageServiceLayer, request, MosaicRule, Polygon, GeometryService, domStyle, PointGrid, Observable, Memory, TiepointsGrid, GraphicsLayer, Color, SimpleMarkerSymbol, SimpleLineSymbol, Graphic, Point, win, domClass, query, editor, RastersGrid, Extent) {
+  return define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dijit/_WidgetsInTemplateMixin", "dojo/text!./GeorefWidget/templates/GeorefWidget.html", "dojo/_base/connect", "esri/layers/ArcGISImageServiceLayer", "esri/request", "esri/layers/MosaicRule", "esri/geometry/Polygon", "esri/tasks/GeometryService", "dojo/dom-style", "gotemb/GeorefWidget/PointGrid", "dojo/store/Observable", "dojo/store/Memory", "gotemb/GeorefWidget/TiepointsGrid", "esri/layers/GraphicsLayer", "dojo/_base/Color", "esri/symbols/SimpleMarkerSymbol", "esri/symbols/SimpleLineSymbol", "esri/graphic", "esri/geometry/Point", "dojo/window", "dojo/dom-class", "dojo/query", "dgrid/editor", "gotemb/GeorefWidget/RastersGrid", "esri/geometry/Extent", "esri/tasks/ProjectParameters", "esri/SpatialReference", "dojo/_base/url", "dojox/form/FileInput", "dijit/form/Button", "dijit/form/DropDownButton", "dijit/layout/AccordionContainer", "dijit/layout/ContentPane", "dijit/Dialog", "dijit/Toolbar", "dijit/ToolbarSeparator", "dijit/form/ToggleButton", "dijit/Menu", "dijit/MenuItem", "dijit/CheckedMenuItem", "dojo/NodeList-traverse", "dojo/NodeList-dom"], function(declare, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template, _arg, ArcGISImageServiceLayer, request, MosaicRule, Polygon, GeometryService, domStyle, PointGrid, Observable, Memory, TiepointsGrid, GraphicsLayer, Color, SimpleMarkerSymbol, SimpleLineSymbol, Graphic, Point, win, domClass, query, editor, RastersGrid, Extent, ProjectParameters, SpatialReference, Url) {
     var connect, disconnect;
 
     connect = _arg.connect, disconnect = _arg.disconnect;
@@ -21,11 +21,11 @@
       map: null,
       imageFile: null,
       uploadForm: null,
-      imageServiceUrl: "http://eg1109:6080/arcgis/rest/services/amberg_wgs/ImageServer",
+      imageServiceUrl: "http://eg1109.uae.esri.com:6080/arcgis/rest/services/amberg_wgs/ImageServer",
       imageServiceLayer: null,
-      referenceLayerUrl: "http://eg1109:6080/arcgis/rest/services/amberg_wgs_reference/ImageServer",
+      referenceLayerUrl: "http://eg1109.uae.esri.com:6080/arcgis/rest/services/amberg_wgs_reference/ImageServer",
       referenceLayer: null,
-      geometryServiceUrl: "http://lamborghini:6080/arcgis/rest/services/Utilities/Geometry/GeometryServer",
+      geometryServiceUrl: "http://tasks.arcgisonline.com/arcgis/rest/services/Geometry/GeometryServer",
       geometryService: null,
       rastertype: null,
       currentId: null,
@@ -63,14 +63,31 @@
       rtScaleFactorInput: null,
       rtRotateContainer: null,
       rtRotateDegreesInput: null,
+      rasterNotSelectedDialog: null,
       sourceSymbol: new SimpleMarkerSymbol(SimpleMarkerSymbol.STYLE_X, 10, new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new Color([20, 20, 180]), 2), new Color([0, 0, 0])),
       targetSymbol: new SimpleMarkerSymbol(SimpleMarkerSymbol.STYLE_X, 10, new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new Color([180, 20, 20]), 2), new Color([0, 0, 0])),
+      selectedSourceSymbol: new SimpleMarkerSymbol(SimpleMarkerSymbol.STYLE_X, 16, new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new Color([20, 20, 180]), 3), new Color([0, 0, 0])),
+      selectedTargetSymbol: new SimpleMarkerSymbol(SimpleMarkerSymbol.STYLE_X, 16, new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new Color([180, 20, 20]), 3), new Color([0, 0, 0])),
       postCreate: function() {
-        var _this = this;
+        var corsEnabledServers, imageServiceAuthority, onceDone,
+          _this = this;
 
+        imageServiceAuthority = new Url(this.imageServiceUrl).authority;
+        corsEnabledServers = esri.config.defaults.io.corsEnabledServers;
+        if (!corsEnabledServers.some(function(x) {
+          return x === imageServiceAuthority;
+        })) {
+          corsEnabledServers.push(imageServiceAuthority);
+        }
         this.imageServiceLayer = new ArcGISImageServiceLayer(this.imageServiceUrl);
         this.geometryService = new GeometryService(this.geometryServiceUrl);
-        return connect(this.imageServiceLayer, "onLoad", function() {
+        onceDone = false;
+        return this.watch("map", function(attr, oldMap, newMap) {
+          if (onceDone) {
+            return;
+          } else {
+            onceDone = true;
+          }
           _this.map.addLayer(_this.referenceLayer = new ArcGISImageServiceLayer(_this.referenceLayerUrl));
           _this.map.addLayer(_this.imageServiceLayer);
           _this.rasters = new Observable(new Memory({
@@ -122,10 +139,14 @@
               },
               handleAs: "json",
               load: function(response3) {
-                _this.map.setExtent(new Polygon(response3.features[0].geometry).getExtent().expand(2));
-                return domStyle.set(_this.tasksContainer.domNode, "display", "block");
+                return _this.map.setExtent(new Polygon(response3.features[0].geometry).getExtent().expand(2));
               },
-              error: console.error
+              error: function(_arg2) {
+                var message;
+
+                message = _arg2.message;
+                return console.error(message);
+              }
             }, {
               usePost: true
             });
@@ -251,8 +272,8 @@
               if (row.data.original != null) {
                 domStyle.set(_this.resetSelectedTiepointsMenuItem.domNode, "display", "table-row");
               }
-              row.data.sourcePoint.show();
-              _results.push(row.data.targetPoint.show());
+              row.data.sourcePoint.setSymbol(_this.selectedSourceSymbol);
+              _results.push(row.data.targetPoint.setSymbol(_this.selectedTargetSymbol));
             }
             return _results;
           });
@@ -281,8 +302,8 @@
             _results = [];
             for (_i = 0, _len = rows.length; _i < _len; _i++) {
               row = rows[_i];
-              row.data.sourcePoint.hide();
-              _results.push(row.data.targetPoint.hide());
+              row.data.sourcePoint.setSymbol(_this.sourceSymbol);
+              _results.push(row.data.targetPoint.setSymbol(_this.targetSymbol));
             }
             return _results;
           });
@@ -364,7 +385,12 @@
                     return rec();
                   }
                 },
-                error: console.error
+                error: function(_arg1) {
+                  var message;
+
+                  message = _arg1.message;
+                  return console.error(message);
+                }
               }, {
                 usePost: true
               });
@@ -415,13 +441,19 @@
               _this.rasters.put({
                 rasterId: feature.attributes.OBJECTID,
                 name: feature.attributes.Name,
-                spatialReference: feature.geometry.spatialReference,
+                spatialReference: new SpatialReference(feature.geometry.spatialReference),
                 display: true
               });
             }
             return typeof callback === "function" ? callback() : void 0;
           },
-          error: console.error
+          error: function(_arg1) {
+            var message;
+
+            message = _arg1.message;
+            console.error(message);
+            return console.log(esri.config.defaults.io.corsEnabledServers);
+          }
         }, {
           usePost: true
         });
@@ -473,12 +505,22 @@
                   });
                 }
               },
-              error: console.error
+              error: function(_arg1) {
+                var message;
+
+                message = _arg1.message;
+                return console.error(message);
+              }
             }, {
               usePost: true
             });
           },
-          error: console.error
+          error: function(_arg1) {
+            var message;
+
+            message = _arg1.message;
+            return console.error(message);
+          }
         }, {
           usePost: true
         });
@@ -486,6 +528,9 @@
       computeAndTransform: function() {
         var _this = this;
 
+        if (this.currentId == null) {
+          return this.showRasterNotSelectedDialog();
+        }
         return this.computeTiePoints(function(_arg1) {
           var tiePoints;
 
@@ -555,12 +600,22 @@
                 _this.map.setExtent(new Polygon(response2.features[0].geometry).getExtent().expand(2));
                 return typeof callback === "function" ? callback() : void 0;
               },
-              error: console.error
+              error: function(_arg1) {
+                var message;
+
+                message = _arg1.message;
+                return console.error(message);
+              }
             }, {
               usePost: true
             });
           },
-          error: console.error
+          error: function(_arg1) {
+            var message;
+
+            message = _arg1.message;
+            return console.error(message);
+          }
         }, {
           usePost: true
         });
@@ -588,7 +643,12 @@
           load: function(response) {
             return typeof callback === "function" ? callback(response) : void 0;
           },
-          error: console.error
+          error: function(_arg1) {
+            var message;
+
+            message = _arg1.message;
+            return console.error(message);
+          }
         });
       },
       toggleReferenceLayer: function(state) {
@@ -603,6 +663,9 @@
         var container, containers, display, _i, _len, _ref,
           _this = this;
 
+        if (this.currentId == null) {
+          return this.showRasterNotSelectedDialog();
+        }
         domStyle.set(this.editTiepointsContainer_loading, "display", "block");
         _ref = {
           none: [this.selectRasterContainer, this.tasksContainer],
@@ -617,10 +680,11 @@
         }
         this.refreshMosaicRule();
         return this.computeTiePoints(function(_arg1) {
-          var i, sourcePoint, targetPoint, tiePoints, _j, _ref1;
+          var i, sourcePoint, targetPoint, tiePoints, _j, _ref1, _results;
 
           tiePoints = _arg1.tiePoints;
           domStyle.set(_this.editTiepointsContainer_loading, "display", "none");
+          _results = [];
           for (i = _j = 0, _ref1 = tiePoints.sourcePoints.length; 0 <= _ref1 ? _j < _ref1 : _j > _ref1; i = 0 <= _ref1 ? ++_j : --_j) {
             _this.tiepoints.put({
               id: i + 1,
@@ -632,9 +696,9 @@
               }
             });
             _this.tiepointsLayer.add(sourcePoint);
-            _this.tiepointsLayer.add(targetPoint);
+            _results.push(_this.tiepointsLayer.add(targetPoint));
           }
-          return _this.tiepointsGrid.selectAll();
+          return _results;
         });
       },
       closeEditTiepoints: function() {
@@ -851,10 +915,10 @@
 
         return this.applyTransform({
           sourcePoints: this.tiepoints.data.map(function(x) {
-            return x.sourcePoint.geometry.toJson();
+            return x.sourcePoint.geometry;
           }),
           targetPoints: this.tiepoints.data.map(function(x) {
-            return x.targetPoint.geometry.toJson();
+            return x.targetPoint.geometry;
           })
         }, function() {
           return _this.closeEditTiepoints();
@@ -863,6 +927,9 @@
       openRoughTransform: function() {
         var container, containers, display, _i, _len, _ref;
 
+        if (this.currentId == null) {
+          return this.showRasterNotSelectedDialog();
+        }
         _ref = {
           none: [this.selectRasterContainer, this.tasksContainer],
           block: [this.manualTransformContainer]
@@ -897,6 +964,23 @@
         }
         return this.refreshMosaicRule();
       },
+      projectIfReq: function(_arg1, callback) {
+        var geometries, outSR,
+          _this = this;
+
+        geometries = _arg1.geometries, outSR = _arg1.outSR;
+        if (geometries.every(function(x) {
+          return x.spatialReference.equals(outSR);
+        })) {
+          return typeof callback === "function" ? callback(geometries) : void 0;
+        }
+        return this.geometryService.project(extend(new ProjectParameters, {
+          geometries: geometries,
+          outSR: outSR
+        }), function(geometries) {
+          return typeof callback === "function" ? callback(geometries) : void 0;
+        });
+      },
       rt_fit: function() {
         var _this = this;
 
@@ -916,88 +1000,111 @@
             var src;
 
             src = new Polygon(response1.features[0].geometry).getExtent();
-            return request({
-              url: _this.imageServiceUrl + "/update",
-              content: {
-                f: "json",
-                rasterId: _this.currentId,
-                geodataTransforms: JSON.stringify([
-                  {
-                    geodataTransform: "Polynomial",
-                    geodataTransformArguments: {
-                      sourcePoints: [
-                        {
-                          x: src.xmin,
-                          y: src.ymin
-                        }, {
-                          x: src.xmin,
-                          y: src.ymax
-                        }, {
-                          x: src.xmax,
-                          y: src.ymin
-                        }
-                      ],
-                      targetPoints: (function() {
-                        var aspectRatio, dest, map;
+            return _this.projectIfReq({
+              geometries: [_this.map.extent],
+              outSR: src.spatialReference
+            }, function(_arg1) {
+              var mapExtent;
 
-                        aspectRatio = (src.xmax - src.xmin) / (src.ymax - src.ymin);
-                        map = {
-                          width: _this.map.extent.getWidth(),
-                          height: _this.map.extent.getHeight(),
-                          center: _this.map.extent.getCenter().toJson()
-                        };
-                        dest = {
-                          width: Math.min(map.width, map.height * aspectRatio),
-                          height: Math.min(map.height, map.width / aspectRatio)
-                        };
-                        dest.xmin = map.center.x - dest.width / 2;
-                        dest.xmax = map.center.x + dest.width / 2;
-                        dest.ymin = map.center.y - dest.height / 2;
-                        dest.ymax = map.center.y + dest.height / 2;
-                        return [
+              mapExtent = _arg1[0];
+              return request({
+                url: _this.imageServiceUrl + "/update",
+                content: {
+                  f: "json",
+                  rasterId: _this.currentId,
+                  geodataTransforms: JSON.stringify([
+                    {
+                      geodataTransform: "Polynomial",
+                      geodataTransformArguments: {
+                        sourcePoints: [
                           {
-                            x: dest.xmin,
-                            y: dest.ymin
+                            x: src.xmin,
+                            y: src.ymin
                           }, {
-                            x: dest.xmin,
-                            y: dest.ymax
+                            x: src.xmin,
+                            y: src.ymax
                           }, {
-                            x: dest.xmax,
-                            y: dest.ymin
+                            x: src.xmax,
+                            y: src.ymin
                           }
-                        ];
-                      })(),
-                      polynomialOrder: 1,
-                      spatialReference: src.spatialReference
+                        ],
+                        targetPoints: (function() {
+                          var aspectRatio, dest, map;
+
+                          aspectRatio = (src.xmax - src.xmin) / (src.ymax - src.ymin);
+                          map = {
+                            width: mapExtent.getWidth(),
+                            height: mapExtent.getHeight(),
+                            center: mapExtent.getCenter()
+                          };
+                          dest = {
+                            width: Math.min(map.width, map.height * aspectRatio),
+                            height: Math.min(map.height, map.width / aspectRatio)
+                          };
+                          dest.xmin = map.center.x - dest.width / 2;
+                          dest.xmax = map.center.x + dest.width / 2;
+                          dest.ymin = map.center.y - dest.height / 2;
+                          dest.ymax = map.center.y + dest.height / 2;
+                          return [
+                            {
+                              x: dest.xmin,
+                              y: dest.ymin
+                            }, {
+                              x: dest.xmin,
+                              y: dest.ymax
+                            }, {
+                              x: dest.xmax,
+                              y: dest.ymin
+                            }
+                          ];
+                        })(),
+                        polynomialOrder: 1,
+                        spatialReference: src.spatialReference
+                      }
                     }
-                  }
-                ])
-              },
-              handleAs: "json",
-              load: function() {
-                return request({
-                  url: _this.imageServiceUrl + "/query",
-                  content: {
-                    objectIds: _this.currentId,
-                    returnGeometry: true,
-                    outFields: "",
-                    f: "json"
-                  },
-                  handleAs: "json",
-                  load: function(response3) {
-                    return _this.map.setExtent(new Polygon(response3.features[0].geometry).getExtent().expand(2));
-                  },
-                  error: console.error
-                }, {
-                  usePost: true
-                });
-              },
-              error: console.error
-            }, {
-              usePost: true
+                  ])
+                },
+                handleAs: "json",
+                load: function() {
+                  return request({
+                    url: _this.imageServiceUrl + "/query",
+                    content: {
+                      objectIds: _this.currentId,
+                      returnGeometry: true,
+                      outFields: "",
+                      f: "json"
+                    },
+                    handleAs: "json",
+                    load: function(response3) {
+                      return _this.map.setExtent(new Polygon(response3.features[0].geometry).getExtent().expand(2));
+                    },
+                    error: function(_arg2) {
+                      var message;
+
+                      message = _arg2.message;
+                      return console.error(message);
+                    }
+                  }, {
+                    usePost: true
+                  });
+                },
+                error: function(_arg2) {
+                  var message;
+
+                  message = _arg2.message;
+                  return console.error(message);
+                }
+              }, {
+                usePost: true
+              });
             });
           },
-          error: console.error
+          error: function(_arg1) {
+            var message;
+
+            message = _arg1.message;
+            return console.error(message);
+          }
         }, {
           usePost: true
         });
@@ -1023,7 +1130,7 @@
               thePoint = new Graphic(new Point({
                 x: Number(theGrid.get("x")),
                 y: Number(theGrid.get("y")),
-                spatialReference: _this.imageServiceLayer.spatialReference
+                spatialReference: _this.map.spatialReference
               }), theGrid === _this.rtMoveFromGrid ? _this.sourceSymbol : _this.targetSymbol);
               _this.miscGraphicsLayer.add(thePoint);
               theGrid.set("onPointChanged", function(_arg1) {
@@ -1169,40 +1276,50 @@
         });
       },
       rt_moveTransform: function() {
-        var offsets, point,
+        var _ref, _ref1,
           _this = this;
 
-        return this.applyTransform({
-          sourcePoints: (function() {
-            var _i, _len, _ref, _ref1, _results;
+        return this.projectIfReq({
+          geometries: [new Point((_ref = this.rtMoveFromGrid.graphic) != null ? _ref.geometry : void 0), new Point((_ref1 = this.rtMoveToGrid.graphic) != null ? _ref1.geometry : void 0)],
+          outSR: this.rasters.data.filter(function(x) {
+            return x.rasterId === _this.currentId;
+          })[0].spatialReference
+        }, function(_arg1) {
+          var fromPoint, offsets, point, toPoint;
 
-            _ref = [[0, 0], [100, 0], [0, 100]];
-            _results = [];
-            for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-              offsets = _ref[_i];
-              point = new Point((_ref1 = this.rtMoveFromGrid.graphic) != null ? _ref1.geometry : void 0);
-              point.x += offsets[0];
-              point.y += offsets[1];
-              _results.push(point);
-            }
-            return _results;
-          }).call(this),
-          targetPoints: (function() {
-            var _i, _len, _ref, _ref1, _results;
+          fromPoint = _arg1[0], toPoint = _arg1[1];
+          return _this.applyTransform({
+            sourcePoints: (function() {
+              var _i, _len, _ref2, _results;
 
-            _ref = [[0, 0], [100, 0], [0, 100]];
-            _results = [];
-            for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-              offsets = _ref[_i];
-              point = new Point((_ref1 = this.rtMoveToGrid.graphic) != null ? _ref1.geometry : void 0);
-              point.x += offsets[0];
-              point.y += offsets[1];
-              _results.push(point);
-            }
-            return _results;
-          }).call(this)
-        }, function() {
-          return _this.rt_moveClose();
+              _ref2 = [[0, 0], [10, 0], [0, 10]];
+              _results = [];
+              for (_i = 0, _len = _ref2.length; _i < _len; _i++) {
+                offsets = _ref2[_i];
+                point = new Point(fromPoint);
+                point.x += offsets[0];
+                point.y += offsets[1];
+                _results.push(point);
+              }
+              return _results;
+            })(),
+            targetPoints: (function() {
+              var _i, _len, _ref2, _results;
+
+              _ref2 = [[0, 0], [10, 0], [0, 10]];
+              _results = [];
+              for (_i = 0, _len = _ref2.length; _i < _len; _i++) {
+                offsets = _ref2[_i];
+                point = new Point(toPoint);
+                point.x += offsets[0];
+                point.y += offsets[1];
+                _results.push(point);
+              }
+              return _results;
+            })()
+          }, function() {
+            return _this.rt_moveClose();
+          });
         });
       },
       rt_scale: function(state) {
@@ -1246,7 +1363,7 @@
               sourcePoints: (function() {
                 var _i, _len, _ref, _results;
 
-                _ref = [[0, 0], [100, 0], [0, 100]];
+                _ref = [[0, 0], [10, 0], [0, 10]];
                 _results = [];
                 for (_i = 0, _len = _ref.length; _i < _len; _i++) {
                   offsets = _ref[_i];
@@ -1260,7 +1377,7 @@
               targetPoints: (function() {
                 var _i, _len, _ref, _results;
 
-                _ref = [[0, 0], [100 * scaleFactor, 0], [0, 100 * scaleFactor]];
+                _ref = [[0, 0], [10 * scaleFactor, 0], [0, 10 * scaleFactor]];
                 _results = [];
                 for (_i = 0, _len = _ref.length; _i < _len; _i++) {
                   offsets = _ref[_i];
@@ -1275,7 +1392,12 @@
               return _this.rt_scaleClose();
             });
           },
-          error: console.error
+          error: function(_arg1) {
+            var message;
+
+            message = _arg1.message;
+            return console.error(message);
+          }
         }, {
           usePost: true
         });
@@ -1322,7 +1444,7 @@
               sourcePoints: (function() {
                 var _i, _len, _ref, _results;
 
-                _ref = [[0, 0], [100, 0], [0, 100]];
+                _ref = [[0, 0], [10, 0], [0, 10]];
                 _results = [];
                 for (_i = 0, _len = _ref.length; _i < _len; _i++) {
                   offsets = _ref[_i];
@@ -1336,7 +1458,7 @@
               targetPoints: (function() {
                 var _i, _len, _ref, _results;
 
-                _ref = [[0, 0], [100 * cos(theta), 100 * -sin(theta)], [100 * sin(theta), 100 * cos(theta)]];
+                _ref = [[0, 0], [10 * cos(theta), 10 * -sin(theta)], [10 * sin(theta), 10 * cos(theta)]];
                 _results = [];
                 for (_i = 0, _len = _ref.length; _i < _len; _i++) {
                   offsets = _ref[_i];
@@ -1351,10 +1473,21 @@
               return _this.rt_rotateClose();
             });
           },
-          error: console.error
+          error: function(_arg1) {
+            var message;
+
+            message = _arg1.message;
+            return console.error(message);
+          }
         }, {
           usePost: true
         });
+      },
+      showRasterNotSelectedDialog: function() {
+        return this.rasterNotSelectedDialog.show();
+      },
+      hideRasterNotSelectedDialog: function() {
+        return this.rasterNotSelectedDialog.hide();
       }
     });
   });

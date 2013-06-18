@@ -21,8 +21,16 @@
 			<button data-dojo-type="dijit/form/Button" type="button" data-dojo-attach-event="onClick: addRasterDialog_upload">Upload</button>
 		</div>
 	</div>
+	<div data-dojo-type="dijit/Dialog" data-dojo-attach-point="rasterNotSelectedDialog" title="Raster not selected">
+		<div class="dijitDialogPaneContentArea">
+			Please select a Raster to georeference from the Rasters Panel.
+		</div>
+		<div class="dijitDialogPaneActionBar">
+			<button data-dojo-type="dijit/form/Button" type="button" data-dojo-attach-event="onClick: hideRasterNotSelectedDialog" id="cancel">OK</button>
+		</div>
+	</div>
 	<div data-dojo-type="dijit/layout/AccordionContainer" data-dojo-attach-point="selectRasterContainer" style="display: none">
-		<div data-dojo-type="dijit/layout/ContentPane" title="Select Raster" style="padding: 0">
+		<div data-dojo-type="dijit/layout/ContentPane" title="Rasters" style="padding: 0">
 			<div data-dojo-type="dijit/Toolbar">
 				<div data-dojo-type="dijit/form/Button" data-dojo-attach-event="onClick: showAddRasterDialog">Add Raster</div>
 				<span data-dojo-type="dijit/ToolbarSeparator"></span>
@@ -31,8 +39,8 @@
 			<div data-dojo-attach-point="rastersGrid" style="height: 150px"></div>
 		</div>
 	</div>
-	<div data-dojo-type="dijit/layout/AccordionContainer" data-dojo-attach-point="tasksContainer" style="display: none">
-		<div data-dojo-type="dijit/layout/ContentPane" title="Tasks">
+	<div data-dojo-type="dijit/layout/AccordionContainer" data-dojo-attach-point="tasksContainer">
+		<div data-dojo-type="dijit/layout/ContentPane" title="Georeference Tasks">
 			<table style="width: 100%">
 				<tr>
 					<td style="height: 25px; vertical-align: middle; text-align: center">
@@ -93,7 +101,7 @@
 				</tr>
 				<tr>
 					<td style="height: 25px; vertical-align: middle; text-align: center">
-						<button class="fixedWidth250" data-dojo-type="dijit/form/ToggleButton" style="margin-top: 0; margin-bottom: 0; margin-right: 0" data-dojo-attach-event="onChange: rt_move" data-dojo-attach-point="rt_moveButton">Move Raster</button>
+						<button class="fixedWidth250" data-dojo-type="dijit/form/ToggleButton" style="margin-top: 0; margin-bottom: 0; margin-right: 0" data-dojo-attach-event="onChange: rt_move" data-dojo-attach-point="rt_moveButton">Shift Raster</button>
 					</td>
 				</tr>
 				<tr>
@@ -113,7 +121,7 @@
 		</div>
 	</div>
 	<div data-dojo-type="dijit/layout/AccordionContainer" data-dojo-attach-point="rtMoveContainer" style="display: none">
-		<div data-dojo-type="dijit/layout/ContentPane" title="Move Raster" style="padding: 0">
+		<div data-dojo-type="dijit/layout/ContentPane" title="Shift Raster" style="padding: 0">
 			<table style="width: 100%; text-align: center; border-collapse: collapse; border: 1px solid #DDD">
 				<tr>
 					<th style="border: 1px solid #DDD; background-color: #EEE; padding: 5px">From</th>
