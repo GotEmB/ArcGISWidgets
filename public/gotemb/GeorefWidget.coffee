@@ -36,6 +36,7 @@ do ->
 		"esri/tasks/ProjectParameters"
 		"esri/SpatialReference"
 		"dojo/_base/url"
+		"esri/layers/ArcGISTiledMapServiceLayer"
 		# ---
 		"dojox/form/FileInput"
 		"dijit/form/Button"
@@ -51,7 +52,7 @@ do ->
 		"dijit/CheckedMenuItem"
 		"dojo/NodeList-traverse"
 		"dojo/NodeList-dom"
-	], (declare, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template, {connect, disconnect}, ArcGISImageServiceLayer, request, MosaicRule, Polygon, GeometryService, domStyle, PointGrid, Observable, Memory, TiepointsGrid, GraphicsLayer, Color, SimpleMarkerSymbol, SimpleLineSymbol, Graphic, Point, win, domClass, query, editor, RastersGrid, Extent, ProjectParameters, SpatialReference, Url) ->
+	], (declare, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template, {connect, disconnect}, ArcGISImageServiceLayer, request, MosaicRule, Polygon, GeometryService, domStyle, PointGrid, Observable, Memory, TiepointsGrid, GraphicsLayer, Color, SimpleMarkerSymbol, SimpleLineSymbol, Graphic, Point, win, domClass, query, editor, RastersGrid, Extent, ProjectParameters, SpatialReference, Url, ArcGISTiledMapServiceLayer) ->
 		declare [_WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin],
 			templateString: template
 			baseClass: "ClassifyWidget"
@@ -100,6 +101,9 @@ do ->
 			selectBasemap_HybridButton: null
 			selectBasemap_TopographicButton: null
 			selectBasemap_StreetsButton: null
+			selectBasemap_NaturalVueButton: null
+			naturalVueServiceUrl: "http://raster.arcgisonline.com/ArcGIS/rest/services/MDA_NaturalVue_Imagery_cached/MapServer"
+			naturalVueServiceLayer: null
 			sourceSymbol:
 				new SimpleMarkerSymbol(
 					SimpleMarkerSymbol.STYLE_X
@@ -827,10 +831,15 @@ do ->
 					@selectBasemap_HybridButton
 					@selectBasemap_TopographicButton
 					@selectBasemap_StreetsButton
+					@selectBasemap_NaturalVueButton
 				]
 				for menuItem in menuItems when menuItem isnt selectedMenuItem
 					domStyle.set menuItem.domNode, "font-weight", "normal"
 				domStyle.set selectedMenuItem.domNode, "font-weight", "bold"
+				if @naturalVueServiceLayer?
+					@map.removeLayer @naturalVueServiceLayer
+					delete @naturalVueServiceLayer
+					@map.getLayer(layerId).setVisibility true for layerId in @map.basemapLayerIds
 			selectBasemap_Satellite: ->
 				@selectBasemap @selectBasemap_SatelliteButton
 				@map.setBasemap "satellite"
@@ -843,3 +852,7 @@ do ->
 			selectBasemap_Streets: ->
 				@selectBasemap @selectBasemap_StreetsButton
 				@map.setBasemap "streets"
+			selectBasemap_NaturalVue: ->
+				@selectBasemap @selectBasemap_NaturalVueButton
+				@map.addLayer (@naturalVueServiceLayer = new ArcGISTiledMapServiceLayer @naturalVueServiceUrl), 1
+				@map.getLayer(layerId).setVisibility false for layerId in @map.basemapLayerIds

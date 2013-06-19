@@ -11,7 +11,7 @@
     }
     return obj;
   };
-  return define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dijit/_WidgetsInTemplateMixin", "dojo/text!./GeorefWidget/templates/GeorefWidget.html", "dojo/_base/connect", "esri/layers/ArcGISImageServiceLayer", "esri/request", "esri/layers/MosaicRule", "esri/geometry/Polygon", "esri/tasks/GeometryService", "dojo/dom-style", "gotemb/GeorefWidget/PointGrid", "dojo/store/Observable", "dojo/store/Memory", "gotemb/GeorefWidget/TiepointsGrid", "esri/layers/GraphicsLayer", "dojo/_base/Color", "esri/symbols/SimpleMarkerSymbol", "esri/symbols/SimpleLineSymbol", "esri/graphic", "esri/geometry/Point", "dojo/window", "dojo/dom-class", "dojo/query", "dgrid/editor", "gotemb/GeorefWidget/RastersGrid", "esri/geometry/Extent", "esri/tasks/ProjectParameters", "esri/SpatialReference", "dojo/_base/url", "dojox/form/FileInput", "dijit/form/Button", "dijit/form/DropDownButton", "dijit/layout/AccordionContainer", "dijit/layout/ContentPane", "dijit/Dialog", "dijit/Toolbar", "dijit/ToolbarSeparator", "dijit/form/ToggleButton", "dijit/Menu", "dijit/MenuItem", "dijit/CheckedMenuItem", "dojo/NodeList-traverse", "dojo/NodeList-dom"], function(declare, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template, _arg, ArcGISImageServiceLayer, request, MosaicRule, Polygon, GeometryService, domStyle, PointGrid, Observable, Memory, TiepointsGrid, GraphicsLayer, Color, SimpleMarkerSymbol, SimpleLineSymbol, Graphic, Point, win, domClass, query, editor, RastersGrid, Extent, ProjectParameters, SpatialReference, Url) {
+  return define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dijit/_WidgetsInTemplateMixin", "dojo/text!./GeorefWidget/templates/GeorefWidget.html", "dojo/_base/connect", "esri/layers/ArcGISImageServiceLayer", "esri/request", "esri/layers/MosaicRule", "esri/geometry/Polygon", "esri/tasks/GeometryService", "dojo/dom-style", "gotemb/GeorefWidget/PointGrid", "dojo/store/Observable", "dojo/store/Memory", "gotemb/GeorefWidget/TiepointsGrid", "esri/layers/GraphicsLayer", "dojo/_base/Color", "esri/symbols/SimpleMarkerSymbol", "esri/symbols/SimpleLineSymbol", "esri/graphic", "esri/geometry/Point", "dojo/window", "dojo/dom-class", "dojo/query", "dgrid/editor", "gotemb/GeorefWidget/RastersGrid", "esri/geometry/Extent", "esri/tasks/ProjectParameters", "esri/SpatialReference", "dojo/_base/url", "esri/layers/ArcGISTiledMapServiceLayer", "dojox/form/FileInput", "dijit/form/Button", "dijit/form/DropDownButton", "dijit/layout/AccordionContainer", "dijit/layout/ContentPane", "dijit/Dialog", "dijit/Toolbar", "dijit/ToolbarSeparator", "dijit/form/ToggleButton", "dijit/Menu", "dijit/MenuItem", "dijit/CheckedMenuItem", "dojo/NodeList-traverse", "dojo/NodeList-dom"], function(declare, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template, _arg, ArcGISImageServiceLayer, request, MosaicRule, Polygon, GeometryService, domStyle, PointGrid, Observable, Memory, TiepointsGrid, GraphicsLayer, Color, SimpleMarkerSymbol, SimpleLineSymbol, Graphic, Point, win, domClass, query, editor, RastersGrid, Extent, ProjectParameters, SpatialReference, Url, ArcGISTiledMapServiceLayer) {
     var connect, disconnect;
 
     connect = _arg.connect, disconnect = _arg.disconnect;
@@ -63,6 +63,9 @@
       selectBasemap_HybridButton: null,
       selectBasemap_TopographicButton: null,
       selectBasemap_StreetsButton: null,
+      selectBasemap_NaturalVueButton: null,
+      naturalVueServiceUrl: "http://raster.arcgisonline.com/ArcGIS/rest/services/MDA_NaturalVue_Imagery_cached/MapServer",
+      naturalVueServiceLayer: null,
       sourceSymbol: new SimpleMarkerSymbol(SimpleMarkerSymbol.STYLE_X, 10, new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new Color([20, 20, 180]), 2), new Color([0, 0, 0])),
       targetSymbol: new SimpleMarkerSymbol(SimpleMarkerSymbol.STYLE_X, 10, new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new Color([180, 20, 20]), 2), new Color([0, 0, 0])),
       selectedSourceSymbol: new SimpleMarkerSymbol(SimpleMarkerSymbol.STYLE_X, 16, new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new Color([20, 20, 180]), 3), new Color([0, 0, 0])),
@@ -1485,16 +1488,27 @@
         return this.rasterNotSelectedDialog.hide();
       },
       selectBasemap: function(selectedMenuItem) {
-        var menuItem, menuItems, _i, _len;
+        var layerId, menuItem, menuItems, _i, _j, _len, _len1, _ref, _results;
 
-        menuItems = [this.selectBasemap_SatelliteButton, this.selectBasemap_HybridButton, this.selectBasemap_TopographicButton, this.selectBasemap_StreetsButton];
+        menuItems = [this.selectBasemap_SatelliteButton, this.selectBasemap_HybridButton, this.selectBasemap_TopographicButton, this.selectBasemap_StreetsButton, this.selectBasemap_NaturalVueButton];
         for (_i = 0, _len = menuItems.length; _i < _len; _i++) {
           menuItem = menuItems[_i];
           if (menuItem !== selectedMenuItem) {
             domStyle.set(menuItem.domNode, "font-weight", "normal");
           }
         }
-        return domStyle.set(selectedMenuItem.domNode, "font-weight", "bold");
+        domStyle.set(selectedMenuItem.domNode, "font-weight", "bold");
+        if (this.naturalVueServiceLayer != null) {
+          this.map.removeLayer(this.naturalVueServiceLayer);
+          delete this.naturalVueServiceLayer;
+          _ref = this.map.basemapLayerIds;
+          _results = [];
+          for (_j = 0, _len1 = _ref.length; _j < _len1; _j++) {
+            layerId = _ref[_j];
+            _results.push(this.map.getLayer(layerId).setVisibility(true));
+          }
+          return _results;
+        }
       },
       selectBasemap_Satellite: function() {
         this.selectBasemap(this.selectBasemap_SatelliteButton);
@@ -1511,6 +1525,19 @@
       selectBasemap_Streets: function() {
         this.selectBasemap(this.selectBasemap_StreetsButton);
         return this.map.setBasemap("streets");
+      },
+      selectBasemap_NaturalVue: function() {
+        var layerId, _i, _len, _ref, _results;
+
+        this.selectBasemap(this.selectBasemap_NaturalVueButton);
+        this.map.addLayer((this.naturalVueServiceLayer = new ArcGISTiledMapServiceLayer(this.naturalVueServiceUrl)), 1);
+        _ref = this.map.basemapLayerIds;
+        _results = [];
+        for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+          layerId = _ref[_i];
+          _results.push(this.map.getLayer(layerId).setVisibility(false));
+        }
+        return _results;
       }
     });
   });
