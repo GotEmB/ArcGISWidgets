@@ -55,7 +55,7 @@ do ->
 	], (declare, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template, {connect, disconnect}, ArcGISImageServiceLayer, request, MosaicRule, Polygon, GeometryService, domStyle, PointGrid, Observable, Memory, TiepointsGrid, GraphicsLayer, Color, SimpleMarkerSymbol, SimpleLineSymbol, Graphic, Point, win, domClass, query, editor, RastersGrid, Extent, ProjectParameters, SpatialReference, Url, ArcGISTiledMapServiceLayer) ->
 		declare [_WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin],
 			templateString: template
-			baseClass: "ClassifyWidget"
+			baseClass: "GeorefWidget"
 			map: null # should be bound to a `Map` instance before using the widget
 			imageFile: null
 			uploadForm: null

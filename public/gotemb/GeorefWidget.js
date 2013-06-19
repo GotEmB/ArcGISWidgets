@@ -17,7 +17,7 @@
     connect = _arg.connect, disconnect = _arg.disconnect;
     return declare([_WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin], {
       templateString: template,
-      baseClass: "ClassifyWidget",
+      baseClass: "GeorefWidget",
       map: null,
       imageFile: null,
       uploadForm: null,
