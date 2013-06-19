@@ -29,12 +29,13 @@
 			<button data-dojo-type="dijit/form/Button" type="button" data-dojo-attach-event="onClick: hideRasterNotSelectedDialog" id="cancel">OK</button>
 		</div>
 	</div>
+	<div data-dojo-type="dijit/Toolbar" style="border: solid 1px #759dc0; margin-bottom: 1px; padding-left: 0">
+		<div data-dojo-type="dijit/form/ToggleButton" data-dojo-attach-event="onChange: toggleRasterLayer" data-dojo-props="checked: true">Toggle Raster Layer</div>
+	</div>
 	<div data-dojo-type="dijit/layout/AccordionContainer" data-dojo-attach-point="selectRasterContainer" style="display: none">
 		<div data-dojo-type="dijit/layout/ContentPane" title="Rasters" style="padding: 0">
 			<div data-dojo-type="dijit/Toolbar">
 				<div data-dojo-type="dijit/form/Button" data-dojo-attach-event="onClick: showAddRasterDialog">Add Raster</div>
-				<span data-dojo-type="dijit/ToolbarSeparator"></span>
-				<div data-dojo-type="dijit/form/ToggleButton" data-dojo-attach-point="rasters_toggleReferenceLayersButton" data-dojo-attach-event="onChange: toggleReferenceLayer" data-dojo-props="checked: true">Toggle Reference Layer</div>
 			</div>
 			<div data-dojo-attach-point="rastersGrid" style="height: 150px"></div>
 		</div>
@@ -70,13 +71,6 @@
 						<div data-dojo-type="dijit/MenuItem" data-dojo-attach-point="toggleTiepointsSelectionMenuItem" data-dojo-attach-event="onClick: toggleTiepointsSelection">Select All</div>
 						<div data-dojo-type="dijit/MenuItem" data-dojo-attach-point="resetSelectedTiepointsMenuItem" data-dojo-attach-event="onClick: resetSelectedTiepoints">Reset Selected Tiepoints</div>
 						<div data-dojo-type="dijit/MenuItem" data-dojo-attach-point="removeSelectedTiepointsMenuItem" data-dojo-attach-event="onClick: removeSelectedTiepoints">Remove Selected Tiepoints</div>
-					</div>
-				</div>
-				<div data-dojo-type="dijit/form/DropDownButton" style="float: right; padding-right: 0.3em">
-					<span>Layers</span>
-					<div data-dojo-type="dijit/Menu">
-						<div data-dojo-type="dijit/CheckedMenuItem" data-dojo-attach-point="editTiepoints_toggleReferenceLayerButton" data-dojo-attach-event="onChange: toggleReferenceLayer" data-dojo-props="checked: true">Reference Layer</div>
-						<div data-dojo-type="dijit/CheckedMenuItem" data-dojo-attach-point="editTiepoints_toggleRasterLayerButton"  data-dojo-attach-event="onChange: toggleRasterLayer" data-dojo-props="checked: true">Raster Layer</div>
 					</div>
 				</div>
 			</div>

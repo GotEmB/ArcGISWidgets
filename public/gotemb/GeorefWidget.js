@@ -23,8 +23,6 @@
       uploadForm: null,
       imageServiceUrl: "http://eg1109.uae.esri.com:6080/arcgis/rest/services/amberg_wgs/ImageServer",
       imageServiceLayer: null,
-      referenceLayerUrl: "http://eg1109.uae.esri.com:6080/arcgis/rest/services/amberg_wgs_reference/ImageServer",
-      referenceLayer: null,
       geometryServiceUrl: "http://tasks.arcgisonline.com/arcgis/rest/services/Geometry/GeometryServer",
       geometryService: null,
       rastertype: null,
@@ -40,9 +38,6 @@
       tiepointsGrid: null,
       toggleTiepointsSelectionMenuItem: null,
       tiepointsLayer: null,
-      rasters_toggleReferenceLayersButton: null,
-      editTiepoints_toggleReferenceLayerButton: null,
-      editTiepoints_toggleRasterLayerButton: null,
       tiepointsContextMenu: null,
       resetTiepointMenuItem: null,
       mouseTip: null,
@@ -88,7 +83,6 @@
           } else {
             onceDone = true;
           }
-          _this.map.addLayer(_this.referenceLayer = new ArcGISImageServiceLayer(_this.referenceLayerUrl));
           _this.map.addLayer(_this.imageServiceLayer);
           _this.rasters = new Observable(new Memory({
             idProperty: "rasterId"
@@ -650,11 +644,6 @@
             return console.error(message);
           }
         });
-      },
-      toggleReferenceLayer: function(state) {
-        this.referenceLayer.setOpacity(state ? 1 : 0);
-        this.rasters_toggleReferenceLayersButton.set("checked", state);
-        return this.editTiepoints_toggleReferenceLayerButton.set("checked", state);
       },
       toggleRasterLayer: function(state) {
         return this.imageServiceLayer.setOpacity(state ? 1 : 0);

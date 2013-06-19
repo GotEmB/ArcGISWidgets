@@ -60,8 +60,6 @@ do ->
 			uploadForm: null
 			imageServiceUrl: "http://eg1109.uae.esri.com:6080/arcgis/rest/services/amberg_wgs/ImageServer"
 			imageServiceLayer: null
-			referenceLayerUrl: "http://eg1109.uae.esri.com:6080/arcgis/rest/services/amberg_wgs_reference/ImageServer"
-			referenceLayer: null
 			geometryServiceUrl: "http://tasks.arcgisonline.com/arcgis/rest/services/Geometry/GeometryServer"
 			geometryService: null
 			rastertype: null
@@ -77,9 +75,6 @@ do ->
 			tiepointsGrid: null
 			toggleTiepointsSelectionMenuItem: null
 			tiepointsLayer: null
-			rasters_toggleReferenceLayersButton: null
-			editTiepoints_toggleReferenceLayerButton: null
-			editTiepoints_toggleRasterLayerButton: null
 			tiepointsContextMenu: null
 			resetTiepointMenuItem: null
 			mouseTip: null
@@ -154,7 +149,6 @@ do ->
 				onceDone = false
 				@watch "map", (attr, oldMap, newMap) =>
 					if onceDone then return else onceDone = true
-					@map.addLayer @referenceLayer = new ArcGISImageServiceLayer @referenceLayerUrl
 					@map.addLayer @imageServiceLayer
 					@rasters = new Observable new Memory idProperty: "rasterId"
 					@rastersGrid = new RastersGrid
@@ -441,10 +435,6 @@ do ->
 						callback? response
 					error: ({message}) => console.error message
 					#(usePost: true)
-			toggleReferenceLayer: (state) ->
-				@referenceLayer.setOpacity if state then 1 else 0
-				@rasters_toggleReferenceLayersButton.set "checked", state
-				@editTiepoints_toggleReferenceLayerButton.set "checked", state
 			toggleRasterLayer: (state) ->
 				@imageServiceLayer.setOpacity if state then 1 else 0
 			startEditTiepoints: ->
