@@ -59,6 +59,10 @@
       rtRotateContainer: null,
       rtRotateDegreesInput: null,
       rasterNotSelectedDialog: null,
+      selectBasemap_SatelliteButton: null,
+      selectBasemap_HybridButton: null,
+      selectBasemap_TopographicButton: null,
+      selectBasemap_StreetsButton: null,
       sourceSymbol: new SimpleMarkerSymbol(SimpleMarkerSymbol.STYLE_X, 10, new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new Color([20, 20, 180]), 2), new Color([0, 0, 0])),
       targetSymbol: new SimpleMarkerSymbol(SimpleMarkerSymbol.STYLE_X, 10, new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new Color([180, 20, 20]), 2), new Color([0, 0, 0])),
       selectedSourceSymbol: new SimpleMarkerSymbol(SimpleMarkerSymbol.STYLE_X, 16, new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new Color([20, 20, 180]), 3), new Color([0, 0, 0])),
@@ -1479,6 +1483,34 @@
       },
       hideRasterNotSelectedDialog: function() {
         return this.rasterNotSelectedDialog.hide();
+      },
+      selectBasemap: function(selectedMenuItem) {
+        var menuItem, menuItems, _i, _len;
+
+        menuItems = [this.selectBasemap_SatelliteButton, this.selectBasemap_HybridButton, this.selectBasemap_TopographicButton, this.selectBasemap_StreetsButton];
+        for (_i = 0, _len = menuItems.length; _i < _len; _i++) {
+          menuItem = menuItems[_i];
+          if (menuItem !== selectedMenuItem) {
+            domStyle.set(menuItem.domNode, "font-weight", "normal");
+          }
+        }
+        return domStyle.set(selectedMenuItem.domNode, "font-weight", "bold");
+      },
+      selectBasemap_Satellite: function() {
+        this.selectBasemap(this.selectBasemap_SatelliteButton);
+        return this.map.setBasemap("satellite");
+      },
+      selectBasemap_Hybrid: function() {
+        this.selectBasemap(this.selectBasemap_HybridButton);
+        return this.map.setBasemap("hybrid");
+      },
+      selectBasemap_Topographic: function() {
+        this.selectBasemap(this.selectBasemap_TopographicButton);
+        return this.map.setBasemap("topo");
+      },
+      selectBasemap_Streets: function() {
+        this.selectBasemap(this.selectBasemap_StreetsButton);
+        return this.map.setBasemap("streets");
       }
     });
   });

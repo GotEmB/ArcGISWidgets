@@ -9,7 +9,7 @@ require(["dijit/registry", "dojo/ready", "esri/map", "esri/geometry/Point", "doj
     map = new Map("map", {
       center: [-56.049, 38.485],
       zoom: 3,
-      basemap: "streets"
+      basemap: "satellite"
     });
     if ((_ref = navigator.geolocation) != null) {
       _ref.getCurrentPosition(function(_arg) {

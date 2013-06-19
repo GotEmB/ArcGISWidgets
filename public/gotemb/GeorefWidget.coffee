@@ -96,6 +96,10 @@ do ->
 			rtRotateContainer: null
 			rtRotateDegreesInput: null
 			rasterNotSelectedDialog: null
+			selectBasemap_SatelliteButton: null
+			selectBasemap_HybridButton: null
+			selectBasemap_TopographicButton: null
+			selectBasemap_StreetsButton: null
 			sourceSymbol:
 				new SimpleMarkerSymbol(
 					SimpleMarkerSymbol.STYLE_X
@@ -817,3 +821,25 @@ do ->
 				@rasterNotSelectedDialog.show()
 			hideRasterNotSelectedDialog: ->
 				@rasterNotSelectedDialog.hide()
+			selectBasemap: (selectedMenuItem) ->
+				menuItems = [
+					@selectBasemap_SatelliteButton
+					@selectBasemap_HybridButton
+					@selectBasemap_TopographicButton
+					@selectBasemap_StreetsButton
+				]
+				for menuItem in menuItems when menuItem isnt selectedMenuItem
+					domStyle.set menuItem.domNode, "font-weight", "normal"
+				domStyle.set selectedMenuItem.domNode, "font-weight", "bold"
+			selectBasemap_Satellite: ->
+				@selectBasemap @selectBasemap_SatelliteButton
+				@map.setBasemap "satellite"
+			selectBasemap_Hybrid: ->
+				@selectBasemap @selectBasemap_HybridButton
+				@map.setBasemap "hybrid"
+			selectBasemap_Topographic: ->
+				@selectBasemap @selectBasemap_TopographicButton
+				@map.setBasemap "topo"
+			selectBasemap_Streets: ->
+				@selectBasemap @selectBasemap_StreetsButton
+				@map.setBasemap "streets"

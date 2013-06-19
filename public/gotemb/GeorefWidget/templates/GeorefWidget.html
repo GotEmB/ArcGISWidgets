@@ -30,6 +30,16 @@
 		</div>
 	</div>
 	<div data-dojo-type="dijit/Toolbar" style="border: solid 1px #759dc0; margin-bottom: 1px; padding-left: 0">
+		<div data-dojo-type="dijit/form/DropDownButton">
+			<span>Basemap</span>
+			<div data-dojo-type="dijit/Menu">
+				<div data-dojo-type="dijit/MenuItem" data-dojo-attach-point="selectBasemap_SatelliteButton" data-dojo-attach-event="onClick: selectBasemap_Satellite" style="font-weight: bold">Satellite</div>
+				<div data-dojo-type="dijit/MenuItem" data-dojo-attach-point="selectBasemap_HybridButton" data-dojo-attach-event="onClick: selectBasemap_Hybrid" >Hybrid</div>
+				<div data-dojo-type="dijit/MenuItem" data-dojo-attach-point="selectBasemap_TopographicButton" data-dojo-attach-event="onClick: selectBasemap_Topographic" >Topographic</div>
+				<div data-dojo-type="dijit/MenuItem" data-dojo-attach-point="selectBasemap_StreetsButton" data-dojo-attach-event="onClick: selectBasemap_Streets" >Streets</div>
+			</div>
+		</div>
+		<span data-dojo-type="dijit/ToolbarSeparator"></span>
 		<div data-dojo-type="dijit/form/ToggleButton" data-dojo-attach-event="onChange: toggleRasterLayer" data-dojo-props="checked: true">Toggle Raster Layer</div>
 	</div>
 	<div data-dojo-type="dijit/layout/AccordionContainer" data-dojo-attach-point="selectRasterContainer" style="display: none">
