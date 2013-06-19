@@ -196,7 +196,7 @@ do ->
 								f: "json"
 							handleAs: "json"
 							load: (response3) =>
-								@map.setExtent new Polygon(response3.features[0].geometry).getExtent().expand 2
+								@map.setExtent new Polygon(response3.features[0].geometry).getExtent()
 							error: ({message}) => console.error message
 							(usePost: true)
 					@rastersGrid.on "dgrid-datachange", ({cell, value}) =>
@@ -421,7 +421,7 @@ do ->
 								f: "json"
 							handleAs: "json"
 							load: (response2) =>
-								@map.setExtent new Polygon(response2.features[0].geometry).getExtent().expand 2
+								@map.setExtent new Polygon(response2.features[0].geometry).getExtent()
 								callback?()
 							error: ({message}) => console.error message
 							(usePost: true)
@@ -639,7 +639,7 @@ do ->
 												f: "json"
 											handleAs: "json"
 											load: (response3) =>
-												@map.setExtent new Polygon(response3.features[0].geometry).getExtent().expand 2
+												@map.setExtent new Polygon(response3.features[0].geometry).getExtent()
 											error: ({message}) => console.error message
 											(usePost: true)
 									error: ({message}) => console.error message

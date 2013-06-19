@@ -140,7 +140,7 @@
               },
               handleAs: "json",
               load: function(response3) {
-                return _this.map.setExtent(new Polygon(response3.features[0].geometry).getExtent().expand(2));
+                return _this.map.setExtent(new Polygon(response3.features[0].geometry).getExtent());
               },
               error: function(_arg2) {
                 var message;
@@ -598,7 +598,7 @@
               },
               handleAs: "json",
               load: function(response2) {
-                _this.map.setExtent(new Polygon(response2.features[0].geometry).getExtent().expand(2));
+                _this.map.setExtent(new Polygon(response2.features[0].geometry).getExtent());
                 return typeof callback === "function" ? callback() : void 0;
               },
               error: function(_arg1) {
@@ -1075,7 +1075,7 @@
                     },
                     handleAs: "json",
                     load: function(response3) {
-                      return _this.map.setExtent(new Polygon(response3.features[0].geometry).getExtent().expand(2));
+                      return _this.map.setExtent(new Polygon(response3.features[0].geometry).getExtent());
                     },
                     error: function(_arg2) {
                       var message;
