@@ -434,7 +434,7 @@ do ->
 					load: (response) ->
 						callback? response
 					error: ({message}) => console.error message
-					#(usePost: true)
+					(usePost: true)
 			toggleRasterLayer: (state) ->
 				@imageServiceLayer.setOpacity if state then 1 else 0
 			startEditTiepoints: ->

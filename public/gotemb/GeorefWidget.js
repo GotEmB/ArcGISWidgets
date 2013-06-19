@@ -643,6 +643,8 @@
             message = _arg1.message;
             return console.error(message);
           }
+        }, {
+          usePost: true
         });
       },
       toggleRasterLayer: function(state) {
