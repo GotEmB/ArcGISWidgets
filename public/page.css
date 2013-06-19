@@ -55,14 +55,14 @@ th.dgrid-cell {
 }
 .field-display {
   width: 25px;
-  padding: 5px 0 0;
+  padding: 2px 4px;
   background-color: #eee;
 }
-.dgrid-input[type="CheckBox"] {
-  margin: 0;
-}
 .field-rasterId {
-  width: 100px;
+  width: 45px;
+}
+td.field-rasterId {
+  text-align: right;
 }
 td.field-sourcePoint,
 td.field-targetPoint {
@@ -122,6 +122,15 @@ td.field-id {
 }
 tr.dijitMenuItem td.dijitMenuItemIconCell {
   padding: 5px 3px 3px 5px;
+}
+.field-resultId {
+  width: 45px;
+}
+td.field-resultId {
+  text-align: right;
+}
+.field-status {
+  width: 90px;
 }
 @-moz-keyframes yellowAnimate {
   0% {

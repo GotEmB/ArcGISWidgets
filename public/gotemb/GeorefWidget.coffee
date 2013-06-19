@@ -37,6 +37,9 @@ do ->
 		"esri/SpatialReference"
 		"dojo/_base/url"
 		"esri/layers/ArcGISTiledMapServiceLayer"
+		"gotemb/GeorefWidget/AsyncResultsGrid"
+		"dijit/popup"
+		"dijit/form/CheckBox"
 		# ---
 		"dojox/form/FileInput"
 		"dijit/form/Button"
@@ -52,7 +55,8 @@ do ->
 		"dijit/CheckedMenuItem"
 		"dojo/NodeList-traverse"
 		"dojo/NodeList-dom"
-	], (declare, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template, {connect, disconnect}, ArcGISImageServiceLayer, request, MosaicRule, Polygon, GeometryService, domStyle, PointGrid, Observable, Memory, TiepointsGrid, GraphicsLayer, Color, SimpleMarkerSymbol, SimpleLineSymbol, Graphic, Point, win, domClass, query, editor, RastersGrid, Extent, ProjectParameters, SpatialReference, Url, ArcGISTiledMapServiceLayer) ->
+		"dijit/TooltipDialog"
+	], (declare, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template, {connect, disconnect}, ArcGISImageServiceLayer, request, MosaicRule, Polygon, GeometryService, domStyle, PointGrid, Observable, Memory, TiepointsGrid, GraphicsLayer, Color, SimpleMarkerSymbol, SimpleLineSymbol, Graphic, Point, win, domClass, query, editor, RastersGrid, Extent, ProjectParameters, SpatialReference, Url, ArcGISTiledMapServiceLayer, AsyncResultsGrid, popup, CheckBox) ->
 		declare [_WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin],
 			templateString: template
 			baseClass: "GeorefWidget"
@@ -104,6 +108,17 @@ do ->
 			selectBasemap_NaturalVueButton: null
 			naturalVueServiceUrl: "http://raster.arcgisonline.com/ArcGIS/rest/services/MDA_NaturalVue_Imagery_cached/MapServer"
 			naturalVueServiceLayer: null
+			asyncResultsContainer: null
+			asyncResults: null
+			asyncResultsGrid: null
+			asyncTaskDetailsPopup: null
+			atdpResultId: null
+			atdpTask: null
+			atdpRasterId: null
+			atdpStatus: null
+			atdpStartTime: null
+			atdpEndTime: null
+			atdpContinueButton: null
 			sourceSymbol:
 				new SimpleMarkerSymbol(
 					SimpleMarkerSymbol.STYLE_X
@@ -164,9 +179,9 @@ do ->
 							editor
 								label: " "
 								field: "display"
-								editor: "CheckBox"
+								editor: CheckBox
 						,	
-							label: "Raster Id"
+							label: "Id"
 							field: "rasterId"
 							sortable: false
 						,
@@ -331,6 +346,54 @@ do ->
 										do rec
 								error: ({message}) => console.error message
 								(usePost: true)
+					@asyncResults = new Observable new Memory idProperty: "resultId"
+					@asyncResultsGrid = new AsyncResultsGrid
+						columns: [	
+							label: "Id"
+							field: "resultId"
+							sortable: false
+						,
+							label: "Task"
+							field: "task"
+							sortable: false
+						,
+							label: "Status"
+							field: "status"
+							sortable: false
+						]
+						store: @asyncResults
+						selectionMode: "none"
+						@asyncResultsGrid
+					@asyncResultsGrid.startup()
+					domStyle.set @asyncResultsContainer.domNode, "display", "block"
+					@asyncResultsGrid.on ".field-resultId:click, .field-task:click, .field-status:click", (e) =>
+						@asyncResultsGrid.clearSelection()
+						@asyncResultsGrid.select @asyncResultsGrid.cell(e).row
+					@asyncResultsGrid.on "dgrid-select", ({rows: [row]}) =>
+						for label, value of {
+							atdpResultId: "resultId"
+							atdpTask: "task"
+							atdpStatus: "status"
+							atdpRasterId: "rasterId"
+							atdpStartTime: "startTime"
+							atdpEndTime: "endTime"
+						}
+							@[label].innerText = row.data[value] ? "--"
+						domStyle.set @atdpContinueButton.domNode, "display", if row.data.callback? then "inline-block" else "none"
+						@atdpContinueButton.set "label", row.data.callbackLabel ? "Continue Task"
+						continueEvent = @atdpContinueButton.on "Click", =>
+							continueEvent.remove()
+							popup.close @asyncTaskDetailsPopup
+							if row.data.rasterId?
+								@rastersGrid.clearSelection()
+								@rastersGrid.select @rasters.row row.data.rasterId
+							row.data.callback?()
+						popup.open
+							popup: @asyncTaskDetailsPopup
+							around: row.element
+							orient: ["above", "below"]
+						@asyncTaskDetailsPopup.focus()
+					window.self = @
 			refreshMosaicRule: ->
 				@imageServiceLayer.setMosaicRule extend(
 					new MosaicRule
@@ -857,3 +920,7 @@ do ->
 				@selectBasemap @selectBasemap_NaturalVueButton
 				@map.addLayer (@naturalVueServiceLayer = new ArcGISTiledMapServiceLayer @naturalVueServiceUrl), 1
 				@map.getLayer(layerId).setVisibility false for layerId in @map.basemapLayerIds
+			atdpContinue: ->
+			atdpClose: ->
+				popup.close @asyncTaskDetailsPopup
+				@asyncResultsGrid.clearSelection()

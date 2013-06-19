@@ -29,6 +29,38 @@
 			<button data-dojo-type="dijit/form/Button" type="button" data-dojo-attach-event="onClick: hideRasterNotSelectedDialog" id="cancel">OK</button>
 		</div>
 	</div>
+	<div data-dojo-type="dijit/TooltipDialog" data-dojo-attach-point="asyncTaskDetailsPopup" data-dojo-attach-event="onBlur: atdpClose" style="display: none; width: 300px">
+		<table style="width: 100%">
+			<tr>
+				<td>Task Id:</td>
+				<td data-dojo-attach-point="atdpResultId"></td>
+			</tr>
+			<tr>
+				<td>Task:</td>
+				<td data-dojo-attach-point="atdpTask" width="70%"></td>
+			</tr>
+			<tr>
+				<td>Raster Id:</td>
+				<td data-dojo-attach-point="atdpRasterId"></td>
+			</tr>
+			<tr>
+				<td>Status:</td>
+				<td data-dojo-attach-point="atdpStatus"></td>
+			</tr>
+			<tr>
+				<td>Start Time:</td>
+				<td data-dojo-attach-point="atdpStartTime"></td>
+			</tr>
+			<tr>
+				<td>End Time:</td>
+				<td data-dojo-attach-point="atdpEndTime"></td>
+			</tr>
+		</table>
+		<div class="dijitDialogPaneActionBar">
+			<button data-dojo-type="dijit/form/Button" type="button" data-dojo-attach-point="atdpContinueButton" data-dojo-attach-event="onClick: atdpContinue">Continue Task</button>
+			<button data-dojo-type="dijit/form/Button" type="button" data-dojo-attach-event="onClick: atdpClose">Close</button>
+		</div>
+	</div>
 	<div data-dojo-type="dijit/Toolbar" style="border: solid 1px #759dc0; margin-bottom: 1px; padding-left: 0">
 		<div data-dojo-type="dijit/form/DropDownButton">
 			<span>Basemap</span>
@@ -169,6 +201,11 @@
 				<button data-dojo-type="dijit/form/Button" type="button" data-dojo-attach-event="onClick: rt_rotateClose">Cancel</button>
 				<button data-dojo-type="dijit/form/Button" type="button" data-dojo-attach-event="onClick: rt_rotateTransform">Rotate</button>
 			</div>
+		</div>
+	</div>
+	<div data-dojo-type="dijit/layout/AccordionContainer" data-dojo-attach-point="asyncResultsContainer" style="display: none">
+		<div data-dojo-type="dijit/layout/ContentPane" title="Async Results" style="padding: 0">
+			<div data-dojo-attach-point="asyncResultsGrid" style="height: 150px"></div>
 		</div>
 	</div>
 </div>

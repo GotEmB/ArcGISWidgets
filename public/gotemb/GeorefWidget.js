@@ -11,7 +11,7 @@
     }
     return obj;
   };
-  return define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dijit/_WidgetsInTemplateMixin", "dojo/text!./GeorefWidget/templates/GeorefWidget.html", "dojo/_base/connect", "esri/layers/ArcGISImageServiceLayer", "esri/request", "esri/layers/MosaicRule", "esri/geometry/Polygon", "esri/tasks/GeometryService", "dojo/dom-style", "gotemb/GeorefWidget/PointGrid", "dojo/store/Observable", "dojo/store/Memory", "gotemb/GeorefWidget/TiepointsGrid", "esri/layers/GraphicsLayer", "dojo/_base/Color", "esri/symbols/SimpleMarkerSymbol", "esri/symbols/SimpleLineSymbol", "esri/graphic", "esri/geometry/Point", "dojo/window", "dojo/dom-class", "dojo/query", "dgrid/editor", "gotemb/GeorefWidget/RastersGrid", "esri/geometry/Extent", "esri/tasks/ProjectParameters", "esri/SpatialReference", "dojo/_base/url", "esri/layers/ArcGISTiledMapServiceLayer", "dojox/form/FileInput", "dijit/form/Button", "dijit/form/DropDownButton", "dijit/layout/AccordionContainer", "dijit/layout/ContentPane", "dijit/Dialog", "dijit/Toolbar", "dijit/ToolbarSeparator", "dijit/form/ToggleButton", "dijit/Menu", "dijit/MenuItem", "dijit/CheckedMenuItem", "dojo/NodeList-traverse", "dojo/NodeList-dom"], function(declare, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template, _arg, ArcGISImageServiceLayer, request, MosaicRule, Polygon, GeometryService, domStyle, PointGrid, Observable, Memory, TiepointsGrid, GraphicsLayer, Color, SimpleMarkerSymbol, SimpleLineSymbol, Graphic, Point, win, domClass, query, editor, RastersGrid, Extent, ProjectParameters, SpatialReference, Url, ArcGISTiledMapServiceLayer) {
+  return define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dijit/_WidgetsInTemplateMixin", "dojo/text!./GeorefWidget/templates/GeorefWidget.html", "dojo/_base/connect", "esri/layers/ArcGISImageServiceLayer", "esri/request", "esri/layers/MosaicRule", "esri/geometry/Polygon", "esri/tasks/GeometryService", "dojo/dom-style", "gotemb/GeorefWidget/PointGrid", "dojo/store/Observable", "dojo/store/Memory", "gotemb/GeorefWidget/TiepointsGrid", "esri/layers/GraphicsLayer", "dojo/_base/Color", "esri/symbols/SimpleMarkerSymbol", "esri/symbols/SimpleLineSymbol", "esri/graphic", "esri/geometry/Point", "dojo/window", "dojo/dom-class", "dojo/query", "dgrid/editor", "gotemb/GeorefWidget/RastersGrid", "esri/geometry/Extent", "esri/tasks/ProjectParameters", "esri/SpatialReference", "dojo/_base/url", "esri/layers/ArcGISTiledMapServiceLayer", "gotemb/GeorefWidget/AsyncResultsGrid", "dijit/popup", "dijit/form/CheckBox", "dojox/form/FileInput", "dijit/form/Button", "dijit/form/DropDownButton", "dijit/layout/AccordionContainer", "dijit/layout/ContentPane", "dijit/Dialog", "dijit/Toolbar", "dijit/ToolbarSeparator", "dijit/form/ToggleButton", "dijit/Menu", "dijit/MenuItem", "dijit/CheckedMenuItem", "dojo/NodeList-traverse", "dojo/NodeList-dom", "dijit/TooltipDialog"], function(declare, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template, _arg, ArcGISImageServiceLayer, request, MosaicRule, Polygon, GeometryService, domStyle, PointGrid, Observable, Memory, TiepointsGrid, GraphicsLayer, Color, SimpleMarkerSymbol, SimpleLineSymbol, Graphic, Point, win, domClass, query, editor, RastersGrid, Extent, ProjectParameters, SpatialReference, Url, ArcGISTiledMapServiceLayer, AsyncResultsGrid, popup, CheckBox) {
     var connect, disconnect;
 
     connect = _arg.connect, disconnect = _arg.disconnect;
@@ -66,6 +66,17 @@
       selectBasemap_NaturalVueButton: null,
       naturalVueServiceUrl: "http://raster.arcgisonline.com/ArcGIS/rest/services/MDA_NaturalVue_Imagery_cached/MapServer",
       naturalVueServiceLayer: null,
+      asyncResultsContainer: null,
+      asyncResults: null,
+      asyncResultsGrid: null,
+      asyncTaskDetailsPopup: null,
+      atdpResultId: null,
+      atdpTask: null,
+      atdpRasterId: null,
+      atdpStatus: null,
+      atdpStartTime: null,
+      atdpEndTime: null,
+      atdpContinueButton: null,
       sourceSymbol: new SimpleMarkerSymbol(SimpleMarkerSymbol.STYLE_X, 10, new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new Color([20, 20, 180]), 2), new Color([0, 0, 0])),
       targetSymbol: new SimpleMarkerSymbol(SimpleMarkerSymbol.STYLE_X, 10, new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new Color([180, 20, 20]), 2), new Color([0, 0, 0])),
       selectedSourceSymbol: new SimpleMarkerSymbol(SimpleMarkerSymbol.STYLE_X, 16, new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new Color([20, 20, 180]), 3), new Color([0, 0, 0])),
@@ -99,9 +110,9 @@
               editor({
                 label: " ",
                 field: "display",
-                editor: "CheckBox"
+                editor: CheckBox
               }), {
-                label: "Raster Id",
+                label: "Id",
                 field: "rasterId",
                 sortable: false
               }, {
@@ -345,7 +356,7 @@
             delete _this.graphicBeingMoved;
             return _this.map.enablePan();
           });
-          return connect(_this.map, "onClick", function(e) {
+          connect(_this.map, "onClick", function(e) {
             var rec, row, rtc;
 
             if (domStyle.get(_this.selectRasterContainer.domNode, "display") !== "block") {
@@ -397,6 +408,71 @@
               });
             })();
           });
+          _this.asyncResults = new Observable(new Memory({
+            idProperty: "resultId"
+          }));
+          _this.asyncResultsGrid = new AsyncResultsGrid({
+            columns: [
+              {
+                label: "Id",
+                field: "resultId",
+                sortable: false
+              }, {
+                label: "Task",
+                field: "task",
+                sortable: false
+              }, {
+                label: "Status",
+                field: "status",
+                sortable: false
+              }
+            ],
+            store: _this.asyncResults,
+            selectionMode: "none"
+          }, _this.asyncResultsGrid);
+          _this.asyncResultsGrid.startup();
+          domStyle.set(_this.asyncResultsContainer.domNode, "display", "block");
+          _this.asyncResultsGrid.on(".field-resultId:click, .field-task:click, .field-status:click", function(e) {
+            _this.asyncResultsGrid.clearSelection();
+            return _this.asyncResultsGrid.select(_this.asyncResultsGrid.cell(e).row);
+          });
+          _this.asyncResultsGrid.on("dgrid-select", function(_arg1) {
+            var continueEvent, label, row, value, _ref, _ref1, _ref2;
+
+            row = _arg1.rows[0];
+            _ref = {
+              atdpResultId: "resultId",
+              atdpTask: "task",
+              atdpStatus: "status",
+              atdpRasterId: "rasterId",
+              atdpStartTime: "startTime",
+              atdpEndTime: "endTime"
+            };
+            for (label in _ref) {
+              value = _ref[label];
+              _this[label].innerText = (_ref1 = row.data[value]) != null ? _ref1 : "--";
+            }
+            domStyle.set(_this.atdpContinueButton.domNode, "display", row.data.callback != null ? "inline-block" : "none");
+            _this.atdpContinueButton.set("label", (_ref2 = row.data.callbackLabel) != null ? _ref2 : "Continue Task");
+            continueEvent = _this.atdpContinueButton.on("Click", function() {
+              var _base;
+
+              continueEvent.remove();
+              popup.close(_this.asyncTaskDetailsPopup);
+              if (row.data.rasterId != null) {
+                _this.rastersGrid.clearSelection();
+                _this.rastersGrid.select(_this.rasters.row(row.data.rasterId));
+              }
+              return typeof (_base = row.data).callback === "function" ? _base.callback() : void 0;
+            });
+            popup.open({
+              popup: _this.asyncTaskDetailsPopup,
+              around: row.element,
+              orient: ["above", "below"]
+            });
+            return _this.asyncTaskDetailsPopup.focus();
+          });
+          return window.self = _this;
         });
       },
       refreshMosaicRule: function() {
@@ -1539,6 +1615,11 @@
           _results.push(this.map.getLayer(layerId).setVisibility(false));
         }
         return _results;
+      },
+      atdpContinue: function() {},
+      atdpClose: function() {
+        popup.close(this.asyncTaskDetailsPopup);
+        return this.asyncResultsGrid.clearSelection();
       }
     });
   });
