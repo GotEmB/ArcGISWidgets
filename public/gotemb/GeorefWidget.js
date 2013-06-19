@@ -21,7 +21,7 @@
       map: null,
       imageFile: null,
       uploadForm: null,
-      imageServiceUrl: "http://eg1109.uae.esri.com:6080/arcgis/rest/services/amberg_wgs/ImageServer",
+      imageServiceUrl: "http://eg1109.uae.esri.com:6080/arcgis/rest/services/ISERV/ImageServer",
       imageServiceLayer: null,
       geometryServiceUrl: "http://tasks.arcgisonline.com/arcgis/rest/services/Geometry/GeometryServer",
       geometryService: null,
@@ -114,8 +114,8 @@
             selectionMode: "none"
           }, _this.rastersGrid);
           _this.rastersGrid.startup();
+          domStyle.set(_this.selectRasterContainer.domNode, "display", "block");
           _this.loadRastersList(function() {
-            domStyle.set(_this.selectRasterContainer.domNode, "display", "block");
             return _this.refreshMosaicRule();
           });
           _this.rastersGrid.on(".field-rasterId:click, .field-name:click", function(e) {
@@ -641,6 +641,7 @@
             ])
           },
           handleAs: "json",
+          timeout: 600000,
           load: function(response) {
             return typeof callback === "function" ? callback(response) : void 0;
           },

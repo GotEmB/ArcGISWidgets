@@ -59,7 +59,7 @@ do ->
 			map: null # should be bound to a `Map` instance before using the widget
 			imageFile: null
 			uploadForm: null
-			imageServiceUrl: "http://eg1109.uae.esri.com:6080/arcgis/rest/services/amberg_wgs/ImageServer"
+			imageServiceUrl: "http://eg1109.uae.esri.com:6080/arcgis/rest/services/ISERV/ImageServer"
 			imageServiceLayer: null
 			geometryServiceUrl: "http://tasks.arcgisonline.com/arcgis/rest/services/Geometry/GeometryServer"
 			geometryService: null
@@ -178,8 +178,8 @@ do ->
 						selectionMode: "none"
 						@rastersGrid
 					@rastersGrid.startup()
+					domStyle.set @selectRasterContainer.domNode, "display", "block"
 					@loadRastersList =>
-						domStyle.set @selectRasterContainer.domNode, "display", "block"
 						@refreshMosaicRule()
 					@rastersGrid.on ".field-rasterId:click, .field-name:click", (e) =>
 						@rastersGrid.clearSelection()
@@ -439,6 +439,7 @@ do ->
 								spatialReference: @rasters.data.filter((x) => x.rasterId is @currentId)[0].spatialReference
 						]
 					handleAs: "json"
+					timeout: 600000
 					load: (response) ->
 						callback? response
 					error: ({message}) => console.error message
