@@ -40,6 +40,7 @@ do ->
 		"gotemb/GeorefWidget/AsyncResultsGrid"
 		"dijit/popup"
 		"dijit/form/CheckBox"
+		"dojo/aspect"
 		# ---
 		"dojox/form/FileInput"
 		"dijit/form/Button"
@@ -56,7 +57,7 @@ do ->
 		"dojo/NodeList-traverse"
 		"dojo/NodeList-dom"
 		"dijit/TooltipDialog"
-	], (declare, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template, {connect, disconnect}, ArcGISImageServiceLayer, request, MosaicRule, Polygon, GeometryService, domStyle, PointGrid, Observable, Memory, TiepointsGrid, GraphicsLayer, Color, SimpleMarkerSymbol, SimpleLineSymbol, Graphic, Point, win, domClass, query, editor, RastersGrid, Extent, ProjectParameters, SpatialReference, Url, ArcGISTiledMapServiceLayer, AsyncResultsGrid, popup, CheckBox) ->
+	], (declare, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template, {connect, disconnect}, ArcGISImageServiceLayer, request, MosaicRule, Polygon, GeometryService, domStyle, PointGrid, Observable, Memory, TiepointsGrid, GraphicsLayer, Color, SimpleMarkerSymbol, SimpleLineSymbol, Graphic, Point, win, domClass, query, editor, RastersGrid, Extent, ProjectParameters, SpatialReference, Url, ArcGISTiledMapServiceLayer, AsyncResultsGrid, popup, CheckBox, aspect) ->
 		declare [_WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin],
 			templateString: template
 			baseClass: "GeorefWidget"
@@ -75,7 +76,6 @@ do ->
 			selectRasterContainer: null
 			tasksContainer: null
 			editTiepointsContainer: null
-			editTiepointsContainer_loading: null
 			tiepoints: null
 			tiepointsGrid: null
 			toggleTiepointsSelectionMenuItem: null
@@ -365,7 +365,6 @@ do ->
 						selectionMode: "none"
 						@asyncResultsGrid
 					@asyncResultsGrid.startup()
-					domStyle.set @asyncResultsContainer.domNode, "display", "block"
 					@asyncResultsGrid.on ".field-resultId:click, .field-task:click, .field-status:click", (e) =>
 						@asyncResultsGrid.clearSelection()
 						@asyncResultsGrid.select @asyncResultsGrid.cell(e).row
@@ -387,7 +386,13 @@ do ->
 							if row.data.rasterId?
 								@rastersGrid.clearSelection()
 								@rastersGrid.select @rastersGrid.row row.data.rasterId
-							row.data.callback?()
+								onceDone = false
+								selectAspect = aspect.after @rastersGrid.on "dgrid-select", =>
+									if onceDone then return else onceDone = true
+									selectAspect.remove()
+									row.data.callback?()
+							else
+								row.data.callback?()
 						popup.open
 							popup: @asyncTaskDetailsPopup
 							around: row.element
@@ -463,6 +468,7 @@ do ->
 					rasterId: @currentId
 					status: "Pending"
 					startTime: (new Date).toLocaleString()
+				domStyle.set @asyncResultsContainer.domNode, "display", "block" if domStyle.get(@selectRasterContainer.domNode, "display") is "block"
 				@asyncResultsGrid.select asyncTask
 				@computeTiePoints ({tiePoints, error}) =>
 					extend asyncTask,
@@ -530,28 +536,40 @@ do ->
 				@imageServiceLayer.setOpacity if state then 1 else 0
 			startEditTiepoints: ->
 				return @showRasterNotSelectedDialog() unless @currentId?
-				domStyle.set @editTiepointsContainer_loading, "display", "block"
-				for display, containers of {none: [@selectRasterContainer, @tasksContainer], block: [@editTiepointsContainer]}
-					domStyle.set container.domNode, "display", display for container in containers
-				@refreshMosaicRule()
-				@computeTiePoints ({tiePoints}) =>
-					domStyle.set @editTiepointsContainer_loading, "display", "none"
-					for i in [0...tiePoints.sourcePoints.length]
-						@tiepoints.put
-							id: i + 1
-							sourcePoint: sourcePoint = new Graphic new Point(tiePoints.sourcePoints[i]), @sourceSymbol
-							targetPoint: targetPoint = new Graphic new Point(tiePoints.targetPoints[i]), @targetSymbol
-							original:
-								sourcePoint: new Point tiePoints.sourcePoints[i]
-								targetPoint: new Point tiePoints.targetPoints[i]
-						@tiepointsLayer.add sourcePoint
-						@tiepointsLayer.add targetPoint
+				@asyncResults.put asyncTask =
+					resultId: (Math.max @asyncResults.data.map((x) -> x.resultId).concat(0)...) + 1
+					task: "Compute Tiepoints"
+					rasterId: @currentId
+					status: "Pending"
+					startTime: (new Date).toLocaleString()
+				domStyle.set @asyncResultsContainer.domNode, "display", "block" if domStyle.get(@selectRasterContainer.domNode, "display") is "block"
+				@asyncResultsGrid.select asyncTask
+				@computeTiePoints ({tiePoints, error}) =>
+					extend asyncTask,
+						status: if error? then "Failed" else "Completed"
+						endTime: (new Date).toLocaleString()
+						callback: unless error? then =>
+							for display, containers of {none: [@selectRasterContainer, @tasksContainer, @asyncResultsContainer], block: [@editTiepointsContainer]}
+								domStyle.set container.domNode, "display", display for container in containers
+							@refreshMosaicRule()
+							for i in [0...tiePoints.sourcePoints.length]
+								@tiepoints.put
+									id: i + 1
+									sourcePoint: sourcePoint = new Graphic new Point(tiePoints.sourcePoints[i]), @sourceSymbol
+									targetPoint: targetPoint = new Graphic new Point(tiePoints.targetPoints[i]), @targetSymbol
+									original:
+										sourcePoint: new Point tiePoints.sourcePoints[i]
+										targetPoint: new Point tiePoints.targetPoints[i]
+								@tiepointsLayer.add sourcePoint
+								@tiepointsLayer.add targetPoint
+						callbackLabel: "Edit Tiepoints" unless error?
+					@asyncResults.notify asyncTask, asyncTask.resultId
 			closeEditTiepoints: ->
-				domStyle.set @editTiepointsContainer_loading, "display", "none"
 				@tiepointsLayer.clear()
 				@tiepoints.remove tiepoint.id for tiepoint in @tiepoints.data.splice 0
 				for display, containers of {block: [@selectRasterContainer, @tasksContainer], none: [@editTiepointsContainer]}
 					domStyle.set container.domNode, "display", display for container in containers
+				domStyle.set @asyncResultsContainer.domNode, "display", "block" if @asyncResults.data.length > 0
 				@refreshMosaicRule()
 			toggleTiepointsSelection: ->
 				if @toggleTiepointsSelectionMenuItem.label is "Clear Selection"
@@ -634,6 +652,9 @@ do ->
 						tiepoint[key].setGeometry tiepoint.original[key]
 						tiepoint[key].pointChanged()
 			applyManualTransform: ->
+				for task in @asyncResults.data.filter((x) => x.rasterId is @currentId and x.task is "Compute Tiepoints")
+					delete task.callback
+					task.callbackLabel = "Continue Task"
 				@applyTransform
 					tiePoints:
 						sourcePoints: @tiepoints.data.map (x) => x.sourcePoint.geometry
@@ -641,12 +662,13 @@ do ->
 					=> @closeEditTiepoints()
 			openRoughTransform: ->
 				return @showRasterNotSelectedDialog() unless @currentId?
-				for display, containers of {none: [@selectRasterContainer, @tasksContainer], block: [@manualTransformContainer]}
+				for display, containers of {none: [@selectRasterContainer, @tasksContainer, @asyncResultsContainer], block: [@manualTransformContainer]}
 					domStyle.set container.domNode, "display", display for container in containers
 				@refreshMosaicRule()
 			closeRoughTransform: ->
 				for display, containers of {block: [@selectRasterContainer, @tasksContainer], none: [@manualTransformContainer]}
 					domStyle.set container.domNode, "display", display for container in containers
+				domStyle.set @asyncResultsContainer.domNode, "display", "block" if @asyncResults.data.length > 0
 				for button in [@rt_moveButton, @rt_scaleButton, @rt_rotateButton]
 					button.set "checked", false
 				@refreshMosaicRule()

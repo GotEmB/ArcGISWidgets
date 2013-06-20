@@ -11,7 +11,7 @@
     }
     return obj;
   };
-  return define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dijit/_WidgetsInTemplateMixin", "dojo/text!./GeorefWidget/templates/GeorefWidget.html", "dojo/_base/connect", "esri/layers/ArcGISImageServiceLayer", "esri/request", "esri/layers/MosaicRule", "esri/geometry/Polygon", "esri/tasks/GeometryService", "dojo/dom-style", "gotemb/GeorefWidget/PointGrid", "dojo/store/Observable", "dojo/store/Memory", "gotemb/GeorefWidget/TiepointsGrid", "esri/layers/GraphicsLayer", "dojo/_base/Color", "esri/symbols/SimpleMarkerSymbol", "esri/symbols/SimpleLineSymbol", "esri/graphic", "esri/geometry/Point", "dojo/window", "dojo/dom-class", "dojo/query", "dgrid/editor", "gotemb/GeorefWidget/RastersGrid", "esri/geometry/Extent", "esri/tasks/ProjectParameters", "esri/SpatialReference", "dojo/_base/url", "esri/layers/ArcGISTiledMapServiceLayer", "gotemb/GeorefWidget/AsyncResultsGrid", "dijit/popup", "dijit/form/CheckBox", "dojox/form/FileInput", "dijit/form/Button", "dijit/form/DropDownButton", "dijit/layout/AccordionContainer", "dijit/layout/ContentPane", "dijit/Dialog", "dijit/Toolbar", "dijit/ToolbarSeparator", "dijit/form/ToggleButton", "dijit/Menu", "dijit/MenuItem", "dijit/CheckedMenuItem", "dojo/NodeList-traverse", "dojo/NodeList-dom", "dijit/TooltipDialog"], function(declare, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template, _arg, ArcGISImageServiceLayer, request, MosaicRule, Polygon, GeometryService, domStyle, PointGrid, Observable, Memory, TiepointsGrid, GraphicsLayer, Color, SimpleMarkerSymbol, SimpleLineSymbol, Graphic, Point, win, domClass, query, editor, RastersGrid, Extent, ProjectParameters, SpatialReference, Url, ArcGISTiledMapServiceLayer, AsyncResultsGrid, popup, CheckBox) {
+  return define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dijit/_WidgetsInTemplateMixin", "dojo/text!./GeorefWidget/templates/GeorefWidget.html", "dojo/_base/connect", "esri/layers/ArcGISImageServiceLayer", "esri/request", "esri/layers/MosaicRule", "esri/geometry/Polygon", "esri/tasks/GeometryService", "dojo/dom-style", "gotemb/GeorefWidget/PointGrid", "dojo/store/Observable", "dojo/store/Memory", "gotemb/GeorefWidget/TiepointsGrid", "esri/layers/GraphicsLayer", "dojo/_base/Color", "esri/symbols/SimpleMarkerSymbol", "esri/symbols/SimpleLineSymbol", "esri/graphic", "esri/geometry/Point", "dojo/window", "dojo/dom-class", "dojo/query", "dgrid/editor", "gotemb/GeorefWidget/RastersGrid", "esri/geometry/Extent", "esri/tasks/ProjectParameters", "esri/SpatialReference", "dojo/_base/url", "esri/layers/ArcGISTiledMapServiceLayer", "gotemb/GeorefWidget/AsyncResultsGrid", "dijit/popup", "dijit/form/CheckBox", "dojo/aspect", "dojox/form/FileInput", "dijit/form/Button", "dijit/form/DropDownButton", "dijit/layout/AccordionContainer", "dijit/layout/ContentPane", "dijit/Dialog", "dijit/Toolbar", "dijit/ToolbarSeparator", "dijit/form/ToggleButton", "dijit/Menu", "dijit/MenuItem", "dijit/CheckedMenuItem", "dojo/NodeList-traverse", "dojo/NodeList-dom", "dijit/TooltipDialog"], function(declare, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template, _arg, ArcGISImageServiceLayer, request, MosaicRule, Polygon, GeometryService, domStyle, PointGrid, Observable, Memory, TiepointsGrid, GraphicsLayer, Color, SimpleMarkerSymbol, SimpleLineSymbol, Graphic, Point, win, domClass, query, editor, RastersGrid, Extent, ProjectParameters, SpatialReference, Url, ArcGISTiledMapServiceLayer, AsyncResultsGrid, popup, CheckBox, aspect) {
     var connect, disconnect;
 
     connect = _arg.connect, disconnect = _arg.disconnect;
@@ -33,7 +33,6 @@
       selectRasterContainer: null,
       tasksContainer: null,
       editTiepointsContainer: null,
-      editTiepointsContainer_loading: null,
       tiepoints: null,
       tiepointsGrid: null,
       toggleTiepointsSelectionMenuItem: null,
@@ -431,7 +430,6 @@
             selectionMode: "none"
           }, _this.asyncResultsGrid);
           _this.asyncResultsGrid.startup();
-          domStyle.set(_this.asyncResultsContainer.domNode, "display", "block");
           _this.asyncResultsGrid.on(".field-resultId:click, .field-task:click, .field-status:click", function(e) {
             _this.asyncResultsGrid.clearSelection();
             return _this.asyncResultsGrid.select(_this.asyncResultsGrid.cell(e).row);
@@ -455,15 +453,28 @@
             domStyle.set(_this.atdpContinueButton.domNode, "display", row.data.callback != null ? "inline-block" : "none");
             _this.atdpContinueButton.set("label", (_ref2 = row.data.callbackLabel) != null ? _ref2 : "Continue Task");
             continueEvent = _this.atdpContinueButton.on("Click", function() {
-              var _base;
+              var selectAspect, _base;
 
               continueEvent.remove();
               popup.close(_this.asyncTaskDetailsPopup);
               if (row.data.rasterId != null) {
                 _this.rastersGrid.clearSelection();
                 _this.rastersGrid.select(_this.rastersGrid.row(row.data.rasterId));
+                onceDone = false;
+                return selectAspect = aspect.after(_this.rastersGrid.on("dgrid-select", function() {
+                  var _base;
+
+                  if (onceDone) {
+                    return;
+                  } else {
+                    onceDone = true;
+                  }
+                  selectAspect.remove();
+                  return typeof (_base = row.data).callback === "function" ? _base.callback() : void 0;
+                }));
+              } else {
+                return typeof (_base = row.data).callback === "function" ? _base.callback() : void 0;
               }
-              return typeof (_base = row.data).callback === "function" ? _base.callback() : void 0;
             });
             popup.open({
               popup: _this.asyncTaskDetailsPopup,
@@ -618,6 +629,9 @@
           status: "Pending",
           startTime: (new Date).toLocaleString()
         });
+        if (domStyle.get(this.selectRasterContainer.domNode, "display") === "block") {
+          domStyle.set(this.asyncResultsContainer.domNode, "display", "block");
+        }
         this.asyncResultsGrid.select(asyncTask);
         return this.computeTiePoints(function(_arg1) {
           var error, tiePoints;
@@ -764,51 +778,71 @@
         return this.imageServiceLayer.setOpacity(state ? 1 : 0);
       },
       startEditTiepoints: function() {
-        var container, containers, display, _i, _len, _ref,
+        var asyncTask,
           _this = this;
 
         if (this.currentId == null) {
           return this.showRasterNotSelectedDialog();
         }
-        domStyle.set(this.editTiepointsContainer_loading, "display", "block");
-        _ref = {
-          none: [this.selectRasterContainer, this.tasksContainer],
-          block: [this.editTiepointsContainer]
-        };
-        for (display in _ref) {
-          containers = _ref[display];
-          for (_i = 0, _len = containers.length; _i < _len; _i++) {
-            container = containers[_i];
-            domStyle.set(container.domNode, "display", display);
-          }
+        this.asyncResults.put(asyncTask = {
+          resultId: (Math.max.apply(Math, this.asyncResults.data.map(function(x) {
+            return x.resultId;
+          }).concat(0))) + 1,
+          task: "Compute Tiepoints",
+          rasterId: this.currentId,
+          status: "Pending",
+          startTime: (new Date).toLocaleString()
+        });
+        if (domStyle.get(this.selectRasterContainer.domNode, "display") === "block") {
+          domStyle.set(this.asyncResultsContainer.domNode, "display", "block");
         }
-        this.refreshMosaicRule();
+        this.asyncResultsGrid.select(asyncTask);
         return this.computeTiePoints(function(_arg1) {
-          var i, sourcePoint, targetPoint, tiePoints, _j, _ref1, _results;
+          var error, tiePoints;
 
-          tiePoints = _arg1.tiePoints;
-          domStyle.set(_this.editTiepointsContainer_loading, "display", "none");
-          _results = [];
-          for (i = _j = 0, _ref1 = tiePoints.sourcePoints.length; 0 <= _ref1 ? _j < _ref1 : _j > _ref1; i = 0 <= _ref1 ? ++_j : --_j) {
-            _this.tiepoints.put({
-              id: i + 1,
-              sourcePoint: sourcePoint = new Graphic(new Point(tiePoints.sourcePoints[i]), _this.sourceSymbol),
-              targetPoint: targetPoint = new Graphic(new Point(tiePoints.targetPoints[i]), _this.targetSymbol),
-              original: {
-                sourcePoint: new Point(tiePoints.sourcePoints[i]),
-                targetPoint: new Point(tiePoints.targetPoints[i])
+          tiePoints = _arg1.tiePoints, error = _arg1.error;
+          extend(asyncTask, {
+            status: error != null ? "Failed" : "Completed",
+            endTime: (new Date).toLocaleString(),
+            callback: error == null ? function() {
+              var container, containers, display, i, sourcePoint, targetPoint, _i, _j, _len, _ref, _ref1, _results;
+
+              _ref = {
+                none: [_this.selectRasterContainer, _this.tasksContainer, _this.asyncResultsContainer],
+                block: [_this.editTiepointsContainer]
+              };
+              for (display in _ref) {
+                containers = _ref[display];
+                for (_i = 0, _len = containers.length; _i < _len; _i++) {
+                  container = containers[_i];
+                  domStyle.set(container.domNode, "display", display);
+                }
               }
-            });
-            _this.tiepointsLayer.add(sourcePoint);
-            _results.push(_this.tiepointsLayer.add(targetPoint));
-          }
-          return _results;
+              _this.refreshMosaicRule();
+              _results = [];
+              for (i = _j = 0, _ref1 = tiePoints.sourcePoints.length; 0 <= _ref1 ? _j < _ref1 : _j > _ref1; i = 0 <= _ref1 ? ++_j : --_j) {
+                _this.tiepoints.put({
+                  id: i + 1,
+                  sourcePoint: sourcePoint = new Graphic(new Point(tiePoints.sourcePoints[i]), _this.sourceSymbol),
+                  targetPoint: targetPoint = new Graphic(new Point(tiePoints.targetPoints[i]), _this.targetSymbol),
+                  original: {
+                    sourcePoint: new Point(tiePoints.sourcePoints[i]),
+                    targetPoint: new Point(tiePoints.targetPoints[i])
+                  }
+                });
+                _this.tiepointsLayer.add(sourcePoint);
+                _results.push(_this.tiepointsLayer.add(targetPoint));
+              }
+              return _results;
+            } : void 0,
+            callbackLabel: error == null ? "Edit Tiepoints" : void 0
+          });
+          return _this.asyncResults.notify(asyncTask, asyncTask.resultId);
         });
       },
       closeEditTiepoints: function() {
         var container, containers, display, tiepoint, _i, _j, _len, _len1, _ref, _ref1;
 
-        domStyle.set(this.editTiepointsContainer_loading, "display", "none");
         this.tiepointsLayer.clear();
         _ref = this.tiepoints.data.splice(0);
         for (_i = 0, _len = _ref.length; _i < _len; _i++) {
@@ -825,6 +859,9 @@
             container = containers[_j];
             domStyle.set(container.domNode, "display", display);
           }
+        }
+        if (this.asyncResults.data.length > 0) {
+          domStyle.set(this.asyncResultsContainer.domNode, "display", "block");
         }
         return this.refreshMosaicRule();
       },
@@ -1015,8 +1052,17 @@
         return _results;
       },
       applyManualTransform: function() {
-        var _this = this;
+        var task, _i, _len, _ref,
+          _this = this;
 
+        _ref = this.asyncResults.data.filter(function(x) {
+          return x.rasterId === _this.currentId && x.task === "Compute Tiepoints";
+        });
+        for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+          task = _ref[_i];
+          delete task.callback;
+          task.callbackLabel = "Continue Task";
+        }
         return this.applyTransform({
           tiePoints: {
             sourcePoints: this.tiepoints.data.map(function(x) {
@@ -1037,7 +1083,7 @@
           return this.showRasterNotSelectedDialog();
         }
         _ref = {
-          none: [this.selectRasterContainer, this.tasksContainer],
+          none: [this.selectRasterContainer, this.tasksContainer, this.asyncResultsContainer],
           block: [this.manualTransformContainer]
         };
         for (display in _ref) {
@@ -1062,6 +1108,9 @@
             container = containers[_i];
             domStyle.set(container.domNode, "display", display);
           }
+        }
+        if (this.asyncResults.data.length > 0) {
+          domStyle.set(this.asyncResultsContainer.domNode, "display", "block");
         }
         _ref1 = [this.rt_moveButton, this.rt_scaleButton, this.rt_rotateButton];
         for (_j = 0, _len1 = _ref1.length; _j < _len1; _j++) {
