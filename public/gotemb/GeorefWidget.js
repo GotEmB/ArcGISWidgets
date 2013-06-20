@@ -461,7 +461,7 @@
               popup.close(_this.asyncTaskDetailsPopup);
               if (row.data.rasterId != null) {
                 _this.rastersGrid.clearSelection();
-                _this.rastersGrid.select(_this.rasters.row(row.data.rasterId));
+                _this.rastersGrid.select(_this.rastersGrid.row(row.data.rasterId));
               }
               return typeof (_base = row.data).callback === "function" ? _base.callback() : void 0;
             });
@@ -603,22 +603,47 @@
         });
       },
       computeAndTransform: function() {
-        var _this = this;
+        var asyncTask,
+          _this = this;
 
         if (this.currentId == null) {
           return this.showRasterNotSelectedDialog();
         }
+        this.asyncResults.put(asyncTask = {
+          resultId: (Math.max.apply(Math, this.asyncResults.data.map(function(x) {
+            return x.resultId;
+          }).concat(0))) + 1,
+          task: "Match raster with reference layer",
+          rasterId: this.currentId,
+          status: "Pending",
+          startTime: (new Date).toLocaleString()
+        });
+        this.asyncResultsGrid.select(asyncTask);
         return this.computeTiePoints(function(_arg1) {
-          var tiePoints;
+          var error, tiePoints;
 
-          tiePoints = _arg1.tiePoints;
-          return _this.applyTransform(tiePoints);
+          tiePoints = _arg1.tiePoints, error = _arg1.error;
+          extend(asyncTask, {
+            status: error != null ? "Failed" : "Completed",
+            endTime: (new Date).toLocaleString(),
+            callback: error == null ? function() {} : void 0,
+            callbackLabel: error == null ? "View Raster" : void 0
+          });
+          _this.asyncResults.notify(asyncTask, asyncTask.resultId);
+          return _this.applyTransform({
+            tiePoints: tiePoints,
+            gotoLocation: false
+          });
         });
       },
-      applyTransform: function(tiePoints, callback) {
-        var point,
+      applyTransform: function(_arg1, callback) {
+        var gotoLocation, point, tiePoints,
           _this = this;
 
+        tiePoints = _arg1.tiePoints, gotoLocation = _arg1.gotoLocation;
+        if (gotoLocation == null) {
+          gotoLocation = true;
+        }
         return request({
           url: this.imageServiceUrl + "/update",
           content: {
@@ -664,6 +689,10 @@
           },
           handleAs: "json",
           load: function() {
+            if (!gotoLocation) {
+              _this.map.setExtent(_this.map.extent);
+              return typeof callback === "function" ? callback() : void 0;
+            }
             return request({
               url: _this.imageServiceUrl + "/query",
               content: {
@@ -677,20 +706,20 @@
                 _this.map.setExtent(new Polygon(response2.features[0].geometry).getExtent());
                 return typeof callback === "function" ? callback() : void 0;
               },
-              error: function(_arg1) {
+              error: function(_arg2) {
                 var message;
 
-                message = _arg1.message;
+                message = _arg2.message;
                 return console.error(message);
               }
             }, {
               usePost: true
             });
           },
-          error: function(_arg1) {
+          error: function(_arg2) {
             var message;
 
-            message = _arg1.message;
+            message = _arg2.message;
             return console.error(message);
           }
         }, {
@@ -721,11 +750,11 @@
           load: function(response) {
             return typeof callback === "function" ? callback(response) : void 0;
           },
-          error: function(_arg1) {
-            var message;
-
-            message = _arg1.message;
-            return console.error(message);
+          error: function(error) {
+            console.error(error.message);
+            return typeof callback === "function" ? callback({
+              error: error
+            }) : void 0;
           }
         }, {
           usePost: true
@@ -989,12 +1018,14 @@
         var _this = this;
 
         return this.applyTransform({
-          sourcePoints: this.tiepoints.data.map(function(x) {
-            return x.sourcePoint.geometry;
-          }),
-          targetPoints: this.tiepoints.data.map(function(x) {
-            return x.targetPoint.geometry;
-          })
+          tiePoints: {
+            sourcePoints: this.tiepoints.data.map(function(x) {
+              return x.sourcePoint.geometry;
+            }),
+            targetPoints: this.tiepoints.data.map(function(x) {
+              return x.targetPoint.geometry;
+            })
+          }
         }, function() {
           return _this.closeEditTiepoints();
         });
@@ -1364,34 +1395,36 @@
 
           fromPoint = _arg1[0], toPoint = _arg1[1];
           return _this.applyTransform({
-            sourcePoints: (function() {
-              var _i, _len, _ref2, _results;
+            tiePoints: {
+              sourcePoints: (function() {
+                var _i, _len, _ref2, _results;
 
-              _ref2 = [[0, 0], [10, 0], [0, 10]];
-              _results = [];
-              for (_i = 0, _len = _ref2.length; _i < _len; _i++) {
-                offsets = _ref2[_i];
-                point = new Point(fromPoint);
-                point.x += offsets[0];
-                point.y += offsets[1];
-                _results.push(point);
-              }
-              return _results;
-            })(),
-            targetPoints: (function() {
-              var _i, _len, _ref2, _results;
+                _ref2 = [[0, 0], [10, 0], [0, 10]];
+                _results = [];
+                for (_i = 0, _len = _ref2.length; _i < _len; _i++) {
+                  offsets = _ref2[_i];
+                  point = new Point(fromPoint);
+                  point.x += offsets[0];
+                  point.y += offsets[1];
+                  _results.push(point);
+                }
+                return _results;
+              })(),
+              targetPoints: (function() {
+                var _i, _len, _ref2, _results;
 
-              _ref2 = [[0, 0], [10, 0], [0, 10]];
-              _results = [];
-              for (_i = 0, _len = _ref2.length; _i < _len; _i++) {
-                offsets = _ref2[_i];
-                point = new Point(toPoint);
-                point.x += offsets[0];
-                point.y += offsets[1];
-                _results.push(point);
-              }
-              return _results;
-            })()
+                _ref2 = [[0, 0], [10, 0], [0, 10]];
+                _results = [];
+                for (_i = 0, _len = _ref2.length; _i < _len; _i++) {
+                  offsets = _ref2[_i];
+                  point = new Point(toPoint);
+                  point.x += offsets[0];
+                  point.y += offsets[1];
+                  _results.push(point);
+                }
+                return _results;
+              })()
+            }
           }, function() {
             return _this.rt_moveClose();
           });
@@ -1435,34 +1468,36 @@
             scaleFactor = !isNaN(_this.rtScaleFactorInput.value) ? Number(_this.rtScaleFactorInput.value) : 1;
             centerPoint = new Polygon(response.features[0].geometry).getExtent().getCenter();
             return _this.applyTransform({
-              sourcePoints: (function() {
-                var _i, _len, _ref, _results;
+              tiePoints: {
+                sourcePoints: (function() {
+                  var _i, _len, _ref, _results;
 
-                _ref = [[0, 0], [10, 0], [0, 10]];
-                _results = [];
-                for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-                  offsets = _ref[_i];
-                  point = new Point(centerPoint);
-                  point.x += offsets[0];
-                  point.y += offsets[1];
-                  _results.push(point);
-                }
-                return _results;
-              })(),
-              targetPoints: (function() {
-                var _i, _len, _ref, _results;
+                  _ref = [[0, 0], [10, 0], [0, 10]];
+                  _results = [];
+                  for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+                    offsets = _ref[_i];
+                    point = new Point(centerPoint);
+                    point.x += offsets[0];
+                    point.y += offsets[1];
+                    _results.push(point);
+                  }
+                  return _results;
+                })(),
+                targetPoints: (function() {
+                  var _i, _len, _ref, _results;
 
-                _ref = [[0, 0], [10 * scaleFactor, 0], [0, 10 * scaleFactor]];
-                _results = [];
-                for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-                  offsets = _ref[_i];
-                  point = new Point(centerPoint);
-                  point.x += offsets[0];
-                  point.y += offsets[1];
-                  _results.push(point);
-                }
-                return _results;
-              })()
+                  _ref = [[0, 0], [10 * scaleFactor, 0], [0, 10 * scaleFactor]];
+                  _results = [];
+                  for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+                    offsets = _ref[_i];
+                    point = new Point(centerPoint);
+                    point.x += offsets[0];
+                    point.y += offsets[1];
+                    _results.push(point);
+                  }
+                  return _results;
+                })()
+              }
             }, function() {
               return _this.rt_scaleClose();
             });
@@ -1516,34 +1551,36 @@
             theta = !isNaN(_this.rtRotateDegreesInput.value) ? PI / 180 * Number(_this.rtRotateDegreesInput.value) : 0;
             centerPoint = new Polygon(response.features[0].geometry).getExtent().getCenter();
             return _this.applyTransform({
-              sourcePoints: (function() {
-                var _i, _len, _ref, _results;
+              tiePoints: {
+                sourcePoints: (function() {
+                  var _i, _len, _ref, _results;
 
-                _ref = [[0, 0], [10, 0], [0, 10]];
-                _results = [];
-                for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-                  offsets = _ref[_i];
-                  point = new Point(centerPoint);
-                  point.x += offsets[0];
-                  point.y += offsets[1];
-                  _results.push(point);
-                }
-                return _results;
-              })(),
-              targetPoints: (function() {
-                var _i, _len, _ref, _results;
+                  _ref = [[0, 0], [10, 0], [0, 10]];
+                  _results = [];
+                  for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+                    offsets = _ref[_i];
+                    point = new Point(centerPoint);
+                    point.x += offsets[0];
+                    point.y += offsets[1];
+                    _results.push(point);
+                  }
+                  return _results;
+                })(),
+                targetPoints: (function() {
+                  var _i, _len, _ref, _results;
 
-                _ref = [[0, 0], [10 * cos(theta), 10 * -sin(theta)], [10 * sin(theta), 10 * cos(theta)]];
-                _results = [];
-                for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-                  offsets = _ref[_i];
-                  point = new Point(centerPoint);
-                  point.x += offsets[0];
-                  point.y += offsets[1];
-                  _results.push(point);
-                }
-                return _results;
-              })()
+                  _ref = [[0, 0], [10 * cos(theta), 10 * -sin(theta)], [10 * sin(theta), 10 * cos(theta)]];
+                  _results = [];
+                  for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+                    offsets = _ref[_i];
+                    point = new Point(centerPoint);
+                    point.x += offsets[0];
+                    point.y += offsets[1];
+                    _results.push(point);
+                  }
+                  return _results;
+                })()
+              }
             }, function() {
               return _this.rt_rotateClose();
             });

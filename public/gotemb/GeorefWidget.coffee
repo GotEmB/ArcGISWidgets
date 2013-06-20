@@ -386,7 +386,7 @@ do ->
 							popup.close @asyncTaskDetailsPopup
 							if row.data.rasterId?
 								@rastersGrid.clearSelection()
-								@rastersGrid.select @rasters.row row.data.rasterId
+								@rastersGrid.select @rastersGrid.row row.data.rasterId
 							row.data.callback?()
 						popup.open
 							popup: @asyncTaskDetailsPopup
@@ -457,9 +457,23 @@ do ->
 					(usePost: true)
 			computeAndTransform: ->
 				return @showRasterNotSelectedDialog() unless @currentId?
-				@computeTiePoints ({tiePoints}) =>
-					@applyTransform tiePoints
-			applyTransform: (tiePoints, callback) ->
+				@asyncResults.put asyncTask =
+					resultId: (Math.max @asyncResults.data.map((x) -> x.resultId).concat(0)...) + 1
+					task: "Match raster with reference layer"
+					rasterId: @currentId
+					status: "Pending"
+					startTime: (new Date).toLocaleString()
+				@asyncResultsGrid.select asyncTask
+				@computeTiePoints ({tiePoints, error}) =>
+					extend asyncTask,
+						status: if error? then "Failed" else "Completed"
+						endTime: (new Date).toLocaleString()
+						callback: unless error? then =>
+						callbackLabel: "View Raster" unless error?
+					@asyncResults.notify asyncTask, asyncTask.resultId
+					@applyTransform tiePoints: tiePoints, gotoLocation: false
+			applyTransform: ({tiePoints, gotoLocation}, callback) ->
+				gotoLocation ?= true
 				request
 					url: @imageServiceUrl + "/update"
 					content:
@@ -475,6 +489,9 @@ do ->
 						]
 					handleAs: "json"
 					load: =>
+						unless gotoLocation
+							@map.setExtent @map.extent
+							return callback?()
 						request
 							url: @imageServiceUrl + "/query"
 							content:
@@ -505,7 +522,9 @@ do ->
 					timeout: 600000
 					load: (response) ->
 						callback? response
-					error: ({message}) => console.error message
+					error: (error) =>
+						console.error error.message
+						callback? error: error
 					(usePost: true)
 			toggleRasterLayer: (state) ->
 				@imageServiceLayer.setOpacity if state then 1 else 0
@@ -616,8 +635,9 @@ do ->
 						tiepoint[key].pointChanged()
 			applyManualTransform: ->
 				@applyTransform
-					sourcePoints: @tiepoints.data.map (x) => x.sourcePoint.geometry
-					targetPoints: @tiepoints.data.map (x) => x.targetPoint.geometry
+					tiePoints:
+						sourcePoints: @tiepoints.data.map (x) => x.sourcePoint.geometry
+						targetPoints: @tiepoints.data.map (x) => x.targetPoint.geometry
 					=> @closeEditTiepoints()
 			openRoughTransform: ->
 				return @showRasterNotSelectedDialog() unless @currentId?
@@ -801,16 +821,17 @@ do ->
 					outSR: @rasters.data.filter((x) => x.rasterId is @currentId)[0].spatialReference
 					([fromPoint, toPoint]) =>
 						@applyTransform
-							sourcePoints: for offsets in [[0, 0], [10, 0], [0, 10]]
-								point = new Point fromPoint
-								point.x += offsets[0]
-								point.y += offsets[1]
-								point
-							targetPoints: for offsets in [[0, 0], [10, 0], [0, 10]]
-								point = new Point toPoint
-								point.x += offsets[0]
-								point.y += offsets[1]
-								point
+							tiePoints:
+								sourcePoints: for offsets in [[0, 0], [10, 0], [0, 10]]
+									point = new Point fromPoint
+									point.x += offsets[0]
+									point.y += offsets[1]
+									point
+								targetPoints: for offsets in [[0, 0], [10, 0], [0, 10]]
+									point = new Point toPoint
+									point.x += offsets[0]
+									point.y += offsets[1]
+									point
 							=> @rt_moveClose()
 			rt_scale: (state) ->
 				if state
@@ -835,16 +856,17 @@ do ->
 						scaleFactor = unless isNaN @rtScaleFactorInput.value then Number @rtScaleFactorInput.value else 1
 						centerPoint = new Polygon(response.features[0].geometry).getExtent().getCenter()
 						@applyTransform
-							sourcePoints: for offsets in [[0, 0], [10, 0], [0, 10]]
-								point = new Point centerPoint
-								point.x += offsets[0]
-								point.y += offsets[1]
-								point
-							targetPoints: for offsets in [[0, 0], [10 * scaleFactor, 0], [0, 10 * scaleFactor]]
-								point = new Point centerPoint
-								point.x += offsets[0]
-								point.y += offsets[1]
-								point
+							tiePoints:
+								sourcePoints: for offsets in [[0, 0], [10, 0], [0, 10]]
+									point = new Point centerPoint
+									point.x += offsets[0]
+									point.y += offsets[1]
+									point
+								targetPoints: for offsets in [[0, 0], [10 * scaleFactor, 0], [0, 10 * scaleFactor]]
+									point = new Point centerPoint
+									point.x += offsets[0]
+									point.y += offsets[1]
+									point
 							=> @rt_scaleClose()
 					error: ({message}) => console.error message
 					(usePost: true)
@@ -872,16 +894,17 @@ do ->
 						theta = unless isNaN @rtRotateDegreesInput.value then PI / 180 * Number @rtRotateDegreesInput.value else 0
 						centerPoint = new Polygon(response.features[0].geometry).getExtent().getCenter()
 						@applyTransform
-							sourcePoints: for offsets in [[0, 0], [10, 0], [0, 10]]
-								point = new Point centerPoint
-								point.x += offsets[0]
-								point.y += offsets[1]
-								point
-							targetPoints: for offsets in [[0, 0], [10 * cos(theta), 10 * -sin(theta)], [10 * sin(theta), 10 * cos(theta)]]
-								point = new Point centerPoint
-								point.x += offsets[0]
-								point.y += offsets[1]
-								point
+							tiePoints:
+								sourcePoints: for offsets in [[0, 0], [10, 0], [0, 10]]
+									point = new Point centerPoint
+									point.x += offsets[0]
+									point.y += offsets[1]
+									point
+								targetPoints: for offsets in [[0, 0], [10 * cos(theta), 10 * -sin(theta)], [10 * sin(theta), 10 * cos(theta)]]
+									point = new Point centerPoint
+									point.x += offsets[0]
+									point.y += offsets[1]
+									point
 							=> @rt_rotateClose()
 					error: ({message}) => console.error message
 					(usePost: true)
