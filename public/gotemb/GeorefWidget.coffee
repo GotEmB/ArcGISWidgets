@@ -430,8 +430,15 @@ do ->
 				@addRasterDialog.show()
 			addRasterDialog_upload: ->
 				return console.error "An image must be selected!" if @imageFile.value.length is 0
-				@rastertype = if @imageFile.value.indexOf("las") is -1 then "Raster Dataset" else "HillshadedLAS"
-				console.info "Step 1/3: Uploading..."
+				@rastertype = "Raster Dataset"
+				@asyncResults.put asyncTask =
+					resultId: (Math.max @asyncResults.data.map((x) -> x.resultId).concat(0)...) + 1
+					task: "Add Raster"
+					status: "Pending"
+					startTime: (new Date).toLocaleString()
+				domStyle.set @asyncResultsContainer.domNode, "display", "block" if domStyle.get(@selectRasterContainer.domNode, "display") is "block"
+				@addRasterDialog.hide().then =>
+					@asyncResultsGrid.select asyncTask
 				request
 					url: @imageServiceUrl + "/uploads/upload"
 					form: @uploadForm
@@ -439,6 +446,11 @@ do ->
 					handleAs: "json"
 					timeout: 600000
 					load: (response1) =>
+						unless response1.success
+							extend asyncTask,
+								status: "Failed"
+								endTime: (new Date).toLocaleString()
+							return @asyncResults.notify asyncTask, asyncTask.resultId
 						return console.error "Unsuccessful upload:\n#{response1}" unless response1.success
 						console.info "Step 2/3: Uploaded, processing the image on server side..."
 						request
@@ -451,14 +463,33 @@ do ->
 								f: "json"
 							handleAs: "json"
 							load: (response2) =>
-								if id = response2.addResults[0].rasterId
-									@loadRastersList =>
-										@addRasterDialog.hide()
-										@rastersGrid.clearSelection()
-										@rastersGrid.select @rasters.data.length - 1 if @rasters.data.length > 0
-							error: ({message}) => console.error message
+								unless id = response2.addResults[0].rasterId
+									extend asyncTask,
+										status: "Failed"
+										endTime: (new Date).toLocaleString()
+									return @asyncResults.notify asyncTask, asyncTask.resultId
+								@asyncResults.notify asyncTask, asyncTask.resultId
+								@loadRastersList =>
+									extend asyncTask,
+										rasterId: id
+										status: "Completed"
+										endTime: (new Date).toLocaleString()
+										callback: =>
+										callbackLabel: "View Raster"
+									@asyncResults.notify asyncTask, asyncTask.resultId
+							error: ({message}) =>
+								extend asyncTask,
+									status: "Failed"
+									endTime: (new Date).toLocaleString()
+								@asyncResults.notify asyncTask, asyncTask.resultId
+								console.error message
 							(usePost: true)
-					error: ({message}) => console.error message
+					error: ({message}) =>
+						extend asyncTask,
+							status: "Failed"
+							endTime: (new Date).toLocaleString()
+						@asyncResults.notify asyncTask, asyncTask.resultId
+						console.error message
 					(usePost: true)
 			computeAndTransform: ->
 				return @showRasterNotSelectedDialog() unless @currentId?

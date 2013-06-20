@@ -550,13 +550,27 @@
         return this.addRasterDialog.show();
       },
       addRasterDialog_upload: function() {
-        var _this = this;
+        var asyncTask,
+          _this = this;
 
         if (this.imageFile.value.length === 0) {
           return console.error("An image must be selected!");
         }
-        this.rastertype = this.imageFile.value.indexOf("las") === -1 ? "Raster Dataset" : "HillshadedLAS";
-        console.info("Step 1/3: Uploading...");
+        this.rastertype = "Raster Dataset";
+        this.asyncResults.put(asyncTask = {
+          resultId: (Math.max.apply(Math, this.asyncResults.data.map(function(x) {
+            return x.resultId;
+          }).concat(0))) + 1,
+          task: "Add Raster",
+          status: "Pending",
+          startTime: (new Date).toLocaleString()
+        });
+        if (domStyle.get(this.selectRasterContainer.domNode, "display") === "block") {
+          domStyle.set(this.asyncResultsContainer.domNode, "display", "block");
+        }
+        this.addRasterDialog.hide().then(function() {
+          return _this.asyncResultsGrid.select(asyncTask);
+        });
         return request({
           url: this.imageServiceUrl + "/uploads/upload",
           form: this.uploadForm,
@@ -566,6 +580,13 @@
           handleAs: "json",
           timeout: 600000,
           load: function(response1) {
+            if (!response1.success) {
+              extend(asyncTask, {
+                status: "Failed",
+                endTime: (new Date).toLocaleString()
+              });
+              return _this.asyncResults.notify(asyncTask, asyncTask.resultId);
+            }
             if (!response1.success) {
               return console.error("Unsuccessful upload:\n" + response1);
             }
@@ -583,20 +604,34 @@
               load: function(response2) {
                 var id;
 
-                if (id = response2.addResults[0].rasterId) {
-                  return _this.loadRastersList(function() {
-                    _this.addRasterDialog.hide();
-                    _this.rastersGrid.clearSelection();
-                    if (_this.rasters.data.length > 0) {
-                      return _this.rastersGrid.select(_this.rasters.data.length - 1);
-                    }
+                if (!(id = response2.addResults[0].rasterId)) {
+                  extend(asyncTask, {
+                    status: "Failed",
+                    endTime: (new Date).toLocaleString()
                   });
+                  return _this.asyncResults.notify(asyncTask, asyncTask.resultId);
                 }
+                _this.asyncResults.notify(asyncTask, asyncTask.resultId);
+                return _this.loadRastersList(function() {
+                  extend(asyncTask, {
+                    rasterId: id,
+                    status: "Completed",
+                    endTime: (new Date).toLocaleString(),
+                    callback: function() {},
+                    callbackLabel: "View Raster"
+                  });
+                  return _this.asyncResults.notify(asyncTask, asyncTask.resultId);
+                });
               },
               error: function(_arg1) {
                 var message;
 
                 message = _arg1.message;
+                extend(asyncTask, {
+                  status: "Failed",
+                  endTime: (new Date).toLocaleString()
+                });
+                _this.asyncResults.notify(asyncTask, asyncTask.resultId);
                 return console.error(message);
               }
             }, {
@@ -607,6 +642,11 @@
             var message;
 
             message = _arg1.message;
+            extend(asyncTask, {
+              status: "Failed",
+              endTime: (new Date).toLocaleString()
+            });
+            _this.asyncResults.notify(asyncTask, asyncTask.resultId);
             return console.error(message);
           }
         }, {
