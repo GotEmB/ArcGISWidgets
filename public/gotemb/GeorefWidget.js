@@ -526,12 +526,14 @@
             _ref = response.features;
             for (_i = 0, _len = _ref.length; _i < _len; _i++) {
               feature = _ref[_i];
-              _this.rasters.put({
-                rasterId: feature.attributes.OBJECTID,
-                name: feature.attributes.Name,
-                spatialReference: new SpatialReference(feature.geometry.spatialReference),
-                display: true
-              });
+              if (feature.attributes.Name !== "World_Imagery") {
+                _this.rasters.put({
+                  rasterId: feature.attributes.OBJECTID,
+                  name: feature.attributes.Name,
+                  spatialReference: new SpatialReference(feature.geometry.spatialReference),
+                  display: true
+                });
+              }
             }
             return typeof callback === "function" ? callback() : void 0;
           },
@@ -1513,7 +1515,8 @@
                 }
                 return _results;
               })()
-            }
+            },
+            gotoLocation: false
           }, function() {
             return _this.rt_moveClose();
           });
@@ -1586,7 +1589,8 @@
                   }
                   return _results;
                 })()
-              }
+              },
+              gotoLocation: false
             }, function() {
               return _this.rt_scaleClose();
             });
@@ -1669,7 +1673,8 @@
                   }
                   return _results;
                 })()
-              }
+              },
+              gotoLocation: false
             }, function() {
               return _this.rt_rotateClose();
             });

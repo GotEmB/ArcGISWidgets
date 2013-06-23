@@ -417,7 +417,7 @@ do ->
 						outFields: "OBJECTID, Name"
 					handlesAs: "json"
 					load: (response) =>
-						for feature in response.features
+						for feature in response.features when feature.attributes.Name isnt "World_Imagery"
 							@rasters.put
 								rasterId: feature.attributes.OBJECTID
 								name: feature.attributes.Name
@@ -885,6 +885,7 @@ do ->
 									point.x += offsets[0]
 									point.y += offsets[1]
 									point
+							gotoLocation: false
 							=> @rt_moveClose()
 			rt_scale: (state) ->
 				if state
@@ -920,6 +921,7 @@ do ->
 									point.x += offsets[0]
 									point.y += offsets[1]
 									point
+							gotoLocation: false
 							=> @rt_scaleClose()
 					error: ({message}) => console.error message
 					(usePost: true)
@@ -958,6 +960,7 @@ do ->
 									point.x += offsets[0]
 									point.y += offsets[1]
 									point
+							gotoLocation: false
 							=> @rt_rotateClose()
 					error: ({message}) => console.error message
 					(usePost: true)
