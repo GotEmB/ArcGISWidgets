@@ -76,6 +76,9 @@
       atdpStartTime: null,
       atdpEndTime: null,
       atdpContinueButton: null,
+      confirmActionPopup: null,
+      confirmActionPopupContinueButton: null,
+      collectComputedTiepointsButton: null,
       sourceSymbol: new SimpleMarkerSymbol(SimpleMarkerSymbol.STYLE_X, 10, new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new Color([20, 20, 180]), 2), new Color([0, 0, 0])),
       targetSymbol: new SimpleMarkerSymbol(SimpleMarkerSymbol.STYLE_X, 10, new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new Color([180, 20, 20]), 2), new Color([0, 0, 0])),
       selectedSourceSymbol: new SimpleMarkerSymbol(SimpleMarkerSymbol.STYLE_X, 16, new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new Color([20, 20, 180]), 3), new Color([0, 0, 0])),
@@ -323,9 +326,11 @@
           _this.miscGraphicsLayer = new GraphicsLayer;
           _this.map.addLayer(_this.miscGraphicsLayer);
           connect(_this.tiepointsLayer, "onMouseDown", function(e) {
+            var _base;
+
             _this.map.disablePan();
             _this.graphicBeingMoved = e.graphic;
-            return _this.graphicBeingMoved.gotoPointGrid();
+            return typeof (_base = _this.graphicBeingMoved).gotoPointGrid === "function" ? _base.gotoPointGrid() : void 0;
           });
           connect(_this.tiepointsLayer, "onClick onDblClick", function(e) {
             delete _this.graphicBeingMoved;
@@ -340,18 +345,24 @@
             return _this.map.enablePan();
           });
           connect(_this.map, "onMouseDrag", function(e) {
+            var _base;
+
             if (_this.graphicBeingMoved == null) {
               return;
             }
             _this.graphicBeingMoved.setGeometry(e.mapPoint);
-            return _this.graphicBeingMoved.pointChanged();
+            return typeof (_base = _this.graphicBeingMoved).pointChanged === "function" ? _base.pointChanged() : void 0;
           });
           connect(_this.map, "onMouseDragEnd", function(e) {
+            var _base;
+
             if (_this.graphicBeingMoved == null) {
               return;
             }
             _this.graphicBeingMoved.setGeometry(e.mapPoint);
-            _this.graphicBeingMoved.pointChanged();
+            if (typeof (_base = _this.graphicBeingMoved).pointChanged === "function") {
+              _base.pointChanged();
+            }
             delete _this.graphicBeingMoved;
             return _this.map.enablePan();
           });
@@ -435,7 +446,7 @@
             return _this.asyncResultsGrid.select(_this.asyncResultsGrid.cell(e).row);
           });
           _this.asyncResultsGrid.on("dgrid-select", function(_arg1) {
-            var continueEvent, label, row, value, _ref, _ref1, _ref2;
+            var continueEvent, label, removeContinueEvent, row, value, _ref, _ref1, _ref2;
 
             row = _arg1.rows[0];
             _ref = {
@@ -455,7 +466,6 @@
             continueEvent = _this.atdpContinueButton.on("Click", function() {
               var selectAspect, _base;
 
-              continueEvent.remove();
               popup.close(_this.asyncTaskDetailsPopup);
               if (row.data.rasterId != null) {
                 _this.rastersGrid.clearSelection();
@@ -475,6 +485,10 @@
               } else {
                 return typeof (_base = row.data).callback === "function" ? _base.callback() : void 0;
               }
+            });
+            removeContinueEvent = _this.asyncResultsContainer.on("Blur", function() {
+              continueEvent.remove();
+              return removeContinueEvent.remove();
             });
             popup.open({
               popup: _this.asyncTaskDetailsPopup,
@@ -745,6 +759,16 @@
           },
           handleAs: "json",
           load: function() {
+            var task, _i, _len, _ref;
+
+            _ref = _this.asyncResults.data.filter(function(x) {
+              return x.rasterId === _this.currentId && x.task === "Compute Tiepoints";
+            });
+            for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+              task = _ref[_i];
+              delete task.callback;
+              task.callbackLabel = "Continue Task";
+            }
             if (!gotoLocation) {
               _this.map.setExtent(_this.map.extent);
               return typeof callback === "function" ? callback() : void 0;
@@ -820,67 +844,116 @@
         return this.imageServiceLayer.setOpacity(state ? 1 : 0);
       },
       startEditTiepoints: function() {
-        var asyncTask,
-          _this = this;
+        var container, containers, display, _i, _len, _ref;
 
         if (this.currentId == null) {
           return this.showRasterNotSelectedDialog();
         }
-        this.asyncResults.put(asyncTask = {
-          resultId: (Math.max.apply(Math, this.asyncResults.data.map(function(x) {
-            return x.resultId;
-          }).concat(0))) + 1,
-          task: "Compute Tiepoints",
-          rasterId: this.currentId,
-          status: "Pending",
-          startTime: (new Date).toLocaleString()
-        });
-        if (domStyle.get(this.selectRasterContainer.domNode, "display") === "block") {
-          domStyle.set(this.asyncResultsContainer.domNode, "display", "block");
+        _ref = {
+          none: [this.selectRasterContainer, this.tasksContainer, this.asyncResultsContainer],
+          block: [this.editTiepointsContainer]
+        };
+        for (display in _ref) {
+          containers = _ref[display];
+          for (_i = 0, _len = containers.length; _i < _len; _i++) {
+            container = containers[_i];
+            domStyle.set(container.domNode, "display", display);
+          }
         }
-        this.asyncResultsGrid.select(asyncTask);
-        return this.computeTiePoints(function(_arg1) {
-          var error, tiePoints;
+        return this.refreshMosaicRule();
+      },
+      collectComputedTiepoints: function() {
+        var continueEvent, removeContinueEvent,
+          _this = this;
 
-          tiePoints = _arg1.tiePoints, error = _arg1.error;
-          extend(asyncTask, {
-            status: error != null ? "Failed" : "Completed",
-            endTime: (new Date).toLocaleString(),
-            callback: error == null ? function() {
-              var container, containers, display, i, sourcePoint, targetPoint, _i, _j, _len, _ref, _ref1, _results;
+        continueEvent = this.confirmActionPopupContinueButton.on("Click", function() {
+          var asyncTask, currentTiepoints;
 
-              _ref = {
-                none: [_this.selectRasterContainer, _this.tasksContainer, _this.asyncResultsContainer],
-                block: [_this.editTiepointsContainer]
-              };
-              for (display in _ref) {
-                containers = _ref[display];
-                for (_i = 0, _len = containers.length; _i < _len; _i++) {
-                  container = containers[_i];
-                  domStyle.set(container.domNode, "display", display);
-                }
-              }
-              _this.refreshMosaicRule();
-              _results = [];
-              for (i = _j = 0, _ref1 = tiePoints.sourcePoints.length; 0 <= _ref1 ? _j < _ref1 : _j > _ref1; i = 0 <= _ref1 ? ++_j : --_j) {
-                _this.tiepoints.put({
-                  id: i + 1,
-                  sourcePoint: sourcePoint = new Graphic(new Point(tiePoints.sourcePoints[i]), _this.sourceSymbol),
-                  targetPoint: targetPoint = new Graphic(new Point(tiePoints.targetPoints[i]), _this.targetSymbol),
-                  original: {
-                    sourcePoint: new Point(tiePoints.sourcePoints[i]),
-                    targetPoint: new Point(tiePoints.targetPoints[i])
-                  }
-                });
-                _this.tiepointsLayer.add(sourcePoint);
-                _results.push(_this.tiepointsLayer.add(targetPoint));
-              }
-              return _results;
-            } : void 0,
-            callbackLabel: error == null ? "Edit Tiepoints" : void 0
+          popup.close(_this.confirmActionPopup);
+          currentTiepoints = (function(func, args, ctor) {
+            ctor.prototype = func.prototype;
+            var child = new ctor, result = func.apply(child, args);
+            return Object(result) === result ? result : child;
+          })(Array, _this.tiepoints.data, function(){});
+          _this.asyncResults.put(asyncTask = {
+            resultId: (Math.max.apply(Math, _this.asyncResults.data.map(function(x) {
+              return x.resultId;
+            }).concat(0))) + 1,
+            task: "Compute Tiepoints",
+            rasterId: _this.currentId,
+            status: "Pending",
+            startTime: (new Date).toLocaleString()
           });
-          return _this.asyncResults.notify(asyncTask, asyncTask.resultId);
+          if (domStyle.get(_this.selectRasterContainer.domNode, "display") === "block") {
+            domStyle.set(_this.asyncResultsContainer.domNode, "display", "block");
+          }
+          _this.asyncResultsGrid.select(asyncTask);
+          _this.closeEditTiepoints();
+          return _this.computeTiePoints(function(_arg1) {
+            var error, tiePoints;
+
+            tiePoints = _arg1.tiePoints, error = _arg1.error;
+            extend(asyncTask, {
+              status: error != null ? "Failed" : "Completed",
+              endTime: (new Date).toLocaleString(),
+              callback: function() {
+                var container, containers, display, i, newId, sourcePoint, targetPoint, tiepoint, _i, _j, _k, _len, _len1, _ref, _ref1, _results;
+
+                _ref = {
+                  none: [_this.selectRasterContainer, _this.tasksContainer, _this.asyncResultsContainer],
+                  block: [_this.editTiepointsContainer]
+                };
+                for (display in _ref) {
+                  containers = _ref[display];
+                  for (_i = 0, _len = containers.length; _i < _len; _i++) {
+                    container = containers[_i];
+                    domStyle.set(container.domNode, "display", display);
+                  }
+                }
+                _this.refreshMosaicRule();
+                for (_j = 0, _len1 = currentTiepoints.length; _j < _len1; _j++) {
+                  tiepoint = currentTiepoints[_j];
+                  _this.tiepoints.put(tiepoint);
+                  _this.tiepointsLayer.add(tiepoint.sourcePoint);
+                  _this.tiepointsLayer.add(tiepoint.targetPoint);
+                }
+                if (error != null) {
+                  return;
+                }
+                newId = Math.max.apply(Math, _this.tiepoints.data.map(function(x) {
+                  return x.id;
+                }).concat(0)) + 1;
+                _results = [];
+                for (i = _k = 0, _ref1 = tiePoints.sourcePoints.length; 0 <= _ref1 ? _k < _ref1 : _k > _ref1; i = 0 <= _ref1 ? ++_k : --_k) {
+                  _this.tiepoints.put({
+                    id: newId + i,
+                    sourcePoint: sourcePoint = new Graphic(new Point(tiePoints.sourcePoints[i]), _this.sourceSymbol),
+                    targetPoint: targetPoint = new Graphic(new Point(tiePoints.targetPoints[i]), _this.targetSymbol),
+                    original: {
+                      sourcePoint: new Point(tiePoints.sourcePoints[i]),
+                      targetPoint: new Point(tiePoints.targetPoints[i])
+                    }
+                  });
+                  _this.tiepointsLayer.add(sourcePoint);
+                  _results.push(_this.tiepointsLayer.add(targetPoint));
+                }
+                return _results;
+              },
+              callbackLabel: "Edit Tiepoints"
+            });
+            return _this.asyncResults.notify(asyncTask, asyncTask.resultId);
+          });
         });
+        removeContinueEvent = this.confirmActionPopup.on("Blur", function() {
+          continueEvent.remove();
+          return removeContinueEvent.remove();
+        });
+        popup.open({
+          popup: this.confirmActionPopup,
+          around: this.collectComputedTiepointsButton.domNode,
+          orient: ["below", "above"]
+        });
+        return this.confirmActionPopup.focus();
       },
       closeEditTiepoints: function() {
         var container, containers, display, tiepoint, _i, _j, _len, _len1, _ref, _ref1;
@@ -1094,17 +1167,8 @@
         return _results;
       },
       applyManualTransform: function() {
-        var task, _i, _len, _ref,
-          _this = this;
+        var _this = this;
 
-        _ref = this.asyncResults.data.filter(function(x) {
-          return x.rasterId === _this.currentId && x.task === "Compute Tiepoints";
-        });
-        for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-          task = _ref[_i];
-          delete task.callback;
-          task.callbackLabel = "Continue Task";
-        }
         return this.applyTransform({
           tiePoints: {
             sourcePoints: this.tiepoints.data.map(function(x) {
@@ -1747,10 +1811,12 @@
         }
         return _results;
       },
-      atdpContinue: function() {},
       atdpClose: function() {
         popup.close(this.asyncTaskDetailsPopup);
         return this.asyncResultsGrid.clearSelection();
+      },
+      confirmActionPopupClose: function() {
+        return popup.close(this.confirmActionPopup);
       }
     });
   });

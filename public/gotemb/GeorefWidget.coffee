@@ -119,6 +119,9 @@ do ->
 			atdpStartTime: null
 			atdpEndTime: null
 			atdpContinueButton: null
+			confirmActionPopup: null
+			confirmActionPopupContinueButton: null
+			collectComputedTiepointsButton: null
 			sourceSymbol:
 				new SimpleMarkerSymbol(
 					SimpleMarkerSymbol.STYLE_X
@@ -304,7 +307,7 @@ do ->
 					connect @tiepointsLayer, "onMouseDown", (e) =>
 						@map.disablePan()
 						@graphicBeingMoved = e.graphic
-						@graphicBeingMoved.gotoPointGrid()
+						@graphicBeingMoved.gotoPointGrid?()
 					connect @tiepointsLayer, "onClick onDblClick", (e) =>
 						delete @graphicBeingMoved
 						@map.enablePan()
@@ -317,11 +320,11 @@ do ->
 					connect @map, "onMouseDrag", (e) =>
 						return unless @graphicBeingMoved?
 						@graphicBeingMoved.setGeometry e.mapPoint
-						@graphicBeingMoved.pointChanged()
+						@graphicBeingMoved.pointChanged?()
 					connect @map, "onMouseDragEnd", (e) =>
 						return unless @graphicBeingMoved?
 						@graphicBeingMoved.setGeometry e.mapPoint
-						@graphicBeingMoved.pointChanged()
+						@graphicBeingMoved.pointChanged?()
 						delete @graphicBeingMoved
 						@map.enablePan()
 					connect @map, "onClick", (e) =>
@@ -381,7 +384,6 @@ do ->
 						domStyle.set @atdpContinueButton.domNode, "display", if row.data.callback? then "inline-block" else "none"
 						@atdpContinueButton.set "label", row.data.callbackLabel ? "Continue Task"
 						continueEvent = @atdpContinueButton.on "Click", =>
-							continueEvent.remove()
 							popup.close @asyncTaskDetailsPopup
 							if row.data.rasterId?
 								@rastersGrid.clearSelection()
@@ -393,6 +395,9 @@ do ->
 									row.data.callback?()
 							else
 								row.data.callback?()
+						removeContinueEvent = @asyncResultsContainer.on "Blur", =>
+							continueEvent.remove()
+							removeContinueEvent.remove()
 						popup.open
 							popup: @asyncTaskDetailsPopup
 							around: row.element
@@ -526,6 +531,9 @@ do ->
 						]
 					handleAs: "json"
 					load: =>
+						for task in @asyncResults.data.filter((x) => x.rasterId is @currentId and x.task is "Compute Tiepoints")
+							delete task.callback
+							task.callbackLabel = "Continue Task"
 						unless gotoLocation
 							@map.setExtent @map.extent
 							return callback?()
@@ -567,34 +575,56 @@ do ->
 				@imageServiceLayer.setOpacity if state then 1 else 0
 			startEditTiepoints: ->
 				return @showRasterNotSelectedDialog() unless @currentId?
-				@asyncResults.put asyncTask =
-					resultId: (Math.max @asyncResults.data.map((x) -> x.resultId).concat(0)...) + 1
-					task: "Compute Tiepoints"
-					rasterId: @currentId
-					status: "Pending"
-					startTime: (new Date).toLocaleString()
-				domStyle.set @asyncResultsContainer.domNode, "display", "block" if domStyle.get(@selectRasterContainer.domNode, "display") is "block"
-				@asyncResultsGrid.select asyncTask
-				@computeTiePoints ({tiePoints, error}) =>
-					extend asyncTask,
-						status: if error? then "Failed" else "Completed"
-						endTime: (new Date).toLocaleString()
-						callback: unless error? then =>
-							for display, containers of {none: [@selectRasterContainer, @tasksContainer, @asyncResultsContainer], block: [@editTiepointsContainer]}
-								domStyle.set container.domNode, "display", display for container in containers
-							@refreshMosaicRule()
-							for i in [0...tiePoints.sourcePoints.length]
-								@tiepoints.put
-									id: i + 1
-									sourcePoint: sourcePoint = new Graphic new Point(tiePoints.sourcePoints[i]), @sourceSymbol
-									targetPoint: targetPoint = new Graphic new Point(tiePoints.targetPoints[i]), @targetSymbol
-									original:
-										sourcePoint: new Point tiePoints.sourcePoints[i]
-										targetPoint: new Point tiePoints.targetPoints[i]
-								@tiepointsLayer.add sourcePoint
-								@tiepointsLayer.add targetPoint
-						callbackLabel: "Edit Tiepoints" unless error?
-					@asyncResults.notify asyncTask, asyncTask.resultId
+				for display, containers of {none: [@selectRasterContainer, @tasksContainer, @asyncResultsContainer], block: [@editTiepointsContainer]}
+					domStyle.set container.domNode, "display", display for container in containers
+				@refreshMosaicRule()
+			collectComputedTiepoints: ->
+				continueEvent = @confirmActionPopupContinueButton.on "Click", =>
+					popup.close @confirmActionPopup
+					currentTiepoints = new Array @tiepoints.data...
+					@asyncResults.put asyncTask =
+						resultId: (Math.max @asyncResults.data.map((x) -> x.resultId).concat(0)...) + 1
+						task: "Compute Tiepoints"
+						rasterId: @currentId
+						status: "Pending"
+						startTime: (new Date).toLocaleString()
+					domStyle.set @asyncResultsContainer.domNode, "display", "block" if domStyle.get(@selectRasterContainer.domNode, "display") is "block"
+					@asyncResultsGrid.select asyncTask
+					@closeEditTiepoints()
+					@computeTiePoints ({tiePoints, error}) =>
+						extend asyncTask,
+							status: if error? then "Failed" else "Completed"
+							endTime: (new Date).toLocaleString()
+							callback: then =>
+								for display, containers of {none: [@selectRasterContainer, @tasksContainer, @asyncResultsContainer], block: [@editTiepointsContainer]}
+									domStyle.set container.domNode, "display", display for container in containers
+								@refreshMosaicRule()
+								for tiepoint in currentTiepoints
+									@tiepoints.put tiepoint 
+									@tiepointsLayer.add tiepoint.sourcePoint
+									@tiepointsLayer.add tiepoint.targetPoint
+								return if error?
+								newId = Math.max(@tiepoints.data.map((x) => x.id).concat(0)...) + 1
+								for i in [0...tiePoints.sourcePoints.length]
+									@tiepoints.put
+										id: newId + i
+										sourcePoint: sourcePoint = new Graphic new Point(tiePoints.sourcePoints[i]), @sourceSymbol
+										targetPoint: targetPoint = new Graphic new Point(tiePoints.targetPoints[i]), @targetSymbol
+										original:
+											sourcePoint: new Point tiePoints.sourcePoints[i]
+											targetPoint: new Point tiePoints.targetPoints[i]
+									@tiepointsLayer.add sourcePoint
+									@tiepointsLayer.add targetPoint
+							callbackLabel: "Edit Tiepoints"
+						@asyncResults.notify asyncTask, asyncTask.resultId
+				removeContinueEvent = @confirmActionPopup.on "Blur", =>
+					continueEvent.remove()
+					removeContinueEvent.remove()
+				popup.open
+					popup: @confirmActionPopup
+					around: @collectComputedTiepointsButton.domNode
+					orient: ["below", "above"]
+				@confirmActionPopup.focus()
 			closeEditTiepoints: ->
 				@tiepointsLayer.clear()
 				@tiepoints.remove tiepoint.id for tiepoint in @tiepoints.data.splice 0
@@ -683,9 +713,6 @@ do ->
 						tiepoint[key].setGeometry tiepoint.original[key]
 						tiepoint[key].pointChanged()
 			applyManualTransform: ->
-				for task in @asyncResults.data.filter((x) => x.rasterId is @currentId and x.task is "Compute Tiepoints")
-					delete task.callback
-					task.callbackLabel = "Continue Task"
 				@applyTransform
 					tiePoints:
 						sourcePoints: @tiepoints.data.map (x) => x.sourcePoint.geometry
@@ -999,7 +1026,8 @@ do ->
 				@selectBasemap @selectBasemap_NaturalVueButton
 				@map.addLayer (@naturalVueServiceLayer = new ArcGISTiledMapServiceLayer @naturalVueServiceUrl), 1
 				@map.getLayer(layerId).setVisibility false for layerId in @map.basemapLayerIds
-			atdpContinue: ->
 			atdpClose: ->
 				popup.close @asyncTaskDetailsPopup
 				@asyncResultsGrid.clearSelection()
+			confirmActionPopupClose: ->
+				popup.close @confirmActionPopup

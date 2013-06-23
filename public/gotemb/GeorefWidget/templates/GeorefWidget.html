@@ -57,8 +57,17 @@
 			</tr>
 		</table>
 		<div class="dijitDialogPaneActionBar">
-			<button data-dojo-type="dijit/form/Button" type="button" data-dojo-attach-point="atdpContinueButton" data-dojo-attach-event="onClick: atdpContinue">Continue Task</button>
+			<button data-dojo-type="dijit/form/Button" type="button" data-dojo-attach-point="atdpContinueButton">Continue Task</button>
 			<button data-dojo-type="dijit/form/Button" type="button" data-dojo-attach-event="onClick: atdpClose">Close</button>
+		</div>
+	</div>
+	<div data-dojo-type="dijit/TooltipDialog" data-dojo-attach-point="confirmActionPopup" data-dojo-attach-event="onBlur: confirmActionPopupClose" style="display: none; width: 350px">
+		<div>
+			Proceeding will launch an asynchronous task that might take a couple of minutes to complete. Once completed, you can continue with the task.
+		</div>
+		<div class="dijitDialogPaneActionBar">
+			<button data-dojo-type="dijit/form/Button" type="button" data-dojo-attach-point="confirmActionPopupContinueButton">Continue</button>
+			<button data-dojo-type="dijit/form/Button" type="button" data-dojo-attach-event="confirmActionPopupClose">Cancel</button>
 		</div>
 	</div>
 	<div data-dojo-type="dijit/Toolbar" style="border: solid 1px #759dc0; margin-bottom: 1px; padding-left: 0">
@@ -93,12 +102,12 @@
 				</tr>
 				<tr>
 					<td style="height: 25px; vertical-align: middle; text-align: center">
-						<button class="fixedWidth250" data-dojo-type="dijit/form/Button" style="margin-top: 0; margin-bottom: 0; margin-right: 0" data-dojo-attach-event="onClick: computeAndTransform">Match raster with reference layer</button>
+						<button class="fixedWidth250" data-dojo-type="dijit/form/Button" style="margin-top: 0; margin-bottom: 0; margin-right: 0" data-dojo-attach-event="onClick: computeAndTransform">Match Raster With Reference Layer</button>
 					</td>
 				</tr>
 				<tr>
 					<td style="height: 25px; vertical-align: middle; text-align: center">
-						<button class="fixedWidth250" data-dojo-type="dijit/form/Button" style="margin-top: 0; margin-bottom: 0; margin-right: 0" data-dojo-attach-event="onClick: startEditTiepoints">Manually edit tiepoints</button>
+						<button class="fixedWidth250" data-dojo-type="dijit/form/Button" style="margin-top: 0; margin-bottom: 0; margin-right: 0" data-dojo-attach-event="onClick: startEditTiepoints">Manually Edit Tiepoints</button>
 					</td>
 				</tr>
 			</table>
@@ -116,6 +125,8 @@
 						<div data-dojo-type="dijit/MenuItem" data-dojo-attach-point="removeSelectedTiepointsMenuItem" data-dojo-attach-event="onClick: removeSelectedTiepoints">Remove Selected Tiepoints</div>
 					</div>
 				</div>
+				<span data-dojo-type="dijit/ToolbarSeparator"></span>
+				<div data-dojo-type="dijit/form/Button" data-dojo-attach-point="collectComputedTiepointsButton" data-dojo-attach-event="onClick: collectComputedTiepoints">Collect Computed Tiepoints</div>
 			</div>
 			<div data-dojo-attach-point="tiepointsGrid" style="height: 300px"></div>
 			<div class="dijitDialogPaneActionBar">
