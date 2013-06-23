@@ -118,10 +118,12 @@ do ->
 			atdpStatus: null
 			atdpStartTime: null
 			atdpEndTime: null
+			atdpContinueEvent: null
 			atdpContinueButton: null
 			confirmActionPopup: null
-			confirmActionPopupContinueButton: null
+			confirmActionPopupContinueEvent: null
 			collectComputedTiepointsButton: null
+			computeAndTransformButton: null
 			sourceSymbol:
 				new SimpleMarkerSymbol(
 					SimpleMarkerSymbol.STYLE_X
@@ -383,21 +385,18 @@ do ->
 							@[label].innerText = row.data[value] ? "--"
 						domStyle.set @atdpContinueButton.domNode, "display", if row.data.callback? then "inline-block" else "none"
 						@atdpContinueButton.set "label", row.data.callbackLabel ? "Continue Task"
-						continueEvent = @atdpContinueButton.on "Click", =>
-							popup.close @asyncTaskDetailsPopup
+						@atdpContinueEvent = =>
+							@atdpClose()
 							if row.data.rasterId?
 								@rastersGrid.clearSelection()
 								@rastersGrid.select @rastersGrid.row row.data.rasterId
-								onceDone = false
+								atdpOnceDone = false
 								selectAspect = aspect.after @rastersGrid.on "dgrid-select", =>
-									if onceDone then return else onceDone = true
+									if atdpOnceDone then return else atdpOnceDone = true
 									selectAspect.remove()
 									row.data.callback?()
 							else
 								row.data.callback?()
-						removeContinueEvent = @asyncResultsContainer.on "Blur", =>
-							continueEvent.remove()
-							removeContinueEvent.remove()
 						popup.open
 							popup: @asyncTaskDetailsPopup
 							around: row.element
@@ -498,22 +497,29 @@ do ->
 					(usePost: true)
 			computeAndTransform: ->
 				return @showRasterNotSelectedDialog() unless @currentId?
-				@asyncResults.put asyncTask =
-					resultId: (Math.max @asyncResults.data.map((x) -> x.resultId).concat(0)...) + 1
-					task: "Match raster with reference layer"
-					rasterId: @currentId
-					status: "Pending"
-					startTime: (new Date).toLocaleString()
-				domStyle.set @asyncResultsContainer.domNode, "display", "block" if domStyle.get(@selectRasterContainer.domNode, "display") is "block"
-				@asyncResultsGrid.select asyncTask
-				@computeTiePoints ({tiePoints, error}) =>
-					extend asyncTask,
-						status: if error? then "Failed" else "Completed"
-						endTime: (new Date).toLocaleString()
-						callback: unless error? then =>
-						callbackLabel: "View Raster" unless error?
-					@asyncResults.notify asyncTask, asyncTask.resultId
-					@applyTransform tiePoints: tiePoints, gotoLocation: false
+				@confirmActionPopupContinueEvent = =>
+					@confirmActionPopupClose()
+					@asyncResults.put asyncTask =
+						resultId: (Math.max @asyncResults.data.map((x) -> x.resultId).concat(0)...) + 1
+						task: "Match raster with reference layer"
+						rasterId: @currentId
+						status: "Pending"
+						startTime: (new Date).toLocaleString()
+					domStyle.set @asyncResultsContainer.domNode, "display", "block" if domStyle.get(@selectRasterContainer.domNode, "display") is "block"
+					@asyncResultsGrid.select asyncTask
+					@computeTiePoints ({tiePoints, error}) =>
+						extend asyncTask,
+							status: if error? then "Failed" else "Completed"
+							endTime: (new Date).toLocaleString()
+							callback: unless error? then =>
+							callbackLabel: "View Raster" unless error?
+						@asyncResults.notify asyncTask, asyncTask.resultId
+						@applyTransform tiePoints: tiePoints, gotoLocation: false
+				popup.open
+					popup: @confirmActionPopup
+					around: @computeAndTransformButton.domNode
+					orient: ["below", "above"]
+				@confirmActionPopup.focus()
 			applyTransform: ({tiePoints, gotoLocation}, callback) ->
 				gotoLocation ?= true
 				request
@@ -579,8 +585,8 @@ do ->
 					domStyle.set container.domNode, "display", display for container in containers
 				@refreshMosaicRule()
 			collectComputedTiepoints: ->
-				continueEvent = @confirmActionPopupContinueButton.on "Click", =>
-					popup.close @confirmActionPopup
+				@confirmActionPopupContinueEvent = =>
+					@confirmActionPopupClose()
 					currentTiepoints = new Array @tiepoints.data...
 					@asyncResults.put asyncTask =
 						resultId: (Math.max @asyncResults.data.map((x) -> x.resultId).concat(0)...) + 1
@@ -617,9 +623,6 @@ do ->
 									@tiepointsLayer.add targetPoint
 							callbackLabel: "Edit Tiepoints"
 						@asyncResults.notify asyncTask, asyncTask.resultId
-				removeContinueEvent = @confirmActionPopup.on "Blur", =>
-					continueEvent.remove()
-					removeContinueEvent.remove()
 				popup.open
 					popup: @confirmActionPopup
 					around: @collectComputedTiepointsButton.domNode
@@ -1029,5 +1032,9 @@ do ->
 			atdpClose: ->
 				popup.close @asyncTaskDetailsPopup
 				@asyncResultsGrid.clearSelection()
+			atdpContinue: ->
+				@atdpContinueEvent?()
 			confirmActionPopupClose: ->
 				popup.close @confirmActionPopup
+			confirmActionPopupContinue: ->
+				@confirmActionPopupContinueEvent?()

@@ -75,10 +75,12 @@
       atdpStatus: null,
       atdpStartTime: null,
       atdpEndTime: null,
+      atdpContinueEvent: null,
       atdpContinueButton: null,
       confirmActionPopup: null,
-      confirmActionPopupContinueButton: null,
+      confirmActionPopupContinueEvent: null,
       collectComputedTiepointsButton: null,
+      computeAndTransformButton: null,
       sourceSymbol: new SimpleMarkerSymbol(SimpleMarkerSymbol.STYLE_X, 10, new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new Color([20, 20, 180]), 2), new Color([0, 0, 0])),
       targetSymbol: new SimpleMarkerSymbol(SimpleMarkerSymbol.STYLE_X, 10, new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new Color([180, 20, 20]), 2), new Color([0, 0, 0])),
       selectedSourceSymbol: new SimpleMarkerSymbol(SimpleMarkerSymbol.STYLE_X, 16, new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new Color([20, 20, 180]), 3), new Color([0, 0, 0])),
@@ -446,7 +448,7 @@
             return _this.asyncResultsGrid.select(_this.asyncResultsGrid.cell(e).row);
           });
           _this.asyncResultsGrid.on("dgrid-select", function(_arg1) {
-            var continueEvent, label, removeContinueEvent, row, value, _ref, _ref1, _ref2;
+            var label, row, value, _ref, _ref1, _ref2;
 
             row = _arg1.rows[0];
             _ref = {
@@ -463,21 +465,21 @@
             }
             domStyle.set(_this.atdpContinueButton.domNode, "display", row.data.callback != null ? "inline-block" : "none");
             _this.atdpContinueButton.set("label", (_ref2 = row.data.callbackLabel) != null ? _ref2 : "Continue Task");
-            continueEvent = _this.atdpContinueButton.on("Click", function() {
-              var selectAspect, _base;
+            _this.atdpContinueEvent = function() {
+              var atdpOnceDone, selectAspect, _base;
 
-              popup.close(_this.asyncTaskDetailsPopup);
+              _this.atdpClose();
               if (row.data.rasterId != null) {
                 _this.rastersGrid.clearSelection();
                 _this.rastersGrid.select(_this.rastersGrid.row(row.data.rasterId));
-                onceDone = false;
+                atdpOnceDone = false;
                 return selectAspect = aspect.after(_this.rastersGrid.on("dgrid-select", function() {
                   var _base;
 
-                  if (onceDone) {
+                  if (atdpOnceDone) {
                     return;
                   } else {
-                    onceDone = true;
+                    atdpOnceDone = true;
                   }
                   selectAspect.remove();
                   return typeof (_base = row.data).callback === "function" ? _base.callback() : void 0;
@@ -485,11 +487,7 @@
               } else {
                 return typeof (_base = row.data).callback === "function" ? _base.callback() : void 0;
               }
-            });
-            removeContinueEvent = _this.asyncResultsContainer.on("Blur", function() {
-              continueEvent.remove();
-              return removeContinueEvent.remove();
-            });
+            };
             popup.open({
               popup: _this.asyncTaskDetailsPopup,
               around: row.element,
@@ -670,41 +668,51 @@
         });
       },
       computeAndTransform: function() {
-        var asyncTask,
-          _this = this;
+        var _this = this;
 
         if (this.currentId == null) {
           return this.showRasterNotSelectedDialog();
         }
-        this.asyncResults.put(asyncTask = {
-          resultId: (Math.max.apply(Math, this.asyncResults.data.map(function(x) {
-            return x.resultId;
-          }).concat(0))) + 1,
-          task: "Match raster with reference layer",
-          rasterId: this.currentId,
-          status: "Pending",
-          startTime: (new Date).toLocaleString()
-        });
-        if (domStyle.get(this.selectRasterContainer.domNode, "display") === "block") {
-          domStyle.set(this.asyncResultsContainer.domNode, "display", "block");
-        }
-        this.asyncResultsGrid.select(asyncTask);
-        return this.computeTiePoints(function(_arg1) {
-          var error, tiePoints;
+        this.confirmActionPopupContinueEvent = function() {
+          var asyncTask;
 
-          tiePoints = _arg1.tiePoints, error = _arg1.error;
-          extend(asyncTask, {
-            status: error != null ? "Failed" : "Completed",
-            endTime: (new Date).toLocaleString(),
-            callback: error == null ? function() {} : void 0,
-            callbackLabel: error == null ? "View Raster" : void 0
+          _this.confirmActionPopupClose();
+          _this.asyncResults.put(asyncTask = {
+            resultId: (Math.max.apply(Math, _this.asyncResults.data.map(function(x) {
+              return x.resultId;
+            }).concat(0))) + 1,
+            task: "Match raster with reference layer",
+            rasterId: _this.currentId,
+            status: "Pending",
+            startTime: (new Date).toLocaleString()
           });
-          _this.asyncResults.notify(asyncTask, asyncTask.resultId);
-          return _this.applyTransform({
-            tiePoints: tiePoints,
-            gotoLocation: false
+          if (domStyle.get(_this.selectRasterContainer.domNode, "display") === "block") {
+            domStyle.set(_this.asyncResultsContainer.domNode, "display", "block");
+          }
+          _this.asyncResultsGrid.select(asyncTask);
+          return _this.computeTiePoints(function(_arg1) {
+            var error, tiePoints;
+
+            tiePoints = _arg1.tiePoints, error = _arg1.error;
+            extend(asyncTask, {
+              status: error != null ? "Failed" : "Completed",
+              endTime: (new Date).toLocaleString(),
+              callback: error == null ? function() {} : void 0,
+              callbackLabel: error == null ? "View Raster" : void 0
+            });
+            _this.asyncResults.notify(asyncTask, asyncTask.resultId);
+            return _this.applyTransform({
+              tiePoints: tiePoints,
+              gotoLocation: false
+            });
           });
+        };
+        popup.open({
+          popup: this.confirmActionPopup,
+          around: this.computeAndTransformButton.domNode,
+          orient: ["below", "above"]
         });
+        return this.confirmActionPopup.focus();
       },
       applyTransform: function(_arg1, callback) {
         var gotoLocation, point, tiePoints,
@@ -863,13 +871,12 @@
         return this.refreshMosaicRule();
       },
       collectComputedTiepoints: function() {
-        var continueEvent, removeContinueEvent,
-          _this = this;
+        var _this = this;
 
-        continueEvent = this.confirmActionPopupContinueButton.on("Click", function() {
+        this.confirmActionPopupContinueEvent = function() {
           var asyncTask, currentTiepoints;
 
-          popup.close(_this.confirmActionPopup);
+          _this.confirmActionPopupClose();
           currentTiepoints = (function(func, args, ctor) {
             ctor.prototype = func.prototype;
             var child = new ctor, result = func.apply(child, args);
@@ -943,11 +950,7 @@
             });
             return _this.asyncResults.notify(asyncTask, asyncTask.resultId);
           });
-        });
-        removeContinueEvent = this.confirmActionPopup.on("Blur", function() {
-          continueEvent.remove();
-          return removeContinueEvent.remove();
-        });
+        };
         popup.open({
           popup: this.confirmActionPopup,
           around: this.collectComputedTiepointsButton.domNode,
@@ -1815,8 +1818,14 @@
         popup.close(this.asyncTaskDetailsPopup);
         return this.asyncResultsGrid.clearSelection();
       },
+      atdpContinue: function() {
+        return typeof this.atdpContinueEvent === "function" ? this.atdpContinueEvent() : void 0;
+      },
       confirmActionPopupClose: function() {
         return popup.close(this.confirmActionPopup);
+      },
+      confirmActionPopupContinue: function() {
+        return typeof this.confirmActionPopupContinueEvent === "function" ? this.confirmActionPopupContinueEvent() : void 0;
       }
     });
   });

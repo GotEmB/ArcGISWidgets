@@ -26,7 +26,7 @@
 			Please select a Raster to georeference from the Rasters Panel.
 		</div>
 		<div class="dijitDialogPaneActionBar">
-			<button data-dojo-type="dijit/form/Button" type="button" data-dojo-attach-event="onClick: hideRasterNotSelectedDialog" id="cancel">OK</button>
+			<button data-dojo-type="dijit/form/Button" type="button" data-dojo-attach-event="onClick: hideRasterNotSelectedDialog">OK</button>
 		</div>
 	</div>
 	<div data-dojo-type="dijit/TooltipDialog" data-dojo-attach-point="asyncTaskDetailsPopup" data-dojo-attach-event="onBlur: atdpClose" style="display: none; width: 350px">
@@ -57,7 +57,7 @@
 			</tr>
 		</table>
 		<div class="dijitDialogPaneActionBar">
-			<button data-dojo-type="dijit/form/Button" type="button" data-dojo-attach-point="atdpContinueButton">Continue Task</button>
+			<button data-dojo-type="dijit/form/Button" type="button" data-dojo-attach-point="atdpContinueButton" data-dojo-attach-event="onClick: atdpContinue">Continue Task</button>
 			<button data-dojo-type="dijit/form/Button" type="button" data-dojo-attach-event="onClick: atdpClose">Close</button>
 		</div>
 	</div>
@@ -66,8 +66,8 @@
 			Proceeding will launch an asynchronous task that might take a couple of minutes to complete. Once completed, you can continue with the task.
 		</div>
 		<div class="dijitDialogPaneActionBar">
-			<button data-dojo-type="dijit/form/Button" type="button" data-dojo-attach-point="confirmActionPopupContinueButton">Continue</button>
-			<button data-dojo-type="dijit/form/Button" type="button" data-dojo-attach-event="confirmActionPopupClose">Cancel</button>
+			<button data-dojo-type="dijit/form/Button" type="button" data-dojo-attach-event="onClick: confirmActionPopupContinue">Continue</button>
+			<button data-dojo-type="dijit/form/Button" type="button" data-dojo-attach-event="onClick: confirmActionPopupClose">Cancel</button>
 		</div>
 	</div>
 	<div data-dojo-type="dijit/Toolbar" style="border: solid 1px #759dc0; margin-bottom: 1px; padding-left: 0">
@@ -102,7 +102,7 @@
 				</tr>
 				<tr>
 					<td style="height: 25px; vertical-align: middle; text-align: center">
-						<button class="fixedWidth250" data-dojo-type="dijit/form/Button" style="margin-top: 0; margin-bottom: 0; margin-right: 0" data-dojo-attach-event="onClick: computeAndTransform">Match Raster With Reference Layer</button>
+						<button class="fixedWidth250" data-dojo-type="dijit/form/Button" style="margin-top: 0; margin-bottom: 0; margin-right: 0" data-dojo-attach-point="computeAndTransformButton" data-dojo-attach-event="onClick: computeAndTransform">Match Raster With Reference Layer</button>
 					</td>
 				</tr>
 				<tr>
