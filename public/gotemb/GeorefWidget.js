@@ -83,6 +83,8 @@
       computeAndTransformButton: null,
       loadingGif: null,
       toggleRasterLayerButton: null,
+      setImageFormat_JPGPNGButton: null,
+      setImageFormat_JPGButton: null,
       sourceSymbol: new SimpleMarkerSymbol(SimpleMarkerSymbol.STYLE_X, 10, new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new Color([20, 20, 180]), 2), new Color([0, 0, 0])),
       targetSymbol: new SimpleMarkerSymbol(SimpleMarkerSymbol.STYLE_X, 10, new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new Color([180, 20, 20]), 2), new Color([0, 0, 0])),
       selectedSourceSymbol: new SimpleMarkerSymbol(SimpleMarkerSymbol.STYLE_X, 16, new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new Color([20, 20, 180]), 3), new Color([0, 0, 0])),
@@ -1906,6 +1908,26 @@
       },
       confirmActionPopupContinue: function() {
         return typeof this.confirmActionPopupContinueEvent === "function" ? this.confirmActionPopupContinueEvent() : void 0;
+      },
+      setImageFormat: function(selectedMenuItem) {
+        var menuItem, menuItems, _i, _len;
+
+        menuItems = [this.setImageFormat_JPGPNGButton, this.setImageFormat_JPGButton];
+        for (_i = 0, _len = menuItems.length; _i < _len; _i++) {
+          menuItem = menuItems[_i];
+          if (menuItem !== selectedMenuItem) {
+            domStyle.set(menuItem.domNode, "font-weight", "normal");
+          }
+        }
+        return domStyle.set(selectedMenuItem.domNode, "font-weight", "bold");
+      },
+      setImageFormat_JPGPNG: function() {
+        this.setImageFormat(this.setImageFormat_JPGPNGButton);
+        return this.imageServiceLayer.setImageFormat("jpgpng");
+      },
+      setImageFormat_JPG: function() {
+        this.setImageFormat(this.setImageFormat_JPGButton);
+        return this.imageServiceLayer.setImageFormat("jpg");
       }
     });
   });

@@ -82,6 +82,13 @@
 				<div data-dojo-type="dijit/MenuItem" data-dojo-attach-point="selectBasemap_StreetsButton" data-dojo-attach-event="onClick: selectBasemap_Streets" >Streets</div>
 			</div>
 		</div>
+		<div data-dojo-type="dijit/form/DropDownButton">
+			<span>Image Format</span>
+			<div data-dojo-type="dijit/Menu">
+				<div data-dojo-type="dijit/MenuItem" data-dojo-attach-point="setImageFormat_JPGPNGButton" data-dojo-attach-event="onClick: setImageFormat_JPGPNG" style="font-weight: bold">JPGPNG</div>
+				<div data-dojo-type="dijit/MenuItem" data-dojo-attach-point="setImageFormat_JPGButton" data-dojo-attach-event="onClick: setImageFormat_JPG">JPG</div>
+			</div>
+		</div>
 		<span data-dojo-type="dijit/ToolbarSeparator"></span>
 		<div data-dojo-type="dijit/form/ToggleButton" data-dojo-attach-point="toggleRasterLayerButton" data-dojo-attach-event="onChange: toggleRasterLayer" data-dojo-props="checked: true" title="Keyboard Shortcut: R">Toggle Raster Layer</div>
 	</div>

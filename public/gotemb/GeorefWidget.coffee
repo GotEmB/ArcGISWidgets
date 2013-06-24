@@ -126,6 +126,8 @@ do ->
 			computeAndTransformButton: null
 			loadingGif: null
 			toggleRasterLayerButton: null
+			setImageFormat_JPGPNGButton: null
+			setImageFormat_JPGButton: null
 			sourceSymbol:
 				new SimpleMarkerSymbol(
 					SimpleMarkerSymbol.STYLE_X
@@ -1083,3 +1085,17 @@ do ->
 				popup.close @confirmActionPopup
 			confirmActionPopupContinue: ->
 				@confirmActionPopupContinueEvent?()
+			setImageFormat: (selectedMenuItem) ->
+				menuItems = [
+					@setImageFormat_JPGPNGButton
+					@setImageFormat_JPGButton
+				]
+				for menuItem in menuItems when menuItem isnt selectedMenuItem
+					domStyle.set menuItem.domNode, "font-weight", "normal"
+				domStyle.set selectedMenuItem.domNode, "font-weight", "bold"
+			setImageFormat_JPGPNG: ->
+				@setImageFormat @setImageFormat_JPGPNGButton
+				@imageServiceLayer.setImageFormat "jpgpng"
+			setImageFormat_JPG: ->
+				@setImageFormat @setImageFormat_JPGButton
+				@imageServiceLayer.setImageFormat "jpg"
