@@ -1040,7 +1040,7 @@
           this.map.setMapCursor("crosshair");
           sourcePoint = null;
           targetPoint = null;
-          this.mouseTip.innerText = "Click to place Source Point on the map.";
+          this.mouseTip.innerText = "Click to place Source Point on the map.\nRight Click to cancel.";
           mouseTipMoveEvent = connect(query("body")[0], "onmousemove", function(e) {
             domStyle.set(_this.mouseTip, "display", "block");
             domStyle.set(_this.mouseTip, "left", e.clientX + 20 + "px");
@@ -1094,7 +1094,7 @@
               currentState = "placedSourcePoint";
               sourcePoint = new Graphic(e.mapPoint, _this.sourceSymbol);
               _this.tiepointsLayer.add(sourcePoint);
-              return _this.mouseTip.innerText = "Click to place Target Point on the map.";
+              return _this.mouseTip.innerText = "Click to place Target Point on the map.\nRight Click to cancel.";
             } else if (currentState === "placingTargetPoint.1") {
               currentState = "placedTargetPoint";
               targetPoint = new Graphic(e.mapPoint, _this.targetSymbol);

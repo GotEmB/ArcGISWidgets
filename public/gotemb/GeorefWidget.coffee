@@ -663,7 +663,7 @@ do ->
 					@map.setMapCursor "crosshair"
 					sourcePoint = null
 					targetPoint = null
-					@mouseTip.innerText = "Click to place Source Point on the map."
+					@mouseTip.innerText = "Click to place Source Point on the map.\nRight Click to cancel."
 					mouseTipMoveEvent = connect query("body")[0], "onmousemove", (e) =>
 						domStyle.set @mouseTip, "display", "block"
 						domStyle.set @mouseTip, "left", e.clientX + 20 + "px"
@@ -686,7 +686,7 @@ do ->
 							currentState = "placedSourcePoint"
 							sourcePoint = new Graphic e.mapPoint, @sourceSymbol
 							@tiepointsLayer.add sourcePoint
-							@mouseTip.innerText = "Click to place Target Point on the map."
+							@mouseTip.innerText = "Click to place Target Point on the map.\nRight Click to cancel."
 						else if currentState is "placingTargetPoint.1"
 							currentState = "placedTargetPoint"
 							targetPoint = new Graphic e.mapPoint, @targetSymbol
