@@ -1,4 +1,4 @@
-<div style="width: 400px;">
+<div style="width: 400px; position: relative">
 	<div data-dojo-attach-point="mouseTip" style="display: none; position: fixed; border: solid 1px black; background-color: #FFFFAA; z-index: 900; padding: 3px">...</div>
 	<div data-dojo-type="dijit/Menu" data-dojo-props="contextMenuForWindow: true, selector: 'td.field-id'" data-dojo-attach-point="tiepointsContextMenu" style="display: none" data-dojo-attach-event="onOpen: tiepointsContextMenuOpen">
 		<div data-dojo-type="dijit/MenuItem" data-dojo-attach-point="resetTiepointMenuItem" data-dojo-attach-event="onClick: resetTiepoint">Reset Tiepoint</div>
@@ -70,6 +70,7 @@
 			<button data-dojo-type="dijit/form/Button" type="button" data-dojo-attach-event="onClick: confirmActionPopupClose">Cancel</button>
 		</div>
 	</div>
+	<div data-dojo-attach-point="loadingGif" style="position: absolute; background-color: rgba(255, 255, 255, 0.75); background-image:url(resources/loader.gif); background-repeat: no-repeat; background-position: center; width: 100%; top: 30px; bottom: 0; z-index: 1000"></div>
 	<div data-dojo-type="dijit/Toolbar" style="border: solid 1px #759dc0; margin-bottom: 1px; padding-left: 0">
 		<div data-dojo-type="dijit/form/DropDownButton">
 			<span>Basemap</span>
@@ -126,7 +127,7 @@
 					</div>
 				</div>
 				<span data-dojo-type="dijit/ToolbarSeparator"></span>
-				<div data-dojo-type="dijit/form/Button" data-dojo-attach-point="collectComputedTiepointsButton" data-dojo-attach-event="onClick: collectComputedTiepoints">Collect Computed Tiepoints</div>
+				<div data-dojo-type="dijit/form/Button" data-dojo-attach-point="collectComputedTiepointsButton" data-dojo-attach-event="onClick: collectComputedTiepoints">Autodetect Tiepoints</div>
 			</div>
 			<div data-dojo-attach-point="tiepointsGrid" style="height: 300px"></div>
 			<div class="dijitDialogPaneActionBar">

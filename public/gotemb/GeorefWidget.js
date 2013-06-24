@@ -81,6 +81,7 @@
       confirmActionPopupContinueEvent: null,
       collectComputedTiepointsButton: null,
       computeAndTransformButton: null,
+      loadingGif: null,
       sourceSymbol: new SimpleMarkerSymbol(SimpleMarkerSymbol.STYLE_X, 10, new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new Color([20, 20, 180]), 2), new Color([0, 0, 0])),
       targetSymbol: new SimpleMarkerSymbol(SimpleMarkerSymbol.STYLE_X, 10, new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new Color([180, 20, 20]), 2), new Color([0, 0, 0])),
       selectedSourceSymbol: new SimpleMarkerSymbol(SimpleMarkerSymbol.STYLE_X, 16, new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new Color([20, 20, 180]), 3), new Color([0, 0, 0])),
@@ -547,7 +548,10 @@
                 });
               }
             }
-            return typeof callback === "function" ? callback() : void 0;
+            if (typeof callback === "function") {
+              callback();
+            }
+            return domStyle.set(_this.loadingGif, "display", "none");
           },
           error: function(_arg1) {
             var message;
@@ -1172,6 +1176,7 @@
       applyManualTransform: function() {
         var _this = this;
 
+        domStyle.set(this.loadingGif, "display", "block");
         return this.applyTransform({
           tiePoints: {
             sourcePoints: this.tiepoints.data.map(function(x) {
@@ -1182,7 +1187,13 @@
             })
           }
         }, function() {
-          return _this.closeEditTiepoints();
+          var updateEndEvent;
+
+          return updateEndEvent = connect(_this.imageServiceLayer, "onUpdateEnd", function() {
+            disconnect(updateEndEvent);
+            _this.closeEditTiepoints();
+            return domStyle.set(_this.loadingGif, "display", "none");
+          });
         });
       },
       openRoughTransform: function() {
@@ -1251,6 +1262,7 @@
         if (this.currentId == null) {
           return console.error("No raster selected");
         }
+        domStyle.set(this.loadingGif, "display", "block");
         return request({
           url: this.imageServiceUrl + "/query",
           content: {
@@ -1340,7 +1352,13 @@
                     },
                     handleAs: "json",
                     load: function(response3) {
-                      return _this.map.setExtent(new Polygon(response3.features[0].geometry).getExtent());
+                      var updateEndEvent;
+
+                      _this.map.setExtent(new Polygon(response3.features[0].geometry).getExtent());
+                      return updateEndEvent = connect(_this.imageServiceLayer, "onUpdateEnd", function() {
+                        disconnect(updateEndEvent);
+                        return domStyle.set(_this.loadingGif, "display", "none");
+                      });
                     },
                     error: function(_arg2) {
                       var message;
@@ -1543,6 +1561,7 @@
         var _ref, _ref1,
           _this = this;
 
+        domStyle.set(this.loadingGif, "display", "block");
         return this.projectIfReq({
           geometries: [new Point((_ref = this.rtMoveFromGrid.graphic) != null ? _ref.geometry : void 0), new Point((_ref1 = this.rtMoveToGrid.graphic) != null ? _ref1.geometry : void 0)],
           outSR: this.rasters.data.filter(function(x) {
@@ -1585,7 +1604,13 @@
             },
             gotoLocation: false
           }, function() {
-            return _this.rt_moveClose();
+            var updateEndEvent;
+
+            return updateEndEvent = connect(_this.imageServiceLayer, "onUpdateEnd", function() {
+              disconnect(updateEndEvent);
+              _this.rt_moveClose();
+              return domStyle.set(_this.loadingGif, "display", "none");
+            });
           });
         });
       },
@@ -1612,6 +1637,7 @@
       rt_scaleTransform: function() {
         var _this = this;
 
+        domStyle.set(this.loadingGif, "display", "block");
         return request({
           url: this.imageServiceUrl + "/query",
           content: {
@@ -1659,7 +1685,13 @@
               },
               gotoLocation: false
             }, function() {
-              return _this.rt_scaleClose();
+              var updateEndEvent;
+
+              return updateEndEvent = connect(_this.imageServiceLayer, "onUpdateEnd", function() {
+                disconnect(updateEndEvent);
+                _this.rt_scaleClose();
+                return domStyle.set(_this.loadingGif, "display", "none");
+              });
             });
           },
           error: function(_arg1) {
@@ -1695,6 +1727,7 @@
       rt_rotateTransform: function() {
         var _this = this;
 
+        domStyle.set(this.loadingGif, "display", "block");
         return request({
           url: this.imageServiceUrl + "/query",
           content: {
@@ -1743,7 +1776,13 @@
               },
               gotoLocation: false
             }, function() {
-              return _this.rt_rotateClose();
+              var updateEndEvent;
+
+              return updateEndEvent = connect(_this.imageServiceLayer, "onUpdateEnd", function() {
+                disconnect(updateEndEvent);
+                _this.rt_rotateClose();
+                return domStyle.set(_this.loadingGif, "display", "none");
+              });
             });
           },
           error: function(_arg1) {

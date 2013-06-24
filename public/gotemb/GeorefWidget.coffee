@@ -124,6 +124,7 @@ do ->
 			confirmActionPopupContinueEvent: null
 			collectComputedTiepointsButton: null
 			computeAndTransformButton: null
+			loadingGif: null
 			sourceSymbol:
 				new SimpleMarkerSymbol(
 					SimpleMarkerSymbol.STYLE_X
@@ -428,6 +429,7 @@ do ->
 								spatialReference: new SpatialReference feature.geometry.spatialReference
 								display: true
 						callback?()
+						domStyle.set @loadingGif, "display", "none"
 					error: ({message}) => console.error message; console.log esri.config.defaults.io.corsEnabledServers
 					(usePost: true)
 			showAddRasterDialog: ->
@@ -716,11 +718,16 @@ do ->
 						tiepoint[key].setGeometry tiepoint.original[key]
 						tiepoint[key].pointChanged()
 			applyManualTransform: ->
+				domStyle.set @loadingGif, "display", "block"
 				@applyTransform
 					tiePoints:
 						sourcePoints: @tiepoints.data.map (x) => x.sourcePoint.geometry
 						targetPoints: @tiepoints.data.map (x) => x.targetPoint.geometry
-					=> @closeEditTiepoints()
+					=>
+						updateEndEvent = connect @imageServiceLayer, "onUpdateEnd", =>
+							disconnect updateEndEvent
+							@closeEditTiepoints()
+							domStyle.set @loadingGif, "display", "none"
 			openRoughTransform: ->
 				return @showRasterNotSelectedDialog() unless @currentId?
 				for display, containers of {none: [@selectRasterContainer, @tasksContainer, @asyncResultsContainer], block: [@manualTransformContainer]}
@@ -746,6 +753,7 @@ do ->
 				)
 			rt_fit: ->
 				return console.error "No raster selected" unless @currentId?
+				domStyle.set @loadingGif, "display", "block"
 				request
 					url: @imageServiceUrl + "/query"
 					content:
@@ -806,6 +814,9 @@ do ->
 											handleAs: "json"
 											load: (response3) =>
 												@map.setExtent new Polygon(response3.features[0].geometry).getExtent()
+												updateEndEvent = connect @imageServiceLayer, "onUpdateEnd", =>
+													disconnect updateEndEvent
+													domStyle.set @loadingGif, "display", "none"
 											error: ({message}) => console.error message
 											(usePost: true)
 									error: ({message}) => console.error message
@@ -899,6 +910,7 @@ do ->
 			rtMoveToPick: (state) ->
 				@rtMovePick which: "to", state: state
 			rt_moveTransform: ->
+				domStyle.set @loadingGif, "display", "block"
 				@projectIfReq
 					geometries: [new Point(@rtMoveFromGrid.graphic?.geometry), new Point(@rtMoveToGrid.graphic?.geometry)]
 					outSR: @rasters.data.filter((x) => x.rasterId is @currentId)[0].spatialReference
@@ -916,7 +928,11 @@ do ->
 									point.y += offsets[1]
 									point
 							gotoLocation: false
-							=> @rt_moveClose()
+							=>
+								updateEndEvent = connect @imageServiceLayer, "onUpdateEnd", =>
+									disconnect updateEndEvent
+									@rt_moveClose()
+									domStyle.set @loadingGif, "display", "none"
 			rt_scale: (state) ->
 				if state
 					domStyle.set @rtScaleContainer.domNode, "display", "block"
@@ -928,6 +944,7 @@ do ->
 			rt_scaleClose: ->
 				@rt_scaleButton.set "checked", false
 			rt_scaleTransform: ->
+				domStyle.set @loadingGif, "display", "block"
 				request
 					url: @imageServiceUrl + "/query"
 					content:
@@ -952,7 +969,11 @@ do ->
 									point.y += offsets[1]
 									point
 							gotoLocation: false
-							=> @rt_scaleClose()
+							=>
+								updateEndEvent = connect @imageServiceLayer, "onUpdateEnd", =>
+									disconnect updateEndEvent
+									@rt_scaleClose()
+									domStyle.set @loadingGif, "display", "none"
 					error: ({message}) => console.error message
 					(usePost: true)
 			rt_rotate: (state) ->
@@ -966,6 +987,7 @@ do ->
 			rt_rotateClose: ->
 				@rt_rotateButton.set "checked", false
 			rt_rotateTransform: ->
+				domStyle.set @loadingGif, "display", "block"
 				request
 					url: @imageServiceUrl + "/query"
 					content:
@@ -991,7 +1013,11 @@ do ->
 									point.y += offsets[1]
 									point
 							gotoLocation: false
-							=> @rt_rotateClose()
+							=>
+								updateEndEvent = connect @imageServiceLayer, "onUpdateEnd", =>
+									disconnect updateEndEvent
+									@rt_rotateClose()
+									domStyle.set @loadingGif, "display", "none"
 					error: ({message}) => console.error message
 					(usePost: true)
 			showRasterNotSelectedDialog: ->
