@@ -1049,6 +1049,9 @@
           mouseTipDownEvent = connect(query("body")[0], "onmousedown", function(e) {
             var point, _i, _len, _ref;
 
+            if (_this.toggleRasterLayerButton.hovering) {
+              return;
+            }
             if (currentState === "placingSourcePoint") {
               return currentState = "placingSourcePoint.1";
             }
@@ -1494,6 +1497,9 @@
             return domStyle.set(_this.mouseTip, "top", e.clientY + 20 + "px");
           });
           mouseTipDownEvent = connect(query("body")[0], "onmousedown", function(e) {
+            if (_this.toggleRasterLayerButton.hovering) {
+              return;
+            }
             if (currentState === "placingPoint") {
               return currentState = "placingPoint.1";
             }

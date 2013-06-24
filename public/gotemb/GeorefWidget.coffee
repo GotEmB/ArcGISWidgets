@@ -669,6 +669,7 @@ do ->
 						domStyle.set @mouseTip, "left", e.clientX + 20 + "px"
 						domStyle.set @mouseTip, "top", e.clientY + 20 + "px"
 					mouseTipDownEvent = connect query("body")[0], "onmousedown", (e) =>
+						return if @toggleRasterLayerButton.hovering
 						return currentState = "placingSourcePoint.1" if currentState is "placingSourcePoint"
 						return currentState = "placingTargetPoint.1" if currentState is "placingTargetPoint"
 						closeMouseTip?() unless e.which is 3
@@ -879,6 +880,7 @@ do ->
 						domStyle.set @mouseTip, "left", e.clientX + 20 + "px"
 						domStyle.set @mouseTip, "top", e.clientY + 20 + "px"
 					mouseTipDownEvent = connect query("body")[0], "onmousedown", (e) =>
+						return if @toggleRasterLayerButton.hovering
 						return currentState = "placingPoint.1" if currentState is "placingPoint"
 						closeMouseTip?() unless e.which is 3
 						@miscGraphicsLayer.remove thePoint
