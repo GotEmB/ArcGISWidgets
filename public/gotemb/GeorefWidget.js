@@ -82,6 +82,7 @@
       collectComputedTiepointsButton: null,
       computeAndTransformButton: null,
       loadingGif: null,
+      toggleRasterLayerButton: null,
       sourceSymbol: new SimpleMarkerSymbol(SimpleMarkerSymbol.STYLE_X, 10, new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new Color([20, 20, 180]), 2), new Color([0, 0, 0])),
       targetSymbol: new SimpleMarkerSymbol(SimpleMarkerSymbol.STYLE_X, 10, new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new Color([180, 20, 20]), 2), new Color([0, 0, 0])),
       selectedSourceSymbol: new SimpleMarkerSymbol(SimpleMarkerSymbol.STYLE_X, 16, new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new Color([20, 20, 180]), 3), new Color([0, 0, 0])),
@@ -496,7 +497,15 @@
             });
             return _this.asyncTaskDetailsPopup.focus();
           });
-          return window.self = _this;
+          window.self = _this;
+          return connect(document, "onkeydown", function(e) {
+            if (document.activeElement.tagName.toLowerCase() === "input" && document.activeElement.type.toLowerCase() === "text") {
+              return;
+            }
+            if (e.which === 82) {
+              return _this.toggleRasterLayerButton.set("checked", !_this.toggleRasterLayerButton.checked);
+            }
+          });
         });
       },
       refreshMosaicRule: function() {
@@ -1023,7 +1032,7 @@
         return _results;
       },
       addTiepoint: function(state) {
-        var closeMouseTip, currentState, mapDownEvent, mapDragEvent, mapUpEvent, mouseTipDownEvent, mouseTipMoveEvent, sourcePoint, targetPoint,
+        var closeMouseTip, contextMenuEvent, currentState, mapDownEvent, mapDragEvent, mapUpEvent, mouseTipDownEvent, mouseTipMoveEvent, sourcePoint, targetPoint,
           _this = this;
 
         if (state) {
@@ -1046,8 +1055,10 @@
             if (currentState === "placingTargetPoint") {
               return currentState = "placingTargetPoint.1";
             }
-            if (typeof closeMouseTip === "function") {
-              closeMouseTip();
+            if (e.which !== 3) {
+              if (typeof closeMouseTip === "function") {
+                closeMouseTip();
+              }
             }
             _ref = [sourcePoint, targetPoint];
             for (_i = 0, _len = _ref.length; _i < _len; _i++) {
@@ -1059,6 +1070,9 @@
             }
           });
           mapDownEvent = connect(this.map, "onMouseDown", function(e) {
+            if (e.which !== 1) {
+              return;
+            }
             return currentState = (function() {
               switch (currentState) {
                 case "started":
@@ -1091,7 +1105,7 @@
               });
               _this.tiepointsGrid.select(tiepoint);
               closeMouseTip();
-              return _this.addTiepointButton.set("checked", false);
+              return _this.addTiepoint(true);
             }
           });
           mapDragEvent = connect(this.map, "onMouseDrag", function(e) {
@@ -1106,12 +1120,19 @@
               }
             })();
           });
+          contextMenuEvent = connect(query("body")[0], "oncontextmenu", function(e) {
+            if (typeof closeMouseTip === "function") {
+              closeMouseTip();
+            }
+            return e.preventDefault();
+          });
           return closeMouseTip = function() {
             disconnect(mouseTipMoveEvent);
             disconnect(mouseTipDownEvent);
             disconnect(mapDownEvent);
             disconnect(mapUpEvent);
             disconnect(mapDragEvent);
+            disconnect(contextMenuEvent);
             domStyle.set(_this.mouseTip, "display", "none");
             _this.mouseTip.innerText = "...";
             _this.map.setMapCursor("default");
@@ -1392,7 +1413,7 @@
         });
       },
       rt_move: function(state) {
-        var button, theGrid, _i, _j, _k, _len, _len1, _len2, _ref, _ref1, _ref2, _results, _results1,
+        var button, theGrid, _i, _j, _k, _len, _len1, _len2, _ref, _ref1, _ref2, _results,
           _this = this;
 
         if (state) {
@@ -1403,10 +1424,9 @@
             button.set("checked", false);
           }
           _ref1 = [this.rtMoveFromGrid, this.rtMoveToGrid];
-          _results = [];
           for (_j = 0, _len1 = _ref1.length; _j < _len1; _j++) {
             theGrid = _ref1[_j];
-            _results.push(theGrid.set("onPointChanged", function() {
+            theGrid.set("onPointChanged", function() {
               var thePoint;
 
               thePoint = new Graphic(new Point({
@@ -1431,13 +1451,13 @@
                 });
               };
               return theGrid.graphic = thePoint;
-            }));
+            });
           }
-          return _results;
+          return this.rtMoveFromPick(true);
         } else {
           domStyle.set(this.rtMoveContainer.domNode, "display", "none");
           _ref2 = [this.rtMoveFromGrid, this.rtMoveToGrid];
-          _results1 = [];
+          _results = [];
           for (_k = 0, _len2 = _ref2.length; _k < _len2; _k++) {
             theGrid = _ref2[_k];
             theGrid.setPoint({
@@ -1448,16 +1468,16 @@
             if (theGrid.graphic != null) {
               this.miscGraphicsLayer.remove(theGrid.graphic);
             }
-            _results1.push(delete theGrid.graphic);
+            _results.push(delete theGrid.graphic);
           }
-          return _results1;
+          return _results;
         }
       },
       rt_moveClose: function() {
         return this.rt_moveButton.set("checked", false);
       },
       rtMovePick: function(_arg1) {
-        var closeMouseTip, currentState, mapDownEvent, mapDragEvent, mapUpEvent, mouseTipDownEvent, mouseTipMoveEvent, state, theButton, theGrid, thePoint, which,
+        var closeMouseTip, contextMenuEvent, currentState, mapDownEvent, mapDragEvent, mapUpEvent, mouseTipDownEvent, mouseTipMoveEvent, state, theButton, theGrid, thePoint, which,
           _this = this;
 
         which = _arg1.which, state = _arg1.state;
@@ -1467,7 +1487,7 @@
           thePoint = null;
           theButton = which === "from" ? this.rtMoveFromPickButton : this.rtMoveToPickButton;
           theGrid = which === "from" ? this.rtMoveFromGrid : this.rtMoveToGrid;
-          this.mouseTip.innerText = "Click to place " + (which === "from" ? "Source" : "Target") + " Point on the map.";
+          this.mouseTip.innerText = "Click to place " + (which === "from" ? "Source" : "Target") + " Point on the map.\nRight Click to cancel.";
           mouseTipMoveEvent = connect(query("body")[0], "onmousemove", function(e) {
             domStyle.set(_this.mouseTip, "display", "block");
             domStyle.set(_this.mouseTip, "left", e.clientX + 20 + "px");
@@ -1477,8 +1497,10 @@
             if (currentState === "placingPoint") {
               return currentState = "placingPoint.1";
             }
-            if (typeof closeMouseTip === "function") {
-              closeMouseTip();
+            if (e.which !== 3) {
+              if (typeof closeMouseTip === "function") {
+                closeMouseTip();
+              }
             }
             _this.miscGraphicsLayer.remove(thePoint);
             if (!theButton.hovering) {
@@ -1486,6 +1508,9 @@
             }
           });
           mapDownEvent = connect(this.map, "onMouseDown", function(e) {
+            if (e.which !== 1) {
+              return;
+            }
             if (currentState === "started") {
               return currentState = "placingPoint";
             }
@@ -1519,7 +1544,10 @@
               };
               theGrid.graphic = thePoint;
               closeMouseTip();
-              return theButton.set("checked", false);
+              theButton.set("checked", false);
+              if (theButton === _this.rtMoveFromPickButton) {
+                return _this.rtMoveToPickButton.set("checked", true);
+              }
             }
           });
           mapDragEvent = connect(this.map, "onMouseDrag", function(e) {
@@ -1532,12 +1560,19 @@
               }
             })();
           });
+          contextMenuEvent = connect(query("body")[0], "oncontextmenu", function(e) {
+            if (typeof closeMouseTip === "function") {
+              closeMouseTip();
+            }
+            return e.preventDefault();
+          });
           return closeMouseTip = function() {
             disconnect(mouseTipMoveEvent);
             disconnect(mouseTipDownEvent);
             disconnect(mapDownEvent);
             disconnect(mapUpEvent);
             disconnect(mapDragEvent);
+            disconnect(contextMenuEvent);
             domStyle.set(_this.mouseTip, "display", "none");
             _this.mouseTip.innerText = "...";
             _this.map.setMapCursor("default");

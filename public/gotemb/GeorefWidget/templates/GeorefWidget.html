@@ -83,7 +83,7 @@
 			</div>
 		</div>
 		<span data-dojo-type="dijit/ToolbarSeparator"></span>
-		<div data-dojo-type="dijit/form/ToggleButton" data-dojo-attach-event="onChange: toggleRasterLayer" data-dojo-props="checked: true">Toggle Raster Layer</div>
+		<div data-dojo-type="dijit/form/ToggleButton" data-dojo-attach-point="toggleRasterLayerButton" data-dojo-attach-event="onChange: toggleRasterLayer" data-dojo-props="checked: true" title="Keyboard Shortcut: R">Toggle Raster Layer</div>
 	</div>
 	<div data-dojo-type="dijit/layout/AccordionContainer" data-dojo-attach-point="selectRasterContainer" style="display: none">
 		<div data-dojo-type="dijit/layout/ContentPane" title="Rasters" style="padding: 0">
@@ -117,7 +117,7 @@
 	<div data-dojo-type="dijit/layout/AccordionContainer" data-dojo-attach-point="editTiepointsContainer" style="display: none">
 		<div data-dojo-type="dijit/layout/ContentPane" title="Edit Tiepoints" style="padding: 0">
 			<div data-dojo-type="dijit/Toolbar">
-				<div data-dojo-type="dijit/form/ToggleButton" data-dojo-attach-point="addTiepointButton" data-dojo-attach-event="onChange: addTiepoint">Add Point</div>
+				<div data-dojo-type="dijit/form/ToggleButton" data-dojo-attach-point="addTiepointButton" data-dojo-attach-event="onChange: addTiepoint">Add Points</div>
 				<div data-dojo-type="dijit/form/DropDownButton">
 					<span>Selection</span>
 					<div data-dojo-type="dijit/Menu">

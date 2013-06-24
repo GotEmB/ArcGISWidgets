@@ -125,6 +125,7 @@ do ->
 			collectComputedTiepointsButton: null
 			computeAndTransformButton: null
 			loadingGif: null
+			toggleRasterLayerButton: null
 			sourceSymbol:
 				new SimpleMarkerSymbol(
 					SimpleMarkerSymbol.STYLE_X
@@ -404,6 +405,10 @@ do ->
 							orient: ["above", "below"]
 						@asyncTaskDetailsPopup.focus()
 					window.self = @
+					connect document, "onkeydown", (e) =>
+						return if document.activeElement.tagName.toLowerCase() is "input" and document.activeElement.type.toLowerCase() is "text"
+						if e.which == 82
+							@toggleRasterLayerButton.set "checked", not @toggleRasterLayerButton.checked
 			refreshMosaicRule: ->
 				@imageServiceLayer.setMosaicRule extend(
 					new MosaicRule
@@ -666,10 +671,11 @@ do ->
 					mouseTipDownEvent = connect query("body")[0], "onmousedown", (e) =>
 						return currentState = "placingSourcePoint.1" if currentState is "placingSourcePoint"
 						return currentState = "placingTargetPoint.1" if currentState is "placingTargetPoint"
-						closeMouseTip?()
+						closeMouseTip?() unless e.which is 3
 						@tiepointsLayer.remove point for point in [sourcePoint, targetPoint]
 						@addTiepointButton.set "checked", false unless @addTiepointButton.hovering
 					mapDownEvent = connect @map, "onMouseDown", (e) =>
+						return unless e.which is 1
 						currentState = switch currentState
 							when "started" then "placingSourcePoint"
 							when "placedSourcePoint" then "placingTargetPoint"
@@ -690,18 +696,22 @@ do ->
 								targetPoint: targetPoint
 							@tiepointsGrid.select tiepoint
 							closeMouseTip()
-							@addTiepointButton.set "checked", false
+							@addTiepoint true
 					mapDragEvent = connect @map, "onMouseDrag", (e) =>
 						currentState = switch currentState
 							when "placingSourcePoint.1" then "started"
 							when "placingTargetPoint.1" then "placingTargetPoint"
 							else currentState
+					contextMenuEvent = connect query("body")[0], "oncontextmenu", (e) =>
+						closeMouseTip?()
+						e.preventDefault()
 					closeMouseTip = =>
 						disconnect mouseTipMoveEvent
 						disconnect mouseTipDownEvent
 						disconnect mapDownEvent
 						disconnect mapUpEvent
 						disconnect mapDragEvent
+						disconnect contextMenuEvent
 						domStyle.set @mouseTip, "display", "none"
 						@mouseTip.innerText = "..."
 						@map.setMapCursor "default"
@@ -846,6 +856,7 @@ do ->
 							thePoint.pointChanged = =>
 								theGrid.setPoint x: thePoint.geometry.x, y: thePoint.geometry.y
 							theGrid.graphic = thePoint
+					@rtMoveFromPick true
 				else
 					domStyle.set @rtMoveContainer.domNode, "display", "none"
 					for theGrid in [@rtMoveFromGrid, @rtMoveToGrid]
@@ -862,17 +873,18 @@ do ->
 					thePoint = null
 					theButton = if which is "from" then @rtMoveFromPickButton else @rtMoveToPickButton
 					theGrid = if which is "from" then @rtMoveFromGrid else @rtMoveToGrid
-					@mouseTip.innerText = "Click to place #{if which is "from" then "Source" else "Target"} Point on the map."
+					@mouseTip.innerText = "Click to place #{if which is "from" then "Source" else "Target"} Point on the map.\nRight Click to cancel."
 					mouseTipMoveEvent = connect query("body")[0], "onmousemove", (e) =>
 						domStyle.set @mouseTip, "display", "block"
 						domStyle.set @mouseTip, "left", e.clientX + 20 + "px"
 						domStyle.set @mouseTip, "top", e.clientY + 20 + "px"
 					mouseTipDownEvent = connect query("body")[0], "onmousedown", (e) =>
 						return currentState = "placingPoint.1" if currentState is "placingPoint"
-						closeMouseTip?()
+						closeMouseTip?() unless e.which is 3
 						@miscGraphicsLayer.remove thePoint
 						theButton.set "checked", false unless theButton.hovering
 					mapDownEvent = connect @map, "onMouseDown", (e) =>
+						return unless e.which is 1
 						currentState = "placingPoint" if currentState is "started"
 					mapUpEvent = connect @map, "onMouseUp", (e) =>
 						if currentState is "placingPoint.1"
@@ -891,16 +903,21 @@ do ->
 							theGrid.graphic = thePoint
 							closeMouseTip()
 							theButton.set "checked", false
+							@rtMoveToPickButton.set "checked", true if theButton is @rtMoveFromPickButton
 					mapDragEvent = connect @map, "onMouseDrag", (e) =>
 						currentState = switch currentState
 							when "placingPoint.1" then "started"
 							else currentState
+					contextMenuEvent = connect query("body")[0], "oncontextmenu", (e) =>
+						closeMouseTip?()
+						e.preventDefault()
 					closeMouseTip = =>
 						disconnect mouseTipMoveEvent
 						disconnect mouseTipDownEvent
 						disconnect mapDownEvent
 						disconnect mapUpEvent
 						disconnect mapDragEvent
+						disconnect contextMenuEvent
 						domStyle.set @mouseTip, "display", "none"
 						@mouseTip.innerText = "..."
 						@map.setMapCursor "default"
