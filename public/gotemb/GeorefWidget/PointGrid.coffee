@@ -14,12 +14,12 @@ define [
 		xInput: null
 		yInput: null
 		postCreate: ->
-			@xInput.value = @x
-			@yInput.value = @y
+			@x = Number @xInput.value = (Number @x).toFixed 1
+			@y = Number @yInput.value = (Number @y).toFixed 1
 		valueChanged: ->
-			@x = Number @xInput.value
-			@y = Number @yInput.value
+			@x = Number @xInput.value = (Number @xInput.value).toFixed 1
+			@y = Number @yInput.value = (Number @yInput.value).toFixed 1
 			@onPointChanged? x: @x, y: @y
 		setPoint: ({x, y})->
-			@x = @xInput.value = x
-			@y = @yInput.value = y
+			@x = Number @xInput.value = (Number x).toFixed 1
+			@y = Number @yInput.value = (Number y).toFixed 1

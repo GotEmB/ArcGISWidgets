@@ -100,18 +100,15 @@ td.field-id {
   background-color: #fff;
 }
 .PointGrid td:first-child {
-  background-color: #eee;
-  padding: 3px;
-  width: 16px;
-  text-align: center;
   border-right: solid 1px #ddd;
 }
 .PointGrid td input {
   margin: 0;
   width: 100%;
   border: none;
-  padding: 0;
+  padding: 2px 0;
   font-size: 1em;
+  text-align: right;
 }
 .dijitAccordionContainer-dijitContentPane .dijitDialogPaneActionBar {
   margin: 9px -9px -9px;

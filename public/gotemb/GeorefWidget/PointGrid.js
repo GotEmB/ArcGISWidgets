@@ -9,12 +9,12 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
     xInput: null,
     yInput: null,
     postCreate: function() {
-      this.xInput.value = this.x;
-      return this.yInput.value = this.y;
+      this.x = Number(this.xInput.value = (Number(this.x)).toFixed(1));
+      return this.y = Number(this.yInput.value = (Number(this.y)).toFixed(1));
     },
     valueChanged: function() {
-      this.x = Number(this.xInput.value);
-      this.y = Number(this.yInput.value);
+      this.x = Number(this.xInput.value = (Number(this.xInput.value)).toFixed(1));
+      this.y = Number(this.yInput.value = (Number(this.yInput.value)).toFixed(1));
       return typeof this.onPointChanged === "function" ? this.onPointChanged({
         x: this.x,
         y: this.y
@@ -24,8 +24,8 @@ define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dij
       var x, y;
 
       x = _arg.x, y = _arg.y;
-      this.x = this.xInput.value = x;
-      return this.y = this.yInput.value = y;
+      this.x = Number(this.xInput.value = (Number(x)).toFixed(1));
+      return this.y = Number(this.yInput.value = (Number(y)).toFixed(1));
     }
   });
 });
