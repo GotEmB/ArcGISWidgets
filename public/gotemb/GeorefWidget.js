@@ -89,6 +89,17 @@
       targetSymbol: new SimpleMarkerSymbol(SimpleMarkerSymbol.STYLE_X, 10, new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new Color([180, 20, 20]), 2), new Color([0, 0, 0])),
       selectedSourceSymbol: new SimpleMarkerSymbol(SimpleMarkerSymbol.STYLE_X, 16, new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new Color([20, 20, 180]), 3), new Color([0, 0, 0])),
       selectedTargetSymbol: new SimpleMarkerSymbol(SimpleMarkerSymbol.STYLE_X, 16, new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new Color([180, 20, 20]), 3), new Color([0, 0, 0])),
+      scrollToElement: function(element) {
+        var elemNL, prevNL;
+
+        elemNL = query(element).closest(".dgrid-row");
+        if ((prevNL = elemNL.prev()).length === 0 || prevNL[0].classList.contains("dgrid-preload")) {
+          elemNL.parent().parent()[0].scrollTop = 0;
+        } else {
+          win.scrollIntoView(prevNL[0]);
+        }
+        return win.scrollIntoView(element);
+      },
       postCreate: function() {
         var corsEnabledServers, imageServiceAuthority, onceDone,
           _this = this;
@@ -118,7 +129,11 @@
               editor({
                 label: " ",
                 field: "display",
-                editor: CheckBox
+                editor: CheckBox,
+                editorArgs: {
+                  title: "Toggle Visibility"
+                },
+                sortable: false
               }), {
                 label: "Id",
                 field: "rasterId",
@@ -145,10 +160,8 @@
             var rows;
 
             rows = _arg1.rows;
-            if (_this.currentId === rows[0].data.rasterId) {
-              return;
-            }
             _this.currentId = rows[0].data.rasterId;
+            _this.scrollToElement(rows[0].element);
             return request({
               url: _this.imageServiceUrl + "/query",
               content: {
@@ -216,7 +229,7 @@
                   value.gotoPointGrid = function() {
                     var mouseUpEvent, tdId;
 
-                    win.scrollIntoView(pointGrid.domNode);
+                    _this.scrollToElement(pointGrid.domNode);
                     tdId = new query.NodeList(pointGrid.domNode).parent().parent().children().first();
                     tdId.addClass("yellow");
                     return mouseUpEvent = connect(_this.tiepointsLayer, "onMouseUp", function() {
@@ -255,7 +268,7 @@
                   value.gotoPointGrid = function() {
                     var mouseUpEvent, tdId;
 
-                    win.scrollIntoView(pointGrid.domNode);
+                    _this.scrollToElement(pointGrid.domNode);
                     tdId = new query.NodeList(pointGrid.domNode).parent().parent().children().first();
                     tdId.addClass("yellow");
                     return mouseUpEvent = connect(_this.tiepointsLayer, "onMouseUp", function() {
@@ -267,19 +280,9 @@
                 }
               }
             ],
-            store: _this.tiepoints,
-            selectionMode: "none"
+            store: _this.tiepoints
           }, _this.tiepointsGrid);
           _this.tiepointsGrid.startup();
-          _this.tiepointsGrid.on(".field-id:click", function(e) {
-            var row;
-
-            if (_this.tiepointsGrid.isSelected(row = _this.tiepointsGrid.cell(e).row)) {
-              return _this.tiepointsGrid.deselect(row);
-            } else {
-              return _this.tiepointsGrid.select(row);
-            }
-          });
           _this.tiepointsGrid.on("dgrid-select", function(_arg1) {
             var row, rows, _i, _len, _results;
 
@@ -378,6 +381,7 @@
             if (domStyle.get(_this.selectRasterContainer.domNode, "display") !== "block") {
               return;
             }
+            domStyle.set(_this.loadingGif, "display", "block");
             rtc = (function() {
               var _i, _len, _ref, _results;
 
@@ -406,6 +410,7 @@
                 },
                 handleAs: "json",
                 load: function(response) {
+                  domStyle.set(_this.loadingGif, "display", "none");
                   if (new Polygon(response.features[0].geometry).contains(e.mapPoint)) {
                     _this.rastersGrid.clearSelection();
                     return _this.rastersGrid.select(row);
@@ -465,9 +470,10 @@
             };
             for (label in _ref) {
               value = _ref[label];
-              _this[label].innerText = (_ref1 = row.data[value]) != null ? _ref1 : "--";
+              _this[label].innerHTML = (_ref1 = row.data[value]) != null ? _ref1 : "--";
             }
             domStyle.set(_this.atdpContinueButton.domNode, "display", row.data.callback != null ? "inline-block" : "none");
+            domStyle.set(_this.atdpRemoveButton.domNode, "display", row.data.status === "Pending" ? "none" : "block");
             _this.atdpContinueButton.set("label", (_ref2 = row.data.callbackLabel) != null ? _ref2 : "Continue Task");
             _this.atdpContinueEvent = function() {
               var atdpOnceDone, selectAspect, _base;
@@ -510,10 +516,12 @@
           });
         });
       },
-      refreshMosaicRule: function() {
-        var raster;
+      refreshMosaicRule: function(callback) {
+        var raster, updateEvent,
+          _this = this;
 
-        return this.imageServiceLayer.setMosaicRule(extend(new MosaicRule, {
+        domStyle.set(this.loadingGif, "display", "block");
+        this.imageServiceLayer.setMosaicRule(extend(new MosaicRule, {
           method: MosaicRule.METHOD_LOCKRASTER,
           lockRasterIds: (function() {
             var _i, _len, _ref, _results;
@@ -533,6 +541,11 @@
             }
           }).call(this)
         }));
+        return updateEvent = connect(this.imageServiceLayer, "onUpdateEnd", function() {
+          disconnect(updateEvent);
+          domStyle.set(_this.loadingGif, "display", "none");
+          return typeof callback === "function" ? callback() : void 0;
+        });
       },
       loadRastersList: function(callback) {
         var _this = this;
@@ -681,53 +694,6 @@
         }, {
           usePost: true
         });
-      },
-      computeAndTransform: function() {
-        var _this = this;
-
-        if (this.currentId == null) {
-          return this.showRasterNotSelectedDialog();
-        }
-        this.confirmActionPopupContinueEvent = function() {
-          var asyncTask;
-
-          _this.confirmActionPopupClose();
-          _this.asyncResults.put(asyncTask = {
-            resultId: (Math.max.apply(Math, _this.asyncResults.data.map(function(x) {
-              return x.resultId;
-            }).concat(0))) + 1,
-            task: "Match raster with reference layer",
-            rasterId: _this.currentId,
-            status: "Pending",
-            startTime: (new Date).toLocaleString()
-          });
-          if (domStyle.get(_this.selectRasterContainer.domNode, "display") === "block") {
-            domStyle.set(_this.asyncResultsContainer.domNode, "display", "block");
-          }
-          _this.asyncResultsGrid.select(asyncTask);
-          return _this.computeTiePoints(function(_arg1) {
-            var error, tiePoints;
-
-            tiePoints = _arg1.tiePoints, error = _arg1.error;
-            extend(asyncTask, {
-              status: error != null ? "Failed" : "Completed",
-              endTime: (new Date).toLocaleString(),
-              callback: error == null ? function() {} : void 0,
-              callbackLabel: error == null ? "View Raster" : void 0
-            });
-            _this.asyncResults.notify(asyncTask, asyncTask.resultId);
-            return _this.applyTransform({
-              tiePoints: tiePoints,
-              gotoLocation: false
-            });
-          });
-        };
-        popup.open({
-          popup: this.confirmActionPopup,
-          around: this.computeAndTransformButton.domNode,
-          orient: ["below", "above"]
-        });
-        return this.confirmActionPopup.focus();
       },
       applyTransform: function(_arg1, callback) {
         var gotoLocation, point, tiePoints,
@@ -969,7 +935,7 @@
         popup.open({
           popup: this.confirmActionPopup,
           around: this.collectComputedTiepointsButton.domNode,
-          orient: ["below", "above"]
+          orient: ["above", "below"]
         });
         return this.confirmActionPopup.focus();
       },
@@ -1042,7 +1008,7 @@
           this.map.setMapCursor("crosshair");
           sourcePoint = null;
           targetPoint = null;
-          this.mouseTip.innerText = "Click to place Source Point on the map.\nRight Click to cancel.";
+          this.mouseTip.innerHTML = "Click to place Source Point on the map.<br>Right Click to cancel.";
           mouseTipMoveEvent = connect(query("body")[0], "onmousemove", function(e) {
             domStyle.set(_this.mouseTip, "display", "block");
             domStyle.set(_this.mouseTip, "left", e.clientX + 20 + "px");
@@ -1096,7 +1062,7 @@
               currentState = "placedSourcePoint";
               sourcePoint = new Graphic(e.mapPoint, _this.sourceSymbol);
               _this.tiepointsLayer.add(sourcePoint);
-              return _this.mouseTip.innerText = "Click to place Target Point on the map.\nRight Click to cancel.";
+              return _this.mouseTip.innerHTML = "Click to place Target Point on the map.<br>Right Click to cancel.";
             } else if (currentState === "placingTargetPoint.1") {
               currentState = "placedTargetPoint";
               targetPoint = new Graphic(e.mapPoint, _this.targetSymbol);
@@ -1108,7 +1074,6 @@
                 sourcePoint: sourcePoint,
                 targetPoint: targetPoint
               });
-              _this.tiepointsGrid.select(tiepoint);
               closeMouseTip();
               return _this.addTiepoint(true);
             }
@@ -1139,7 +1104,7 @@
             disconnect(mapDragEvent);
             disconnect(contextMenuEvent);
             domStyle.set(_this.mouseTip, "display", "none");
-            _this.mouseTip.innerText = "...";
+            _this.mouseTip.innerHTML = "...";
             _this.map.setMapCursor("default");
             return currentState = "placedTiepoint";
           };
@@ -1492,7 +1457,7 @@
           thePoint = null;
           theButton = which === "from" ? this.rtMoveFromPickButton : this.rtMoveToPickButton;
           theGrid = which === "from" ? this.rtMoveFromGrid : this.rtMoveToGrid;
-          this.mouseTip.innerText = "Click to place " + (which === "from" ? "Source" : "Target") + " Point on the map.\nRight Click to cancel.";
+          this.mouseTip.innerHTML = "Click to place " + (which === "from" ? "Source" : "Target") + " Point on the map.<br>Right Click to cancel.";
           mouseTipMoveEvent = connect(query("body")[0], "onmousemove", function(e) {
             domStyle.set(_this.mouseTip, "display", "block");
             domStyle.set(_this.mouseTip, "left", e.clientX + 20 + "px");
@@ -1582,7 +1547,7 @@
             disconnect(mapDragEvent);
             disconnect(contextMenuEvent);
             domStyle.set(_this.mouseTip, "display", "none");
-            _this.mouseTip.innerText = "...";
+            _this.mouseTip.innerHTML = "...";
             _this.map.setMapCursor("default");
             return currentState = "placedMovePoint";
           };
@@ -1902,6 +1867,18 @@
       },
       atdpContinue: function() {
         return typeof this.atdpContinueEvent === "function" ? this.atdpContinueEvent() : void 0;
+      },
+      atdpRemove: function() {
+        var bool, rowId, _ref;
+
+        _ref = this.asyncResultsGrid.selection;
+        for (rowId in _ref) {
+          bool = _ref[rowId];
+          if (bool) {
+            this.asyncResults.remove(rowId);
+          }
+        }
+        return this.atdpClose();
       },
       confirmActionPopupClose: function() {
         return popup.close(this.confirmActionPopup);

@@ -172,6 +172,13 @@ do ->
 					)
 					new Color [0, 0, 0]
 				)
+			scrollToElement: (element) ->
+				elemNL = query(element).closest(".dgrid-row")
+				if (prevNL = elemNL.prev()).length is 0 or prevNL[0].classList.contains "dgrid-preload"
+					elemNL.parent().parent()[0].scrollTop = 0
+				else
+					win.scrollIntoView prevNL[0]
+				win.scrollIntoView element
 			postCreate: ->
 				imageServiceAuthority = new Url(@imageServiceUrl).authority
 				corsEnabledServers = esri.config.defaults.io.corsEnabledServers
@@ -189,6 +196,8 @@ do ->
 								label: " "
 								field: "display"
 								editor: CheckBox
+								editorArgs: title: "Toggle Visibility"
+								sortable: false
 						,	
 							label: "Id"
 							field: "rasterId"
@@ -209,8 +218,8 @@ do ->
 						@rastersGrid.clearSelection()
 						@rastersGrid.select @rastersGrid.cell(e).row
 					@rastersGrid.on "dgrid-select", ({rows}) =>
-						return if @currentId is rows[0].data.rasterId
 						@currentId = rows[0].data.rasterId
+						@scrollToElement rows[0].element
 						request
 							url: @imageServiceUrl + "/query"
 							content:
@@ -248,7 +257,7 @@ do ->
 								value.pointChanged = =>
 									pointGrid.setPoint x: value.geometry.x, y: value.geometry.y
 								value.gotoPointGrid = =>
-									win.scrollIntoView pointGrid.domNode
+									@scrollToElement pointGrid.domNode
 									tdId = new query.NodeList(pointGrid.domNode).parent().parent().children().first()
 									tdId.addClass "yellow"
 									mouseUpEvent = connect @tiepointsLayer, "onMouseUp", =>
@@ -271,7 +280,7 @@ do ->
 								value.pointChanged = =>
 									pointGrid.setPoint x: value.geometry.x, y: value.geometry.y
 								value.gotoPointGrid = =>
-									win.scrollIntoView pointGrid.domNode
+									@scrollToElement pointGrid.domNode
 									tdId = new query.NodeList(pointGrid.domNode).parent().parent().children().first()
 									tdId.addClass "yellow"
 									mouseUpEvent = connect @tiepointsLayer, "onMouseUp", =>
@@ -280,14 +289,8 @@ do ->
 								pointGrid.domNode
 						]
 						store: @tiepoints
-						selectionMode: "none"
 						@tiepointsGrid
 					@tiepointsGrid.startup()
-					@tiepointsGrid.on ".field-id:click", (e) =>
-						if @tiepointsGrid.isSelected row = @tiepointsGrid.cell(e).row
-							@tiepointsGrid.deselect row
-						else
-							@tiepointsGrid.select row
 					@tiepointsGrid.on "dgrid-select", ({rows}) =>
 						@toggleTiepointsSelectionMenuItem.set "label", "Clear Selection"
 						domStyle.set @removeSelectedTiepointsMenuItem.domNode, "display", "table-row"
@@ -335,6 +338,7 @@ do ->
 						@map.enablePan()
 					connect @map, "onClick", (e) =>
 						return unless domStyle.get(@selectRasterContainer.domNode, "display") is "block"
+						domStyle.set @loadingGif, "display", "block"
 						rtc = (row for row in @rasters.data when row.display)
 						do rec = =>
 							return if rtc.length is 0
@@ -348,6 +352,7 @@ do ->
 									f: "json"
 								handleAs: "json"
 								load: (response) =>
+									domStyle.set @loadingGif, "display", "none"
 									if new Polygon(response.features[0].geometry).contains e.mapPoint
 										@rastersGrid.clearSelection()
 										@rastersGrid.select row
@@ -386,8 +391,9 @@ do ->
 							atdpStartTime: "startTime"
 							atdpEndTime: "endTime"
 						}
-							@[label].innerText = row.data[value] ? "--"
+							@[label].innerHTML = row.data[value] ? "--"
 						domStyle.set @atdpContinueButton.domNode, "display", if row.data.callback? then "inline-block" else "none"
+						domStyle.set @atdpRemoveButton.domNode, "display", if row.data.status is "Pending" then "none" else "block"
 						@atdpContinueButton.set "label", row.data.callbackLabel ? "Continue Task"
 						@atdpContinueEvent = =>
 							@atdpClose()
@@ -411,7 +417,8 @@ do ->
 						return if document.activeElement.tagName.toLowerCase() is "input" and document.activeElement.type.toLowerCase() is "text"
 						if e.which == 82
 							@toggleRasterLayerButton.set "checked", not @toggleRasterLayerButton.checked
-			refreshMosaicRule: ->
+			refreshMosaicRule: (callback) ->
+				domStyle.set @loadingGif, "display", "block"
 				@imageServiceLayer.setMosaicRule extend(
 					new MosaicRule
 					method: MosaicRule.METHOD_LOCKRASTER
@@ -421,6 +428,10 @@ do ->
 						else
 							[@currentId]
 				)
+				updateEvent = connect @imageServiceLayer, "onUpdateEnd", =>
+					disconnect updateEvent
+					domStyle.set @loadingGif, "display", "none"
+					callback?()
 			loadRastersList: (callback) ->
 				request
 					url: @imageServiceUrl + "/query"
@@ -504,31 +515,6 @@ do ->
 						@asyncResults.notify asyncTask, asyncTask.resultId
 						console.error message
 					(usePost: true)
-			computeAndTransform: ->
-				return @showRasterNotSelectedDialog() unless @currentId?
-				@confirmActionPopupContinueEvent = =>
-					@confirmActionPopupClose()
-					@asyncResults.put asyncTask =
-						resultId: (Math.max @asyncResults.data.map((x) -> x.resultId).concat(0)...) + 1
-						task: "Match raster with reference layer"
-						rasterId: @currentId
-						status: "Pending"
-						startTime: (new Date).toLocaleString()
-					domStyle.set @asyncResultsContainer.domNode, "display", "block" if domStyle.get(@selectRasterContainer.domNode, "display") is "block"
-					@asyncResultsGrid.select asyncTask
-					@computeTiePoints ({tiePoints, error}) =>
-						extend asyncTask,
-							status: if error? then "Failed" else "Completed"
-							endTime: (new Date).toLocaleString()
-							callback: unless error? then =>
-							callbackLabel: "View Raster" unless error?
-						@asyncResults.notify asyncTask, asyncTask.resultId
-						@applyTransform tiePoints: tiePoints, gotoLocation: false
-				popup.open
-					popup: @confirmActionPopup
-					around: @computeAndTransformButton.domNode
-					orient: ["below", "above"]
-				@confirmActionPopup.focus()
 			applyTransform: ({tiePoints, gotoLocation}, callback) ->
 				gotoLocation ?= true
 				request
@@ -635,7 +621,7 @@ do ->
 				popup.open
 					popup: @confirmActionPopup
 					around: @collectComputedTiepointsButton.domNode
-					orient: ["below", "above"]
+					orient: ["above", "below"]
 				@confirmActionPopup.focus()
 			closeEditTiepoints: ->
 				@tiepointsLayer.clear()
@@ -665,7 +651,7 @@ do ->
 					@map.setMapCursor "crosshair"
 					sourcePoint = null
 					targetPoint = null
-					@mouseTip.innerText = "Click to place Source Point on the map.\nRight Click to cancel."
+					@mouseTip.innerHTML = "Click to place Source Point on the map.<br>Right Click to cancel."
 					mouseTipMoveEvent = connect query("body")[0], "onmousemove", (e) =>
 						domStyle.set @mouseTip, "display", "block"
 						domStyle.set @mouseTip, "left", e.clientX + 20 + "px"
@@ -688,7 +674,7 @@ do ->
 							currentState = "placedSourcePoint"
 							sourcePoint = new Graphic e.mapPoint, @sourceSymbol
 							@tiepointsLayer.add sourcePoint
-							@mouseTip.innerText = "Click to place Target Point on the map.\nRight Click to cancel."
+							@mouseTip.innerHTML = "Click to place Target Point on the map.<br>Right Click to cancel."
 						else if currentState is "placingTargetPoint.1"
 							currentState = "placedTargetPoint"
 							targetPoint = new Graphic e.mapPoint, @targetSymbol
@@ -697,7 +683,6 @@ do ->
 								id: lastId = Math.max(@tiepoints.data.map((x) => x.id).concat(0)...) + 1
 								sourcePoint: sourcePoint
 								targetPoint: targetPoint
-							@tiepointsGrid.select tiepoint
 							closeMouseTip()
 							@addTiepoint true
 					mapDragEvent = connect @map, "onMouseDrag", (e) =>
@@ -716,7 +701,7 @@ do ->
 						disconnect mapDragEvent
 						disconnect contextMenuEvent
 						domStyle.set @mouseTip, "display", "none"
-						@mouseTip.innerText = "..."
+						@mouseTip.innerHTML = "..."
 						@map.setMapCursor "default"
 						currentState = "placedTiepoint"
 			removeSelectedTiepoints: ->
@@ -876,7 +861,7 @@ do ->
 					thePoint = null
 					theButton = if which is "from" then @rtMoveFromPickButton else @rtMoveToPickButton
 					theGrid = if which is "from" then @rtMoveFromGrid else @rtMoveToGrid
-					@mouseTip.innerText = "Click to place #{if which is "from" then "Source" else "Target"} Point on the map.\nRight Click to cancel."
+					@mouseTip.innerHTML = "Click to place #{if which is "from" then "Source" else "Target"} Point on the map.<br>Right Click to cancel."
 					mouseTipMoveEvent = connect query("body")[0], "onmousemove", (e) =>
 						domStyle.set @mouseTip, "display", "block"
 						domStyle.set @mouseTip, "left", e.clientX + 20 + "px"
@@ -923,7 +908,7 @@ do ->
 						disconnect mapDragEvent
 						disconnect contextMenuEvent
 						domStyle.set @mouseTip, "display", "none"
-						@mouseTip.innerText = "..."
+						@mouseTip.innerHTML = "..."
 						@map.setMapCursor "default"
 						currentState = "placedMovePoint"
 			rtMoveFromPick: (state) ->
@@ -1081,6 +1066,10 @@ do ->
 				@asyncResultsGrid.clearSelection()
 			atdpContinue: ->
 				@atdpContinueEvent?()
+			atdpRemove: ->
+				for rowId, bool of @asyncResultsGrid.selection when bool
+					@asyncResults.remove rowId #...
+				@atdpClose()
 			confirmActionPopupClose: ->
 				popup.close @confirmActionPopup
 			confirmActionPopupContinue: ->

@@ -57,6 +57,7 @@
 			</tr>
 		</table>
 		<div class="dijitDialogPaneActionBar">
+			<button data-dojo-type="dijit/form/Button" type="button" data-dojo-attach-point="atdpRemoveButton" data-dojo-attach-event="onClick: atdpRemove" style="float: left">Remove</button>
 			<button data-dojo-type="dijit/form/Button" type="button" data-dojo-attach-point="atdpContinueButton" data-dojo-attach-event="onClick: atdpContinue">Continue Task</button>
 			<button data-dojo-type="dijit/form/Button" type="button" data-dojo-attach-event="onClick: atdpClose">Close</button>
 		</div>
@@ -105,17 +106,12 @@
 			<table style="width: 100%">
 				<tr>
 					<td style="height: 25px; vertical-align: middle; text-align: center">
-						<button class="fixedWidth250" data-dojo-type="dijit/form/Button" style="margin-top: 0; margin-bottom: 0; margin-right: 0" data-dojo-attach-event="onClick: openRoughTransform">Manual Transform</button>
+						<button class="fixedWidth250" data-dojo-type="dijit/form/Button" style="margin-top: 0; margin-bottom: 0; margin-right: 0" data-dojo-attach-event="onClick: openRoughTransform">Affine Transform</button>
 					</td>
 				</tr>
 				<tr>
 					<td style="height: 25px; vertical-align: middle; text-align: center">
-						<button class="fixedWidth250" data-dojo-type="dijit/form/Button" style="margin-top: 0; margin-bottom: 0; margin-right: 0" data-dojo-attach-point="computeAndTransformButton" data-dojo-attach-event="onClick: computeAndTransform">Match Raster With Reference Layer</button>
-					</td>
-				</tr>
-				<tr>
-					<td style="height: 25px; vertical-align: middle; text-align: center">
-						<button class="fixedWidth250" data-dojo-type="dijit/form/Button" style="margin-top: 0; margin-bottom: 0; margin-right: 0" data-dojo-attach-event="onClick: startEditTiepoints">Manually Edit Tiepoints</button>
+						<button class="fixedWidth250" data-dojo-type="dijit/form/Button" style="margin-top: 0; margin-bottom: 0; margin-right: 0" data-dojo-attach-event="onClick: startEditTiepoints">Edit Tiepoints</button>
 					</td>
 				</tr>
 			</table>
@@ -129,15 +125,14 @@
 					<span>Selection</span>
 					<div data-dojo-type="dijit/Menu">
 						<div data-dojo-type="dijit/MenuItem" data-dojo-attach-point="toggleTiepointsSelectionMenuItem" data-dojo-attach-event="onClick: toggleTiepointsSelection">Select All</div>
-						<div data-dojo-type="dijit/MenuItem" data-dojo-attach-point="resetSelectedTiepointsMenuItem" data-dojo-attach-event="onClick: resetSelectedTiepoints">Reset Selected Tiepoints</div>
-						<div data-dojo-type="dijit/MenuItem" data-dojo-attach-point="removeSelectedTiepointsMenuItem" data-dojo-attach-event="onClick: removeSelectedTiepoints">Remove Selected Tiepoints</div>
+						<div data-dojo-type="dijit/MenuItem" data-dojo-attach-point="resetSelectedTiepointsMenuItem" data-dojo-attach-event="onClick: resetSelectedTiepoints" style="display: none">Reset Selected Tiepoints</div>
+						<div data-dojo-type="dijit/MenuItem" data-dojo-attach-point="removeSelectedTiepointsMenuItem" data-dojo-attach-event="onClick: removeSelectedTiepoints" style="display: none">Remove Selected Tiepoints</div>
 					</div>
 				</div>
-				<span data-dojo-type="dijit/ToolbarSeparator"></span>
-				<div data-dojo-type="dijit/form/Button" data-dojo-attach-point="collectComputedTiepointsButton" data-dojo-attach-event="onClick: collectComputedTiepoints">Autodetect Tiepoints</div>
 			</div>
 			<div data-dojo-attach-point="tiepointsGrid" style="height: 300px"></div>
 			<div class="dijitDialogPaneActionBar">
+				<button data-dojo-type="dijit/form/Button" data-dojo-attach-point="collectComputedTiepointsButton" data-dojo-attach-event="onClick: collectComputedTiepoints" style="float: left">Autodetect Tiepoints</button>
 				<button data-dojo-type="dijit/form/Button" type="button" data-dojo-attach-event="onClick: closeEditTiepoints">Cancel</button>
 				<button data-dojo-type="dijit/form/Button" type="button" data-dojo-attach-event="onClick: applyManualTransform">Apply Transform</button>
 			</div>

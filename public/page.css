@@ -97,7 +97,7 @@ td.field-id {
 .PointGrid td {
   padding: 0 3px;
   font-size: 0.9em;
-  background-color: #fff;
+  background-color: rgba(255,255,255,0.5);
 }
 .PointGrid td:first-child {
   border-right: solid 1px #ddd;
@@ -109,6 +109,7 @@ td.field-id {
   padding: 2px 0;
   font-size: 1em;
   text-align: right;
+  background-color: transparent;
 }
 .dijitAccordionContainer-dijitContentPane .dijitDialogPaneActionBar {
   margin: 9px -9px -9px;
