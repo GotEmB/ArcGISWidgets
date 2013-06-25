@@ -97,6 +97,14 @@
 		<div data-dojo-type="dijit/layout/ContentPane" title="Rasters" style="padding: 0">
 			<div data-dojo-type="dijit/Toolbar">
 				<div data-dojo-type="dijit/form/Button" data-dojo-attach-event="onClick: showAddRasterDialog">Add Raster</div>
+				<span data-dojo-type="dijit/ToolbarSeparator"></span>
+				<div data-dojo-type="dijit/form/DropDownButton">
+					<span>Visibility</span>
+					<div data-dojo-type="dijit/Menu" data-dojo-attach-point="rastersDisplayMenu">
+						<div data-dojo-type="dijit/MenuItem" data-dojo-attach-event="onClick: rastersDisplay_enableAll">Enable All</div>
+						<div data-dojo-type="dijit/MenuItem" data-dojo-attach-event="onClick: rastersDisplay_disableAll">Disable All</div>
+					</div>
+				</div>
 			</div>
 			<div data-dojo-attach-point="rastersGrid" style="height: 150px"></div>
 		</div>

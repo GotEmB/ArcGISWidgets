@@ -85,6 +85,7 @@
       toggleRasterLayerButton: null,
       setImageFormat_JPGPNGButton: null,
       setImageFormat_JPGButton: null,
+      rastersDisplayMenu: null,
       sourceSymbol: new SimpleMarkerSymbol(SimpleMarkerSymbol.STYLE_X, 10, new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new Color([20, 20, 180]), 2), new Color([0, 0, 0])),
       targetSymbol: new SimpleMarkerSymbol(SimpleMarkerSymbol.STYLE_X, 10, new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new Color([180, 20, 20]), 2), new Color([0, 0, 0])),
       selectedSourceSymbol: new SimpleMarkerSymbol(SimpleMarkerSymbol.STYLE_X, 16, new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new Color([20, 20, 180]), 3), new Color([0, 0, 0])),
@@ -397,7 +398,7 @@
             }).call(_this);
             return (rec = function() {
               if (rtc.length === 0) {
-                return;
+                return domStyle.set(_this.loadingGif, "display", "none");
               }
               row = rtc.pop();
               return request({
@@ -410,10 +411,15 @@
                 },
                 handleAs: "json",
                 load: function(response) {
-                  domStyle.set(_this.loadingGif, "display", "none");
+                  var updateEvent;
+
                   if (new Polygon(response.features[0].geometry).contains(e.mapPoint)) {
                     _this.rastersGrid.clearSelection();
-                    return _this.rastersGrid.select(row);
+                    _this.rastersGrid.select(row);
+                    return updateEvent = connect(_this.imageServiceLayer, "onUpdateEnd", function() {
+                      disconnect(updateEvent);
+                      return domStyle.set(_this.loadingGif, "display", "none");
+                    });
                   } else {
                     return rec();
                   }
@@ -520,13 +526,25 @@
         var raster, updateEvent,
           _this = this;
 
-        domStyle.set(this.loadingGif, "display", "block");
         this.imageServiceLayer.setMosaicRule(extend(new MosaicRule, {
           method: MosaicRule.METHOD_LOCKRASTER,
           lockRasterIds: (function() {
             var _i, _len, _ref, _results;
 
             if (domStyle.get(this.selectRasterContainer.domNode, "display") === "block" || (this.currentId == null)) {
+              this.imageServiceLayer.setVisibility(((function() {
+                var _i, _len, _ref, _results;
+
+                _ref = this.rasters.data;
+                _results = [];
+                for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+                  raster = _ref[_i];
+                  if (raster.display) {
+                    _results.push(raster);
+                  }
+                }
+                return _results;
+              }).call(this)).length > 0);
               _ref = this.rasters.data;
               _results = [];
               for (_i = 0, _len = _ref.length; _i < _len; _i++) {
@@ -537,15 +555,31 @@
               }
               return _results;
             } else {
+              this.imageServiceLayer.setVisibility(true);
               return [this.currentId];
             }
           }).call(this)
         }));
-        return updateEvent = connect(this.imageServiceLayer, "onUpdateEnd", function() {
-          disconnect(updateEvent);
-          domStyle.set(_this.loadingGif, "display", "none");
-          return typeof callback === "function" ? callback() : void 0;
-        });
+        if (!(domStyle.get(this.selectRasterContainer.domNode, "display") === "block" || (this.currentId == null)) || ((function() {
+          var _i, _len, _ref, _results;
+
+          _ref = this.rasters.data;
+          _results = [];
+          for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+            raster = _ref[_i];
+            if (raster.display) {
+              _results.push(raster);
+            }
+          }
+          return _results;
+        }).call(this)).length > 0) {
+          domStyle.set(this.loadingGif, "display", "block");
+          return updateEvent = connect(this.imageServiceLayer, "onUpdateEnd", function() {
+            disconnect(updateEvent);
+            domStyle.set(_this.loadingGif, "display", "none");
+            return typeof callback === "function" ? callback() : void 0;
+          });
+        }
       },
       loadRastersList: function(callback) {
         var _this = this;
@@ -1878,7 +1912,10 @@
             this.asyncResults.remove(rowId);
           }
         }
-        return this.atdpClose();
+        this.atdpClose();
+        if (this.asyncResults.data.length === 0) {
+          return domStyle.set(this.asyncResultsContainer.domNode, "display", "none");
+        }
       },
       confirmActionPopupClose: function() {
         return popup.close(this.confirmActionPopup);
@@ -1905,6 +1942,46 @@
       setImageFormat_JPG: function() {
         this.setImageFormat(this.setImageFormat_JPGButton);
         return this.imageServiceLayer.setImageFormat("jpg");
+      },
+      rastersDisplay_enableAll: function() {
+        var bool, raster, rowId, selectedRowId, _i, _len, _ref, _ref1;
+
+        _ref = this.rastersGrid.selection;
+        for (rowId in _ref) {
+          bool = _ref[rowId];
+          if (bool) {
+            selectedRowId = rowId;
+          }
+        }
+        _ref1 = this.rasters.data;
+        for (_i = 0, _len = _ref1.length; _i < _len; _i++) {
+          raster = _ref1[_i];
+          raster.display = true;
+          this.rasters.notify(raster, raster.rasterId);
+        }
+        if (selectedRowId != null) {
+          return this.rastersGrid.select(selectedRowId);
+        }
+      },
+      rastersDisplay_disableAll: function() {
+        var bool, raster, rowId, selectedRowId, _i, _len, _ref, _ref1;
+
+        _ref = this.rastersGrid.selection;
+        for (rowId in _ref) {
+          bool = _ref[rowId];
+          if (bool) {
+            selectedRowId = rowId;
+          }
+        }
+        _ref1 = this.rasters.data;
+        for (_i = 0, _len = _ref1.length; _i < _len; _i++) {
+          raster = _ref1[_i];
+          raster.display = false;
+          this.rasters.notify(raster, raster.rasterId);
+        }
+        if (selectedRowId != null) {
+          return this.rastersGrid.select(selectedRowId);
+        }
       }
     });
   });

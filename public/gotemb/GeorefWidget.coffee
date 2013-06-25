@@ -128,6 +128,7 @@ do ->
 			toggleRasterLayerButton: null
 			setImageFormat_JPGPNGButton: null
 			setImageFormat_JPGButton: null
+			rastersDisplayMenu: null
 			sourceSymbol:
 				new SimpleMarkerSymbol(
 					SimpleMarkerSymbol.STYLE_X
@@ -341,7 +342,8 @@ do ->
 						domStyle.set @loadingGif, "display", "block"
 						rtc = (row for row in @rasters.data when row.display)
 						do rec = =>
-							return if rtc.length is 0
+							if rtc.length is 0
+								return domStyle.set @loadingGif, "display", "none"
 							row = rtc.pop()
 							request
 								url: @imageServiceUrl + "/query"
@@ -352,10 +354,12 @@ do ->
 									f: "json"
 								handleAs: "json"
 								load: (response) =>
-									domStyle.set @loadingGif, "display", "none"
 									if new Polygon(response.features[0].geometry).contains e.mapPoint
 										@rastersGrid.clearSelection()
 										@rastersGrid.select row
+										updateEvent = connect @imageServiceLayer, "onUpdateEnd", =>
+											disconnect updateEvent
+											domStyle.set @loadingGif, "display", "none"
 									else
 										do rec
 								error: ({message}) => console.error message
@@ -418,20 +422,23 @@ do ->
 						if e.which == 82
 							@toggleRasterLayerButton.set "checked", not @toggleRasterLayerButton.checked
 			refreshMosaicRule: (callback) ->
-				domStyle.set @loadingGif, "display", "block"
 				@imageServiceLayer.setMosaicRule extend(
 					new MosaicRule
 					method: MosaicRule.METHOD_LOCKRASTER
 					lockRasterIds:
 						if domStyle.get(@selectRasterContainer.domNode, "display") is "block" or not @currentId?
+							@imageServiceLayer.setVisibility (raster for raster in @rasters.data when raster.display).length > 0
 							raster.rasterId for raster in @rasters.data when raster.display
 						else
+							@imageServiceLayer.setVisibility true
 							[@currentId]
 				)
-				updateEvent = connect @imageServiceLayer, "onUpdateEnd", =>
-					disconnect updateEvent
-					domStyle.set @loadingGif, "display", "none"
-					callback?()
+				if not (domStyle.get(@selectRasterContainer.domNode, "display") is "block" or not @currentId?) or (raster for raster in @rasters.data when raster.display).length > 0
+					domStyle.set @loadingGif, "display", "block"
+					updateEvent = connect @imageServiceLayer, "onUpdateEnd", =>
+						disconnect updateEvent
+						domStyle.set @loadingGif, "display", "none"
+						callback?()
 			loadRastersList: (callback) ->
 				request
 					url: @imageServiceUrl + "/query"
@@ -1070,6 +1077,7 @@ do ->
 				for rowId, bool of @asyncResultsGrid.selection when bool
 					@asyncResults.remove rowId #...
 				@atdpClose()
+				domStyle.set @asyncResultsContainer.domNode, "display", "none" if @asyncResults.data.length is 0
 			confirmActionPopupClose: ->
 				popup.close @confirmActionPopup
 			confirmActionPopupContinue: ->
@@ -1088,3 +1096,15 @@ do ->
 			setImageFormat_JPG: ->
 				@setImageFormat @setImageFormat_JPGButton
 				@imageServiceLayer.setImageFormat "jpg"
+			rastersDisplay_enableAll: ->
+				selectedRowId = rowId for rowId, bool of @rastersGrid.selection when bool
+				for raster in @rasters.data
+					raster.display = true
+					@rasters.notify raster, raster.rasterId
+				@rastersGrid.select selectedRowId if selectedRowId?
+			rastersDisplay_disableAll: ->
+				selectedRowId = rowId for rowId, bool of @rastersGrid.selection when bool
+				for raster in @rasters.data
+					raster.display = false
+					@rasters.notify raster, raster.rasterId
+				@rastersGrid.select selectedRowId if selectedRowId?
