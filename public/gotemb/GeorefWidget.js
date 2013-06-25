@@ -1850,10 +1850,10 @@
         for (_i = 0, _len = menuItems.length; _i < _len; _i++) {
           menuItem = menuItems[_i];
           if (menuItem !== selectedMenuItem) {
-            domStyle.set(menuItem.domNode, "font-weight", "normal");
+            query(menuItem.domNode).removeClass("bold");
           }
         }
-        domStyle.set(selectedMenuItem.domNode, "font-weight", "bold");
+        query(selectedMenuItem.domNode).addClass("bold");
         if (this.naturalVueServiceLayer != null) {
           this.map.removeLayer(this.naturalVueServiceLayer);
           delete this.naturalVueServiceLayer;
@@ -1930,10 +1930,10 @@
         for (_i = 0, _len = menuItems.length; _i < _len; _i++) {
           menuItem = menuItems[_i];
           if (menuItem !== selectedMenuItem) {
-            domStyle.set(menuItem.domNode, "font-weight", "normal");
+            query(menuItem.domNode).removeClass("bold");
           }
         }
-        return domStyle.set(selectedMenuItem.domNode, "font-weight", "bold");
+        return query(selectedMenuItem.domNode).addClass("bold");
       },
       setImageFormat_JPGPNG: function() {
         this.setImageFormat(this.setImageFormat_JPGPNGButton);
@@ -1960,8 +1960,9 @@
           this.rasters.notify(raster, raster.rasterId);
         }
         if (selectedRowId != null) {
-          return this.rastersGrid.select(selectedRowId);
+          this.rastersGrid.select(selectedRowId);
         }
+        return this.refreshMosaicRule();
       },
       rastersDisplay_disableAll: function() {
         var bool, raster, rowId, selectedRowId, _i, _len, _ref, _ref1;
@@ -1980,8 +1981,9 @@
           this.rasters.notify(raster, raster.rasterId);
         }
         if (selectedRowId != null) {
-          return this.rastersGrid.select(selectedRowId);
+          this.rastersGrid.select(selectedRowId);
         }
+        return this.refreshMosaicRule();
       }
     });
   });

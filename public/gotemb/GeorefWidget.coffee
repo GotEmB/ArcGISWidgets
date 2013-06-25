@@ -1046,8 +1046,8 @@ do ->
 					@selectBasemap_NaturalVueButton
 				]
 				for menuItem in menuItems when menuItem isnt selectedMenuItem
-					domStyle.set menuItem.domNode, "font-weight", "normal"
-				domStyle.set selectedMenuItem.domNode, "font-weight", "bold"
+					query(menuItem.domNode).removeClass "bold"
+				query(selectedMenuItem.domNode).addClass "bold"
 				if @naturalVueServiceLayer?
 					@map.removeLayer @naturalVueServiceLayer
 					delete @naturalVueServiceLayer
@@ -1088,8 +1088,8 @@ do ->
 					@setImageFormat_JPGButton
 				]
 				for menuItem in menuItems when menuItem isnt selectedMenuItem
-					domStyle.set menuItem.domNode, "font-weight", "normal"
-				domStyle.set selectedMenuItem.domNode, "font-weight", "bold"
+					query(menuItem.domNode).removeClass "bold"
+				query(selectedMenuItem.domNode).addClass "bold"
 			setImageFormat_JPGPNG: ->
 				@setImageFormat @setImageFormat_JPGPNGButton
 				@imageServiceLayer.setImageFormat "jpgpng"
@@ -1102,9 +1102,11 @@ do ->
 					raster.display = true
 					@rasters.notify raster, raster.rasterId
 				@rastersGrid.select selectedRowId if selectedRowId?
+				@refreshMosaicRule()
 			rastersDisplay_disableAll: ->
 				selectedRowId = rowId for rowId, bool of @rastersGrid.selection when bool
 				for raster in @rasters.data
 					raster.display = false
 					@rasters.notify raster, raster.rasterId
 				@rastersGrid.select selectedRowId if selectedRowId?
+				@refreshMosaicRule()

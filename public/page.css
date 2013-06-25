@@ -127,6 +127,9 @@ td.field-resultId {
 .field-status {
   width: 90px;
 }
+.bold {
+  font-weight: bold;
+}
 @-moz-keyframes yellowAnimate {
   0% {
     background-color: #ff0;
