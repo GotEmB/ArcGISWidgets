@@ -258,10 +258,10 @@ do ->
 									pointGrid.setPoint x: value.geometry.x, y: value.geometry.y
 								value.gotoPointGrid = =>
 									@scrollToElement pointGrid.domNode
-									tdId = new query.NodeList(pointGrid.domNode).parent().parent().children().first()
-									tdId.addClass "yellow"
+									rowNL = query(pointGrid.domNode).closest(".dgrid-row")
+									rowNL.addClass "yellow"
 									mouseUpEvent = connect @tiepointsLayer, "onMouseUp", =>
-										tdId.removeClass "yellow"
+										rowNL.removeClass "yellow"
 										disconnect mouseUpEvent
 								pointGrid.domNode
 						,
@@ -281,10 +281,10 @@ do ->
 									pointGrid.setPoint x: value.geometry.x, y: value.geometry.y
 								value.gotoPointGrid = =>
 									@scrollToElement pointGrid.domNode
-									tdId = new query.NodeList(pointGrid.domNode).parent().parent().children().first()
-									tdId.addClass "yellow"
+									rowNL = query(pointGrid.domNode).closest(".dgrid-row")
+									rowNL.addClass "yellow"
 									mouseUpEvent = connect @tiepointsLayer, "onMouseUp", =>
-										tdId.removeClass "yellow"
+										rowNL.removeClass "yellow"
 										disconnect mouseUpEvent
 								pointGrid.domNode
 						]

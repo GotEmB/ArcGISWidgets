@@ -79,14 +79,19 @@ td.field-sourcePoint, td.field-targetPoint
 	padding 0
 	vertical-align middle
 	text-align center
-	transition background-color 250ms linear
+	background-color #eee
 
-	td&
-		cursor pointer
+	.dgrid-selected &
+		background-color #bfd6eb
 
 	&.yellow
 		background-color yellow
-		transition background-color 0ms linear
+
+.dgrid-row.yellow
+	background-color yellow
+
+	.field-id
+		background-color #ee1
 
 .PointGrid
 	border-collapse collapse

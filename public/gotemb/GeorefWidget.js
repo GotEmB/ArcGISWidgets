@@ -227,13 +227,13 @@
                     });
                   };
                   value.gotoPointGrid = function() {
-                    var mouseUpEvent, tdId;
+                    var mouseUpEvent, rowNL;
 
                     _this.scrollToElement(pointGrid.domNode);
-                    tdId = new query.NodeList(pointGrid.domNode).parent().parent().children().first();
-                    tdId.addClass("yellow");
+                    rowNL = query(pointGrid.domNode).closest(".dgrid-row");
+                    rowNL.addClass("yellow");
                     return mouseUpEvent = connect(_this.tiepointsLayer, "onMouseUp", function() {
-                      tdId.removeClass("yellow");
+                      rowNL.removeClass("yellow");
                       return disconnect(mouseUpEvent);
                     });
                   };
@@ -266,13 +266,13 @@
                     });
                   };
                   value.gotoPointGrid = function() {
-                    var mouseUpEvent, tdId;
+                    var mouseUpEvent, rowNL;
 
                     _this.scrollToElement(pointGrid.domNode);
-                    tdId = new query.NodeList(pointGrid.domNode).parent().parent().children().first();
-                    tdId.addClass("yellow");
+                    rowNL = query(pointGrid.domNode).closest(".dgrid-row");
+                    rowNL.addClass("yellow");
                     return mouseUpEvent = connect(_this.tiepointsLayer, "onMouseUp", function() {
-                      tdId.removeClass("yellow");
+                      rowNL.removeClass("yellow");
                       return disconnect(mouseUpEvent);
                     });
                   };
