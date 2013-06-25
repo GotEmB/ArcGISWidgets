@@ -41,6 +41,8 @@ do ->
 		"dijit/popup"
 		"dijit/form/CheckBox"
 		"dojo/aspect"
+		"esri/layers/ImageServiceParameters"
+		"esri/layers/RasterFunction"
 		# ---
 		"dojox/form/FileInput"
 		"dijit/form/Button"
@@ -57,7 +59,7 @@ do ->
 		"dojo/NodeList-traverse"
 		"dojo/NodeList-dom"
 		"dijit/TooltipDialog"
-	], (declare, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template, {connect, disconnect}, ArcGISImageServiceLayer, request, MosaicRule, Polygon, GeometryService, domStyle, PointGrid, Observable, Memory, TiepointsGrid, GraphicsLayer, Color, SimpleMarkerSymbol, SimpleLineSymbol, Graphic, Point, win, domClass, query, editor, RastersGrid, Extent, ProjectParameters, SpatialReference, Url, ArcGISTiledMapServiceLayer, AsyncResultsGrid, popup, CheckBox, aspect) ->
+	], (declare, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template, {connect, disconnect}, ArcGISImageServiceLayer, request, MosaicRule, Polygon, GeometryService, domStyle, PointGrid, Observable, Memory, TiepointsGrid, GraphicsLayer, Color, SimpleMarkerSymbol, SimpleLineSymbol, Graphic, Point, win, domClass, query, editor, RastersGrid, Extent, ProjectParameters, SpatialReference, Url, ArcGISTiledMapServiceLayer, AsyncResultsGrid, popup, CheckBox, aspect, ImageServiceParameters, RasterFunction) ->
 		declare [_WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin],
 			templateString: template
 			baseClass: "GeorefWidget"
@@ -184,7 +186,20 @@ do ->
 				imageServiceAuthority = new Url(@imageServiceUrl).authority
 				corsEnabledServers = esri.config.defaults.io.corsEnabledServers
 				corsEnabledServers.push imageServiceAuthority unless corsEnabledServers.some (x) => x is imageServiceAuthority
-				@imageServiceLayer = new ArcGISImageServiceLayer @imageServiceUrl
+				@imageServiceLayer = new ArcGISImageServiceLayer @imageServiceUrl,
+					imageServiceParameters: extend(
+						new ImageServiceParameters
+						renderingRule: extend(
+							new RasterFunction
+							functionName: "Stretch"
+							arguments:
+								StretchType: 6
+								DRA: true
+								MinPercent: 0
+								MaxPercent: 2
+							variableName: "Raster"
+						)
+					)
 				@geometryService = new GeometryService @geometryServiceUrl
 				onceDone = false
 				@watch "map", (attr, oldMap, newMap) =>
