@@ -293,8 +293,7 @@
                   return pointGrid.domNode;
                 }
               }
-            ],
-            store: _this.tiepoints
+            ]
           }, _this.tiepointsGrid);
           _this.tiepointsGrid.startup();
           _this.tiepointsGrid.on("dgrid-select", function(_arg1) {
@@ -880,19 +879,35 @@
         return this.imageServiceLayer.setOpacity(state ? 1 : 0);
       },
       startEditTiepoints: function() {
-        var container, containers, display, _i, _len, _ref;
+        var bool, container, containers, display, rowId, selectedRow, tiepoint, _i, _j, _len, _len1, _ref, _ref1, _ref2, _ref3;
 
         if (this.currentId == null) {
           return this.showRasterNotSelectedDialog();
         }
-        _ref = {
+        _ref = this.rastersGrid.selection;
+        for (rowId in _ref) {
+          bool = _ref[rowId];
+          if (bool) {
+            selectedRow = this.rastersGrid.row(rowId).data;
+          }
+        }
+        this.tiepointsGrid.set("store", (_ref1 = selectedRow.tiepoints) != null ? _ref1 : selectedRow.tiepoints = new Observable(new Memory({
+          idProperty: "id"
+        })));
+        _ref2 = selectedRow.tiepoints.data;
+        for (_i = 0, _len = _ref2.length; _i < _len; _i++) {
+          tiepoint = _ref2[_i];
+          this.tiepointsLayer.add(tiepoint.sourcePoint);
+          this.tiepointsLayer.add(tiepoint.targetPoint);
+        }
+        _ref3 = {
           none: [this.selectRasterContainer, this.tasksContainer, this.asyncResultsContainer],
           block: [this.editTiepointsContainer]
         };
-        for (display in _ref) {
-          containers = _ref[display];
-          for (_i = 0, _len = containers.length; _i < _len; _i++) {
-            container = containers[_i];
+        for (display in _ref3) {
+          containers = _ref3[display];
+          for (_j = 0, _len1 = containers.length; _j < _len1; _j++) {
+            container = containers[_j];
             domStyle.set(container.domNode, "display", display);
           }
         }
@@ -902,14 +917,9 @@
         var _this = this;
 
         this.confirmActionPopupContinueEvent = function() {
-          var asyncTask, currentTiepoints;
+          var asyncTask;
 
           _this.confirmActionPopupClose();
-          currentTiepoints = (function(func, args, ctor) {
-            ctor.prototype = func.prototype;
-            var child = new ctor, result = func.apply(child, args);
-            return Object(result) === result ? result : child;
-          })(Array, _this.tiepoints.data, function(){});
           _this.asyncResults.put(asyncTask = {
             resultId: (Math.max.apply(Math, _this.asyncResults.data.map(function(x) {
               return x.resultId;
@@ -925,54 +935,33 @@
           _this.asyncResultsGrid.select(asyncTask);
           _this.closeEditTiepoints();
           return _this.computeTiePoints(function(_arg1) {
-            var error, tiePoints;
+            var error, i, newId, selectedRow, sourcePoint, targetPoint, tiePoints, _i, _ref;
 
             tiePoints = _arg1.tiePoints, error = _arg1.error;
+            selectedRow = _this.rasters.get(asyncTask.rasterId);
+            newId = Math.max.apply(Math, selectedRow.tiepoints.data.map(function(x) {
+              return x.id;
+            }).concat(0)) + 1;
+            for (i = _i = 0, _ref = tiePoints.sourcePoints.length; 0 <= _ref ? _i < _ref : _i > _ref; i = 0 <= _ref ? ++_i : --_i) {
+              selectedRow.tiepoints.put({
+                id: newId + i,
+                sourcePoint: sourcePoint = new Graphic(new Point(tiePoints.sourcePoints[i]), _this.sourceSymbol),
+                targetPoint: targetPoint = new Graphic(new Point(tiePoints.targetPoints[i]), _this.targetSymbol),
+                original: {
+                  sourcePoint: new Point(tiePoints.sourcePoints[i]),
+                  targetPoint: new Point(tiePoints.targetPoints[i])
+                }
+              });
+              if (_this.rastersGrid.isSelected(selectedRow.rasterId) && domStyle.get(_this.editTiepointsContainer.domNode, "display") === "block") {
+                _this.tiepointsLayer.add(sourcePoint);
+                _this.tiepointsLayer.add(targetPoint);
+              }
+            }
             extend(asyncTask, {
               status: error != null ? "Failed" : "Completed",
               endTime: (new Date).toLocaleString(),
               callback: function() {
-                var container, containers, display, i, newId, sourcePoint, targetPoint, tiepoint, _i, _j, _k, _len, _len1, _ref, _ref1, _results;
-
-                _ref = {
-                  none: [_this.selectRasterContainer, _this.tasksContainer, _this.asyncResultsContainer],
-                  block: [_this.editTiepointsContainer]
-                };
-                for (display in _ref) {
-                  containers = _ref[display];
-                  for (_i = 0, _len = containers.length; _i < _len; _i++) {
-                    container = containers[_i];
-                    domStyle.set(container.domNode, "display", display);
-                  }
-                }
-                _this.refreshMosaicRule();
-                for (_j = 0, _len1 = currentTiepoints.length; _j < _len1; _j++) {
-                  tiepoint = currentTiepoints[_j];
-                  _this.tiepoints.put(tiepoint);
-                  _this.tiepointsLayer.add(tiepoint.sourcePoint);
-                  _this.tiepointsLayer.add(tiepoint.targetPoint);
-                }
-                if (error != null) {
-                  return;
-                }
-                newId = Math.max.apply(Math, _this.tiepoints.data.map(function(x) {
-                  return x.id;
-                }).concat(0)) + 1;
-                _results = [];
-                for (i = _k = 0, _ref1 = tiePoints.sourcePoints.length; 0 <= _ref1 ? _k < _ref1 : _k > _ref1; i = 0 <= _ref1 ? ++_k : --_k) {
-                  _this.tiepoints.put({
-                    id: newId + i,
-                    sourcePoint: sourcePoint = new Graphic(new Point(tiePoints.sourcePoints[i]), _this.sourceSymbol),
-                    targetPoint: targetPoint = new Graphic(new Point(tiePoints.targetPoints[i]), _this.targetSymbol),
-                    original: {
-                      sourcePoint: new Point(tiePoints.sourcePoints[i]),
-                      targetPoint: new Point(tiePoints.targetPoints[i])
-                    }
-                  });
-                  _this.tiepointsLayer.add(sourcePoint);
-                  _results.push(_this.tiepointsLayer.add(targetPoint));
-                }
-                return _results;
+                return _this.startEditTiepoints();
               },
               callbackLabel: "Edit Tiepoints"
             });
@@ -987,22 +976,17 @@
         return this.confirmActionPopup.focus();
       },
       closeEditTiepoints: function() {
-        var container, containers, display, tiepoint, _i, _j, _len, _len1, _ref, _ref1;
+        var container, containers, display, _i, _len, _ref;
 
         this.tiepointsLayer.clear();
-        _ref = this.tiepoints.data.splice(0);
-        for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-          tiepoint = _ref[_i];
-          this.tiepoints.remove(tiepoint.id);
-        }
-        _ref1 = {
+        _ref = {
           block: [this.selectRasterContainer, this.tasksContainer],
           none: [this.editTiepointsContainer]
         };
-        for (display in _ref1) {
-          containers = _ref1[display];
-          for (_j = 0, _len1 = containers.length; _j < _len1; _j++) {
-            container = containers[_j];
+        for (display in _ref) {
+          containers = _ref[display];
+          for (_i = 0, _len = containers.length; _i < _len; _i++) {
+            container = containers[_i];
             domStyle.set(container.domNode, "display", display);
           }
         }
@@ -1022,13 +1006,20 @@
         return domStyle.set(this.resetTiepointMenuItem.domNode, "display", this.tiepointsGrid.cell(this.tiepointsContextMenu.currentTarget).row.data.original != null ? "table-row" : "none");
       },
       removeTiepoint: function() {
-        var graphic, tiepoint, _i, _len, _ref, _results;
+        var bool, graphic, rowId, selectedRow, tiepoint, _i, _len, _ref, _ref1, _results;
 
-        this.tiepoints.remove((tiepoint = this.tiepointsGrid.cell(this.tiepointsContextMenu.currentTarget).row.data).id);
-        _ref = [tiepoint.sourcePoint, tiepoint.targetPoint];
+        _ref = this.rastersGrid.selection;
+        for (rowId in _ref) {
+          bool = _ref[rowId];
+          if (bool) {
+            selectedRow = this.rastersGrid.row(rowId).data;
+          }
+        }
+        selectedRow.tiepoints.remove((tiepoint = this.tiepointsGrid.cell(this.tiepointsContextMenu.currentTarget).row.data).id);
+        _ref1 = [tiepoint.sourcePoint, tiepoint.targetPoint];
         _results = [];
-        for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-          graphic = _ref[_i];
+        for (_i = 0, _len = _ref1.length; _i < _len; _i++) {
+          graphic = _ref1[_i];
           _results.push(this.tiepointsLayer.remove(graphic));
         }
         return _results;
@@ -1047,10 +1038,17 @@
         return _results;
       },
       addTiepoint: function(state) {
-        var closeMouseTip, contextMenuEvent, currentState, mapDownEvent, mapDragEvent, mapUpEvent, mouseTipDownEvent, mouseTipMoveEvent, sourcePoint, targetPoint,
+        var bool, closeMouseTip, contextMenuEvent, currentState, mapDownEvent, mapDragEvent, mapUpEvent, mouseTipDownEvent, mouseTipMoveEvent, rowId, selectedRow, sourcePoint, targetPoint, _ref,
           _this = this;
 
         if (state) {
+          _ref = this.rastersGrid.selection;
+          for (rowId in _ref) {
+            bool = _ref[rowId];
+            if (bool) {
+              selectedRow = this.rastersGrid.row(rowId).data;
+            }
+          }
           currentState = "started";
           this.map.setMapCursor("crosshair");
           sourcePoint = null;
@@ -1062,7 +1060,7 @@
             return domStyle.set(_this.mouseTip, "top", e.clientY + 20 + "px");
           });
           mouseTipDownEvent = connect(query("body")[0], "onmousedown", function(e) {
-            var point, _i, _len, _ref;
+            var point, _i, _len, _ref1;
 
             if (_this.toggleRasterLayerButton.hovering) {
               return;
@@ -1078,9 +1076,9 @@
                 closeMouseTip();
               }
             }
-            _ref = [sourcePoint, targetPoint];
-            for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-              point = _ref[_i];
+            _ref1 = [sourcePoint, targetPoint];
+            for (_i = 0, _len = _ref1.length; _i < _len; _i++) {
+              point = _ref1[_i];
               _this.tiepointsLayer.remove(point);
             }
             if (!_this.addTiepointButton.hovering) {
@@ -1114,8 +1112,8 @@
               currentState = "placedTargetPoint";
               targetPoint = new Graphic(e.mapPoint, _this.targetSymbol);
               _this.tiepointsLayer.add(targetPoint);
-              _this.tiepoints.put(tiepoint = {
-                id: lastId = Math.max.apply(Math, _this.tiepoints.data.map(function(x) {
+              selectedRow.tiepoints.put(tiepoint = {
+                id: lastId = Math.max.apply(Math, selectedRow.tiepoints.data.map(function(x) {
                   return x.id;
                 }).concat(0)) + 1,
                 sourcePoint: sourcePoint,
@@ -1158,23 +1156,30 @@
         }
       },
       removeSelectedTiepoints: function() {
-        var bool, graphic, rowId, tiepoint, _ref, _results;
+        var bool, graphic, rowId, selectedRow, tiepoint, _ref, _ref1, _results;
 
-        _ref = this.tiepointsGrid.selection;
-        _results = [];
+        _ref = this.rastersGrid.selection;
         for (rowId in _ref) {
           bool = _ref[rowId];
+          if (bool) {
+            selectedRow = this.rastersGrid.row(rowId).data;
+          }
+        }
+        _ref1 = this.tiepointsGrid.selection;
+        _results = [];
+        for (rowId in _ref1) {
+          bool = _ref1[rowId];
           if (!(bool)) {
             continue;
           }
-          this.tiepoints.remove((tiepoint = this.tiepointsGrid.row(rowId).data).id);
+          selectedRow.tiepoints.remove((tiepoint = this.tiepointsGrid.row(rowId).data).id);
           _results.push((function() {
-            var _i, _len, _ref1, _results1;
+            var _i, _len, _ref2, _results1;
 
-            _ref1 = [tiepoint.sourcePoint, tiepoint.targetPoint];
+            _ref2 = [tiepoint.sourcePoint, tiepoint.targetPoint];
             _results1 = [];
-            for (_i = 0, _len = _ref1.length; _i < _len; _i++) {
-              graphic = _ref1[_i];
+            for (_i = 0, _len = _ref2.length; _i < _len; _i++) {
+              graphic = _ref2[_i];
               _results1.push(this.tiepointsLayer.remove(graphic));
             }
             return _results1;
@@ -1212,15 +1217,23 @@
         return _results;
       },
       applyManualTransform: function() {
-        var _this = this;
+        var bool, rowId, selectedRow, _ref,
+          _this = this;
 
         domStyle.set(this.loadingGif, "display", "block");
+        _ref = this.rastersGrid.selection;
+        for (rowId in _ref) {
+          bool = _ref[rowId];
+          if (bool) {
+            selectedRow = this.rastersGrid.row(rowId).data;
+          }
+        }
         return this.applyTransform({
           tiePoints: {
-            sourcePoints: this.tiepoints.data.map(function(x) {
+            sourcePoints: selectedRow.tiepoints.data.map(function(x) {
               return x.sourcePoint.geometry;
             }),
-            targetPoints: this.tiepoints.data.map(function(x) {
+            targetPoints: selectedRow.tiepoints.data.map(function(x) {
               return x.targetPoint.geometry;
             })
           }
@@ -1228,7 +1241,14 @@
           var updateEndEvent;
 
           return updateEndEvent = connect(_this.imageServiceLayer, "onUpdateEnd", function() {
+            var tiepoint, _i, _len, _ref1;
+
             disconnect(updateEndEvent);
+            _ref1 = selectedRow.tiepoints.data.splice(0);
+            for (_i = 0, _len = _ref1.length; _i < _len; _i++) {
+              tiepoint = _ref1[_i];
+              selectedRow.tiepoints.remove(tiepoint.id);
+            }
             _this.closeEditTiepoints();
             return domStyle.set(_this.loadingGif, "display", "none");
           });

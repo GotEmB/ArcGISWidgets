@@ -305,7 +305,6 @@ do ->
 										disconnect mouseUpEvent
 								pointGrid.domNode
 						]
-						store: @tiepoints
 						@tiepointsGrid
 					@tiepointsGrid.startup()
 					@tiepointsGrid.on "dgrid-select", ({rows}) =>
@@ -599,13 +598,17 @@ do ->
 				@imageServiceLayer.setOpacity if state then 1 else 0
 			startEditTiepoints: ->
 				return @showRasterNotSelectedDialog() unless @currentId?
+				selectedRow = @rastersGrid.row(rowId).data for rowId, bool of @rastersGrid.selection when bool
+				@tiepointsGrid.set "store", selectedRow.tiepoints ?= new Observable new Memory idProperty: "id"
+				for tiepoint in selectedRow.tiepoints.data
+					@tiepointsLayer.add tiepoint.sourcePoint
+					@tiepointsLayer.add tiepoint.targetPoint
 				for display, containers of {none: [@selectRasterContainer, @tasksContainer, @asyncResultsContainer], block: [@editTiepointsContainer]}
 					domStyle.set container.domNode, "display", display for container in containers
 				@refreshMosaicRule()
 			collectComputedTiepoints: ->
 				@confirmActionPopupContinueEvent = =>
 					@confirmActionPopupClose()
-					currentTiepoints = new Array @tiepoints.data...
 					@asyncResults.put asyncTask =
 						resultId: (Math.max @asyncResults.data.map((x) -> x.resultId).concat(0)...) + 1
 						task: "Compute Tiepoints"
@@ -616,29 +619,24 @@ do ->
 					@asyncResultsGrid.select asyncTask
 					@closeEditTiepoints()
 					@computeTiePoints ({tiePoints, error}) =>
+						selectedRow = @rasters.get asyncTask.rasterId
+						newId = Math.max(selectedRow.tiepoints.data.map((x) => x.id).concat(0)...) + 1
+						for i in [0...tiePoints.sourcePoints.length]
+							selectedRow.tiepoints.put
+								id: newId + i
+								sourcePoint: sourcePoint = new Graphic new Point(tiePoints.sourcePoints[i]), @sourceSymbol
+								targetPoint: targetPoint = new Graphic new Point(tiePoints.targetPoints[i]), @targetSymbol
+								original:
+									sourcePoint: new Point tiePoints.sourcePoints[i]
+									targetPoint: new Point tiePoints.targetPoints[i]
+							if @rastersGrid.isSelected(selectedRow.rasterId) and domStyle.get(@editTiepointsContainer.domNode, "display") is "block"
+								@tiepointsLayer.add sourcePoint
+								@tiepointsLayer.add targetPoint
 						extend asyncTask,
 							status: if error? then "Failed" else "Completed"
 							endTime: (new Date).toLocaleString()
-							callback: then =>
-								for display, containers of {none: [@selectRasterContainer, @tasksContainer, @asyncResultsContainer], block: [@editTiepointsContainer]}
-									domStyle.set container.domNode, "display", display for container in containers
-								@refreshMosaicRule()
-								for tiepoint in currentTiepoints
-									@tiepoints.put tiepoint 
-									@tiepointsLayer.add tiepoint.sourcePoint
-									@tiepointsLayer.add tiepoint.targetPoint
-								return if error?
-								newId = Math.max(@tiepoints.data.map((x) => x.id).concat(0)...) + 1
-								for i in [0...tiePoints.sourcePoints.length]
-									@tiepoints.put
-										id: newId + i
-										sourcePoint: sourcePoint = new Graphic new Point(tiePoints.sourcePoints[i]), @sourceSymbol
-										targetPoint: targetPoint = new Graphic new Point(tiePoints.targetPoints[i]), @targetSymbol
-										original:
-											sourcePoint: new Point tiePoints.sourcePoints[i]
-											targetPoint: new Point tiePoints.targetPoints[i]
-									@tiepointsLayer.add sourcePoint
-									@tiepointsLayer.add targetPoint
+							callback: =>
+								@startEditTiepoints()
 							callbackLabel: "Edit Tiepoints"
 						@asyncResults.notify asyncTask, asyncTask.resultId
 				popup.open
@@ -648,7 +646,6 @@ do ->
 				@confirmActionPopup.focus()
 			closeEditTiepoints: ->
 				@tiepointsLayer.clear()
-				@tiepoints.remove tiepoint.id for tiepoint in @tiepoints.data.splice 0
 				for display, containers of {block: [@selectRasterContainer, @tasksContainer], none: [@editTiepointsContainer]}
 					domStyle.set container.domNode, "display", display for container in containers
 				domStyle.set @asyncResultsContainer.domNode, "display", "block" if @asyncResults.data.length > 0
@@ -661,7 +658,8 @@ do ->
 			tiepointsContextMenuOpen: ->
 				domStyle.set @resetTiepointMenuItem.domNode, "display", if @tiepointsGrid.cell(@tiepointsContextMenu.currentTarget).row.data.original? then "table-row" else "none"
 			removeTiepoint: ->
-				@tiepoints.remove (tiepoint = @tiepointsGrid.cell(@tiepointsContextMenu.currentTarget).row.data).id
+				selectedRow = @rastersGrid.row(rowId).data for rowId, bool of @rastersGrid.selection when bool
+				selectedRow.tiepoints.remove (tiepoint = @tiepointsGrid.cell(@tiepointsContextMenu.currentTarget).row.data).id
 				@tiepointsLayer.remove graphic for graphic in [tiepoint.sourcePoint, tiepoint.targetPoint]
 			resetTiepoint: ->
 				tiepoint = @tiepointsGrid.cell(@tiepointsContextMenu.currentTarget).row.data
@@ -670,6 +668,7 @@ do ->
 					tiepoint[key].pointChanged()
 			addTiepoint: (state) ->
 				if state
+					selectedRow = @rastersGrid.row(rowId).data for rowId, bool of @rastersGrid.selection when bool
 					currentState = "started"
 					@map.setMapCursor "crosshair"
 					sourcePoint = null
@@ -702,8 +701,8 @@ do ->
 							currentState = "placedTargetPoint"
 							targetPoint = new Graphic e.mapPoint, @targetSymbol
 							@tiepointsLayer.add targetPoint
-							@tiepoints.put tiepoint =
-								id: lastId = Math.max(@tiepoints.data.map((x) => x.id).concat(0)...) + 1
+							selectedRow.tiepoints.put tiepoint =
+								id: lastId = Math.max(selectedRow.tiepoints.data.map((x) => x.id).concat(0)...) + 1
 								sourcePoint: sourcePoint
 								targetPoint: targetPoint
 							closeMouseTip()
@@ -728,8 +727,9 @@ do ->
 						@map.setMapCursor "default"
 						currentState = "placedTiepoint"
 			removeSelectedTiepoints: ->
+				selectedRow = @rastersGrid.row(rowId).data for rowId, bool of @rastersGrid.selection when bool
 				for rowId, bool of @tiepointsGrid.selection when bool
-					@tiepoints.remove (tiepoint = @tiepointsGrid.row(rowId).data).id
+					selectedRow.tiepoints.remove (tiepoint = @tiepointsGrid.row(rowId).data).id
 					@tiepointsLayer.remove graphic for graphic in [tiepoint.sourcePoint, tiepoint.targetPoint]
 			resetSelectedTiepoints: ->
 				for rowId, bool of @tiepointsGrid.selection when bool
@@ -740,13 +740,15 @@ do ->
 						tiepoint[key].pointChanged()
 			applyManualTransform: ->
 				domStyle.set @loadingGif, "display", "block"
+				selectedRow = @rastersGrid.row(rowId).data for rowId, bool of @rastersGrid.selection when bool
 				@applyTransform
 					tiePoints:
-						sourcePoints: @tiepoints.data.map (x) => x.sourcePoint.geometry
-						targetPoints: @tiepoints.data.map (x) => x.targetPoint.geometry
+						sourcePoints: selectedRow.tiepoints.data.map (x) => x.sourcePoint.geometry
+						targetPoints: selectedRow.tiepoints.data.map (x) => x.targetPoint.geometry
 					=>
 						updateEndEvent = connect @imageServiceLayer, "onUpdateEnd", =>
 							disconnect updateEndEvent
+							selectedRow.tiepoints.remove tiepoint.id for tiepoint in selectedRow.tiepoints.data.splice 0
 							@closeEditTiepoints()
 							domStyle.set @loadingGif, "display", "none"
 			openRoughTransform: ->
@@ -1091,7 +1093,7 @@ do ->
 				@atdpContinueEvent?()
 			atdpRemove: ->
 				for rowId, bool of @asyncResultsGrid.selection when bool
-					@asyncResults.remove rowId #...
+					@asyncResults.remove rowId
 				@atdpClose()
 				domStyle.set @asyncResultsContainer.domNode, "display", "none" if @asyncResults.data.length is 0
 			confirmActionPopupClose: ->
