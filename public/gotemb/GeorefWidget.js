@@ -86,6 +86,14 @@
       setImageFormat_JPGPNGButton: null,
       setImageFormat_JPGButton: null,
       rastersDisplayMenu: null,
+      applyManualTransform_ProjectiveButton: null,
+      applyManualTransform_1stOrderButton: null,
+      applyManualTransform_2ndOrderButton: null,
+      applyManualTransform_3rdOrderButton: null,
+      applyManualTransform_ProjectiveTooltip: null,
+      applyManualTransform_1stOrderTooltip: null,
+      applyManualTransform_2ndOrderTooltip: null,
+      applyManualTransform_3rdOrderTooltip: null,
       sourceSymbol: new SimpleMarkerSymbol(SimpleMarkerSymbol.STYLE_X, 10, new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new Color([20, 20, 180]), 2), new Color([0, 0, 0])),
       targetSymbol: new SimpleMarkerSymbol(SimpleMarkerSymbol.STYLE_X, 10, new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new Color([180, 20, 20]), 2), new Color([0, 0, 0])),
       selectedSourceSymbol: new SimpleMarkerSymbol(SimpleMarkerSymbol.STYLE_X, 16, new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new Color([20, 20, 180]), 3), new Color([0, 0, 0])),
@@ -126,6 +134,7 @@
             })
           })
         });
+        this.imageServiceLayer.setDisableClientCaching(true);
         this.geometryService = new GeometryService(this.geometryServiceUrl);
         onceDone = false;
         return this.watch("map", function(attr, oldMap, newMap) {
@@ -742,12 +751,18 @@
         });
       },
       applyTransform: function(_arg1, callback) {
-        var gotoLocation, point, tiePoints,
+        var geodataTransform, gotoLocation, point, polynomialOrder, tiePoints,
           _this = this;
 
-        tiePoints = _arg1.tiePoints, gotoLocation = _arg1.gotoLocation;
+        tiePoints = _arg1.tiePoints, gotoLocation = _arg1.gotoLocation, geodataTransform = _arg1.geodataTransform, polynomialOrder = _arg1.polynomialOrder;
         if (gotoLocation == null) {
           gotoLocation = true;
+        }
+        if (geodataTransform == null) {
+          geodataTransform = "Polynomial";
+        }
+        if (polynomialOrder == null) {
+          polynomialOrder = 1;
         }
         return request({
           url: this.imageServiceUrl + "/update",
@@ -756,7 +771,7 @@
             rasterId: this.currentId,
             geodataTransforms: JSON.stringify([
               {
-                geodataTransform: "Polynomial",
+                geodataTransform: geodataTransform,
                 geodataTransformArguments: {
                   sourcePoints: (function() {
                     var _i, _len, _ref, _results;
@@ -786,7 +801,7 @@
                     }
                     return _results;
                   })(),
-                  polynomialOrder: 1,
+                  polynomialOrder: geodataTransform === "Polynomial" ? polynomialOrder : void 0,
                   spatialReference: tiePoints.sourcePoints[0].spatialReference
                 }
               }
@@ -900,6 +915,7 @@
           this.tiepointsLayer.add(tiepoint.sourcePoint);
           this.tiepointsLayer.add(tiepoint.targetPoint);
         }
+        this.applyManualTransform_RefreshButtons();
         _ref3 = {
           none: [this.selectRasterContainer, this.tasksContainer, this.asyncResultsContainer],
           block: [this.editTiepointsContainer]
@@ -938,6 +954,13 @@
             var error, i, newId, selectedRow, sourcePoint, targetPoint, tiePoints, _i, _ref;
 
             tiePoints = _arg1.tiePoints, error = _arg1.error;
+            if (error != null) {
+              extend(asyncTask, {
+                status: "Failed",
+                endTime: (new Date).toLocaleString()
+              });
+              return _this.asyncResults.notify(asyncTask, asyncTask.resultId);
+            }
             selectedRow = _this.rasters.get(asyncTask.rasterId);
             newId = Math.max.apply(Math, selectedRow.tiepoints.data.map(function(x) {
               return x.id;
@@ -957,8 +980,11 @@
                 _this.tiepointsLayer.add(targetPoint);
               }
             }
+            if (_this.rastersGrid.isSelected(selectedRow.rasterId) && domStyle.get(_this.editTiepointsContainer.domNode, "display") === "block") {
+              _this.applyManualTransform_RefreshButtons();
+            }
             extend(asyncTask, {
-              status: error != null ? "Failed" : "Completed",
+              status: "Completed",
               endTime: (new Date).toLocaleString(),
               callback: function() {
                 return _this.startEditTiepoints();
@@ -1006,7 +1032,7 @@
         return domStyle.set(this.resetTiepointMenuItem.domNode, "display", this.tiepointsGrid.cell(this.tiepointsContextMenu.currentTarget).row.data.original != null ? "table-row" : "none");
       },
       removeTiepoint: function() {
-        var bool, graphic, rowId, selectedRow, tiepoint, _i, _len, _ref, _ref1, _results;
+        var bool, graphic, rowId, selectedRow, tiepoint, _i, _len, _ref, _ref1;
 
         _ref = this.rastersGrid.selection;
         for (rowId in _ref) {
@@ -1017,12 +1043,11 @@
         }
         selectedRow.tiepoints.remove((tiepoint = this.tiepointsGrid.cell(this.tiepointsContextMenu.currentTarget).row.data).id);
         _ref1 = [tiepoint.sourcePoint, tiepoint.targetPoint];
-        _results = [];
         for (_i = 0, _len = _ref1.length; _i < _len; _i++) {
           graphic = _ref1[_i];
-          _results.push(this.tiepointsLayer.remove(graphic));
+          this.tiepointsLayer.remove(graphic);
         }
-        return _results;
+        return this.applyManualTransform_RefreshButtons();
       },
       resetTiepoint: function() {
         var key, tiepoint, _i, _len, _ref, _results;
@@ -1119,6 +1144,7 @@
                 sourcePoint: sourcePoint,
                 targetPoint: targetPoint
               });
+              _this.applyManualTransform_RefreshButtons();
               closeMouseTip();
               return _this.addTiepoint(true);
             }
@@ -1156,7 +1182,7 @@
         }
       },
       removeSelectedTiepoints: function() {
-        var bool, graphic, rowId, selectedRow, tiepoint, _ref, _ref1, _results;
+        var bool, graphic, rowId, selectedRow, tiepoint, _i, _len, _ref, _ref1, _ref2;
 
         _ref = this.rastersGrid.selection;
         for (rowId in _ref) {
@@ -1166,26 +1192,19 @@
           }
         }
         _ref1 = this.tiepointsGrid.selection;
-        _results = [];
         for (rowId in _ref1) {
           bool = _ref1[rowId];
           if (!(bool)) {
             continue;
           }
           selectedRow.tiepoints.remove((tiepoint = this.tiepointsGrid.row(rowId).data).id);
-          _results.push((function() {
-            var _i, _len, _ref2, _results1;
-
-            _ref2 = [tiepoint.sourcePoint, tiepoint.targetPoint];
-            _results1 = [];
-            for (_i = 0, _len = _ref2.length; _i < _len; _i++) {
-              graphic = _ref2[_i];
-              _results1.push(this.tiepointsLayer.remove(graphic));
-            }
-            return _results1;
-          }).call(this));
+          _ref2 = [tiepoint.sourcePoint, tiepoint.targetPoint];
+          for (_i = 0, _len = _ref2.length; _i < _len; _i++) {
+            graphic = _ref2[_i];
+            this.tiepointsLayer.remove(graphic);
+          }
         }
-        return _results;
+        return this.applyManualTransform_RefreshButtons();
       },
       resetSelectedTiepoints: function() {
         var bool, key, rowId, tiepoint, _ref, _results;
@@ -1216,14 +1235,34 @@
         }
         return _results;
       },
-      applyManualTransform: function() {
-        var bool, rowId, selectedRow, _ref,
-          _this = this;
+      applyManualTransform_RefreshButtons: function() {
+        var bool, rowId, selectedRow, _ref;
 
-        domStyle.set(this.loadingGif, "display", "block");
         _ref = this.rastersGrid.selection;
         for (rowId in _ref) {
           bool = _ref[rowId];
+          if (bool) {
+            selectedRow = this.rastersGrid.row(rowId).data;
+          }
+        }
+        this.applyManualTransform_ProjectiveButton.set("disabled", selectedRow.tiepoints.data.length < 4);
+        this.applyManualTransform_1stOrderButton.set("disabled", selectedRow.tiepoints.data.length < 3);
+        this.applyManualTransform_2ndOrderButton.set("disabled", selectedRow.tiepoints.data.length < 6);
+        this.applyManualTransform_3rdOrderButton.set("disabled", selectedRow.tiepoints.data.length < 10);
+        this.applyManualTransform_ProjectiveTooltip.set("connectId", (selectedRow.tiepoints.data.length < 4 ? this.applyManualTransform_ProjectiveButton.domNode : void 0));
+        this.applyManualTransform_1stOrderTooltip.set("connectId", (selectedRow.tiepoints.data.length < 3 ? this.applyManualTransform_1stOrderButton.domNode : void 0));
+        this.applyManualTransform_2ndOrderTooltip.set("connectId", (selectedRow.tiepoints.data.length < 6 ? this.applyManualTransform_2ndOrderButton.domNode : void 0));
+        return this.applyManualTransform_3rdOrderTooltip.set("connectId", (selectedRow.tiepoints.data.length < 10 ? this.applyManualTransform_3rdOrderButton.domNode : void 0));
+      },
+      applyManualTransform: function(_arg1) {
+        var bool, geodataTransform, polynomialOrder, rowId, selectedRow, _ref, _ref1,
+          _this = this;
+
+        _ref = _arg1 != null ? _arg1 : {}, geodataTransform = _ref.geodataTransform, polynomialOrder = _ref.polynomialOrder;
+        domStyle.set(this.loadingGif, "display", "block");
+        _ref1 = this.rastersGrid.selection;
+        for (rowId in _ref1) {
+          bool = _ref1[rowId];
           if (bool) {
             selectedRow = this.rastersGrid.row(rowId).data;
           }
@@ -1236,22 +1275,47 @@
             targetPoints: selectedRow.tiepoints.data.map(function(x) {
               return x.targetPoint.geometry;
             })
-          }
+          },
+          geodataTransform: geodataTransform,
+          polynomialOrder: polynomialOrder
         }, function() {
           var updateEndEvent;
 
           return updateEndEvent = connect(_this.imageServiceLayer, "onUpdateEnd", function() {
-            var tiepoint, _i, _len, _ref1;
+            var tiepoint, _i, _len, _ref2;
 
             disconnect(updateEndEvent);
-            _ref1 = selectedRow.tiepoints.data.splice(0);
-            for (_i = 0, _len = _ref1.length; _i < _len; _i++) {
-              tiepoint = _ref1[_i];
+            _ref2 = selectedRow.tiepoints.data.splice(0);
+            for (_i = 0, _len = _ref2.length; _i < _len; _i++) {
+              tiepoint = _ref2[_i];
               selectedRow.tiepoints.remove(tiepoint.id);
             }
             _this.closeEditTiepoints();
             return domStyle.set(_this.loadingGif, "display", "none");
           });
+        });
+      },
+      applyManualTransform_Projective: function() {
+        return this.applyManualTransform({
+          geodataTransform: "Projective"
+        });
+      },
+      applyManualTransform_1stOrder: function() {
+        return this.applyManualTransform({
+          geodataTransform: "Polynomial",
+          polynomialOrder: 1
+        });
+      },
+      applyManualTransform_2ndOrder: function() {
+        return this.applyManualTransform({
+          geodataTransform: "Polynomial",
+          polynomialOrder: 2
+        });
+      },
+      applyManualTransform_3rdOrder: function() {
+        return this.applyManualTransform({
+          geodataTransform: "Polynomial",
+          polynomialOrder: 3
         });
       },
       openRoughTransform: function() {

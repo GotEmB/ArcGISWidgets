@@ -143,7 +143,19 @@
 			<div class="dijitDialogPaneActionBar">
 				<button data-dojo-type="dijit/form/Button" data-dojo-attach-point="collectComputedTiepointsButton" data-dojo-attach-event="onClick: collectComputedTiepoints" style="float: left">AutoDetect Tiepoints</button>
 				<button data-dojo-type="dijit/form/Button" type="button" data-dojo-attach-event="onClick: closeEditTiepoints">Cancel</button>
-				<button data-dojo-type="dijit/form/Button" type="button" data-dojo-attach-event="onClick: applyManualTransform">Apply Transform</button>
+				<button data-dojo-type="dijit/form/DropDownButton" type="button">
+					<span>Apply Transform</span>
+					<div data-dojo-type="dijit/Menu">
+						<div data-dojo-type="dijit/MenuItem" data-dojo-attach-point="applyManualTransform_ProjectiveButton" data-dojo-attach-event="onClick: applyManualTransform_Projective">Projective Transform</div>
+						<div data-dojo-type="dijit/Tooltip" data-dojo-attach-point="applyManualTransform_ProjectiveTooltip" data-dojo-props="position: ['before-centered', 'after-centered', 'above-centered'], showDelay: 0">A minimum of 4 tiepoint pairs required</div>
+						<div data-dojo-type="dijit/MenuItem" data-dojo-attach-point="applyManualTransform_1stOrderButton" data-dojo-attach-event="onClick: applyManualTransform_1stOrder">1st Order Polynomial Transform</div>
+						<div data-dojo-type="dijit/Tooltip" data-dojo-attach-point="applyManualTransform_1stOrderTooltip" data-dojo-props="position: ['before-centered', 'after-centered', 'above-centered'], showDelay: 0">A minimum of 3 tiepoint pairs required</div>
+						<div data-dojo-type="dijit/MenuItem" data-dojo-attach-point="applyManualTransform_2ndOrderButton" data-dojo-attach-event="onClick: applyManualTransform_2ndOrder">2nd Order Polynomial Transform</div>
+						<div data-dojo-type="dijit/Tooltip" data-dojo-attach-point="applyManualTransform_2ndOrderTooltip" data-dojo-props="position: ['before-centered', 'after-centered', 'above-centered'], showDelay: 0">A minimum of 6 tiepoint pairs required</div>
+						<div data-dojo-type="dijit/MenuItem" data-dojo-attach-point="applyManualTransform_3rdOrderButton" data-dojo-attach-event="onClick: applyManualTransform_3rdOrder">3rd Order Polynomial Transform</div>
+						<div data-dojo-type="dijit/Tooltip" data-dojo-attach-point="applyManualTransform_3rdOrderTooltip" data-dojo-props="position: ['before-centered', 'after-centered', 'above-centered'], showDelay: 0">A minimum of 10 tiepoint pairs required</div>
+					</div>
+				</button>
 			</div>
 			<div style="position: absolute; width: 100%; height: 100%; top: 0; display: none; z-index: 1" data-dojo-attach-point="editTiepointsContainer_loading">
 				<div style="position: absolute; background: white; opacity: 0.75; width: 100%; height: 100%"></div>

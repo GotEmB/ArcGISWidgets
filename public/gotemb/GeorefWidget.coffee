@@ -132,6 +132,14 @@ do ->
 			setImageFormat_JPGPNGButton: null
 			setImageFormat_JPGButton: null
 			rastersDisplayMenu: null
+			applyManualTransform_ProjectiveButton: null
+			applyManualTransform_1stOrderButton: null
+			applyManualTransform_2ndOrderButton: null
+			applyManualTransform_3rdOrderButton: null
+			applyManualTransform_ProjectiveTooltip: null
+			applyManualTransform_1stOrderTooltip: null
+			applyManualTransform_2ndOrderTooltip: null
+			applyManualTransform_3rdOrderTooltip: null
 			sourceSymbol:
 				new SimpleMarkerSymbol(
 					SimpleMarkerSymbol.STYLE_X
@@ -201,6 +209,7 @@ do ->
 							variableName: "Raster"
 						)
 					)
+				@imageServiceLayer.setDisableClientCaching true
 				@geometryService = new GeometryService @geometryServiceUrl
 				onceDone = false
 				@watch "map", (attr, oldMap, newMap) =>
@@ -537,19 +546,21 @@ do ->
 						@asyncResults.notify asyncTask, asyncTask.resultId
 						console.error message
 					(usePost: true)
-			applyTransform: ({tiePoints, gotoLocation}, callback) ->
+			applyTransform: ({tiePoints, gotoLocation, geodataTransform, polynomialOrder}, callback) ->
 				gotoLocation ?= true
+				geodataTransform ?= "Polynomial"
+				polynomialOrder ?= 1
 				request
 					url: @imageServiceUrl + "/update"
 					content:
 						f: "json"
 						rasterId: @currentId
 						geodataTransforms: JSON.stringify [
-							geodataTransform: "Polynomial"
+							geodataTransform: geodataTransform
 							geodataTransformArguments:
 								sourcePoints: x: point.x, y: point.y for point in tiePoints.sourcePoints
 								targetPoints: x: point.x, y: point.y for point in tiePoints.targetPoints
-								polynomialOrder: 1
+								polynomialOrder: polynomialOrder if geodataTransform is "Polynomial"
 								spatialReference: tiePoints.sourcePoints[0].spatialReference
 						]
 					handleAs: "json"
@@ -603,6 +614,7 @@ do ->
 				for tiepoint in selectedRow.tiepoints.data
 					@tiepointsLayer.add tiepoint.sourcePoint
 					@tiepointsLayer.add tiepoint.targetPoint
+				@applyManualTransform_RefreshButtons()
 				for display, containers of {none: [@selectRasterContainer, @tasksContainer, @asyncResultsContainer], block: [@editTiepointsContainer]}
 					domStyle.set container.domNode, "display", display for container in containers
 				@refreshMosaicRule()
@@ -619,6 +631,11 @@ do ->
 					@asyncResultsGrid.select asyncTask
 					@closeEditTiepoints()
 					@computeTiePoints ({tiePoints, error}) =>
+						if error?
+							extend asyncTask,
+								status: "Failed"
+								endTime: (new Date).toLocaleString()
+							return @asyncResults.notify asyncTask, asyncTask.resultId
 						selectedRow = @rasters.get asyncTask.rasterId
 						newId = Math.max(selectedRow.tiepoints.data.map((x) => x.id).concat(0)...) + 1
 						for i in [0...tiePoints.sourcePoints.length]
@@ -632,8 +649,9 @@ do ->
 							if @rastersGrid.isSelected(selectedRow.rasterId) and domStyle.get(@editTiepointsContainer.domNode, "display") is "block"
 								@tiepointsLayer.add sourcePoint
 								@tiepointsLayer.add targetPoint
+						@applyManualTransform_RefreshButtons() if @rastersGrid.isSelected(selectedRow.rasterId) and domStyle.get(@editTiepointsContainer.domNode, "display") is "block"
 						extend asyncTask,
-							status: if error? then "Failed" else "Completed"
+							status: "Completed"
 							endTime: (new Date).toLocaleString()
 							callback: =>
 								@startEditTiepoints()
@@ -661,6 +679,7 @@ do ->
 				selectedRow = @rastersGrid.row(rowId).data for rowId, bool of @rastersGrid.selection when bool
 				selectedRow.tiepoints.remove (tiepoint = @tiepointsGrid.cell(@tiepointsContextMenu.currentTarget).row.data).id
 				@tiepointsLayer.remove graphic for graphic in [tiepoint.sourcePoint, tiepoint.targetPoint]
+				@applyManualTransform_RefreshButtons()
 			resetTiepoint: ->
 				tiepoint = @tiepointsGrid.cell(@tiepointsContextMenu.currentTarget).row.data
 				for key in ["sourcePoint", "targetPoint"]
@@ -705,6 +724,7 @@ do ->
 								id: lastId = Math.max(selectedRow.tiepoints.data.map((x) => x.id).concat(0)...) + 1
 								sourcePoint: sourcePoint
 								targetPoint: targetPoint
+							@applyManualTransform_RefreshButtons()
 							closeMouseTip()
 							@addTiepoint true
 					mapDragEvent = connect @map, "onMouseDrag", (e) =>
@@ -731,6 +751,7 @@ do ->
 				for rowId, bool of @tiepointsGrid.selection when bool
 					selectedRow.tiepoints.remove (tiepoint = @tiepointsGrid.row(rowId).data).id
 					@tiepointsLayer.remove graphic for graphic in [tiepoint.sourcePoint, tiepoint.targetPoint]
+				@applyManualTransform_RefreshButtons()
 			resetSelectedTiepoints: ->
 				for rowId, bool of @tiepointsGrid.selection when bool
 					tiepoint = @tiepointsGrid.row(rowId).data
@@ -738,19 +759,39 @@ do ->
 					for key in ["sourcePoint", "targetPoint"]
 						tiepoint[key].setGeometry tiepoint.original[key]
 						tiepoint[key].pointChanged()
-			applyManualTransform: ->
+			applyManualTransform_RefreshButtons: ->
+				selectedRow = @rastersGrid.row(rowId).data for rowId, bool of @rastersGrid.selection when bool
+				@applyManualTransform_ProjectiveButton.set "disabled", selectedRow.tiepoints.data.length < 4
+				@applyManualTransform_1stOrderButton.set "disabled", selectedRow.tiepoints.data.length < 3
+				@applyManualTransform_2ndOrderButton.set "disabled", selectedRow.tiepoints.data.length < 6
+				@applyManualTransform_3rdOrderButton.set "disabled", selectedRow.tiepoints.data.length < 10
+				@applyManualTransform_ProjectiveTooltip.set "connectId", (@applyManualTransform_ProjectiveButton.domNode if selectedRow.tiepoints.data.length < 4)
+				@applyManualTransform_1stOrderTooltip.set "connectId", (@applyManualTransform_1stOrderButton.domNode if selectedRow.tiepoints.data.length < 3)
+				@applyManualTransform_2ndOrderTooltip.set "connectId", (@applyManualTransform_2ndOrderButton.domNode if selectedRow.tiepoints.data.length < 6)
+				@applyManualTransform_3rdOrderTooltip.set "connectId", (@applyManualTransform_3rdOrderButton.domNode if selectedRow.tiepoints.data.length < 10)
+			applyManualTransform: ({geodataTransform, polynomialOrder} = {}) ->
 				domStyle.set @loadingGif, "display", "block"
 				selectedRow = @rastersGrid.row(rowId).data for rowId, bool of @rastersGrid.selection when bool
 				@applyTransform
 					tiePoints:
 						sourcePoints: selectedRow.tiepoints.data.map (x) => x.sourcePoint.geometry
 						targetPoints: selectedRow.tiepoints.data.map (x) => x.targetPoint.geometry
+					geodataTransform: geodataTransform
+					polynomialOrder: polynomialOrder
 					=>
 						updateEndEvent = connect @imageServiceLayer, "onUpdateEnd", =>
 							disconnect updateEndEvent
 							selectedRow.tiepoints.remove tiepoint.id for tiepoint in selectedRow.tiepoints.data.splice 0
 							@closeEditTiepoints()
 							domStyle.set @loadingGif, "display", "none"
+			applyManualTransform_Projective: ->
+				@applyManualTransform geodataTransform: "Projective"
+			applyManualTransform_1stOrder: ->
+				@applyManualTransform geodataTransform: "Polynomial", polynomialOrder: 1
+			applyManualTransform_2ndOrder: ->
+				@applyManualTransform geodataTransform: "Polynomial", polynomialOrder: 2
+			applyManualTransform_3rdOrder: ->
+				@applyManualTransform geodataTransform: "Polynomial", polynomialOrder: 3
 			openRoughTransform: ->
 				return @showRasterNotSelectedDialog() unless @currentId?
 				for display, containers of {none: [@selectRasterContainer, @tasksContainer, @asyncResultsContainer], block: [@manualTransformContainer]}
