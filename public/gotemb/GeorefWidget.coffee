@@ -59,6 +59,7 @@ do ->
 		"dojo/NodeList-traverse"
 		"dojo/NodeList-dom"
 		"dijit/TooltipDialog"
+		"dijit/Tooltip"
 	], (declare, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template, {connect, disconnect}, ArcGISImageServiceLayer, request, MosaicRule, Polygon, GeometryService, domStyle, PointGrid, Observable, Memory, TiepointsGrid, GraphicsLayer, Color, SimpleMarkerSymbol, SimpleLineSymbol, Graphic, Point, win, domClass, query, editor, RastersGrid, Extent, ProjectParameters, SpatialReference, Url, ArcGISTiledMapServiceLayer, AsyncResultsGrid, popup, CheckBox, aspect, ImageServiceParameters, RasterFunction) ->
 		declare [_WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin],
 			templateString: template
@@ -429,7 +430,7 @@ do ->
 						popup.open
 							popup: @asyncTaskDetailsPopup
 							around: row.element
-							orient: ["above", "below"]
+							orient: ["before-centered", "after-centered", "above-centered"]
 						@asyncTaskDetailsPopup.focus()
 					window.self = @
 					connect document, "onkeydown", (e) =>
@@ -643,7 +644,7 @@ do ->
 				popup.open
 					popup: @confirmActionPopup
 					around: @collectComputedTiepointsButton.domNode
-					orient: ["above", "below"]
+					orient: ["before-centered", "after-centered", "above-centered"]
 				@confirmActionPopup.focus()
 			closeEditTiepoints: ->
 				@tiepointsLayer.clear()
