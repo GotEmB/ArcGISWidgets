@@ -149,6 +149,14 @@
 						<div data-dojo-type="dijit/MenuItem" data-dojo-attach-point="removeSelectedTiepointsMenuItem" data-dojo-attach-event="onClick: removeSelectedTiepoints" style="display: none">Remove Selected Tiepoints</div>
 					</div>
 				</div>
+				<span data-dojo-type="dijit/ToolbarSeparator"></span>
+				<div data-dojo-type="dijit/form/DropDownButton">
+					<span>File</span>
+					<div data-dojo-type="dijit/Menu">
+						<div data-dojo-type="dijit/MenuItem" data-dojo-attach-event="onClick: importTiepoints">Import</div>
+						<div data-dojo-type="dijit/MenuItem" data-dojo-attach-event="onClick: exportTiepoints">Export</div>
+					</div>
+				</div>
 			</div>
 			<div data-dojo-attach-point="tiepointsGrid" style="height: 300px"></div>
 			<div class="dijitDialogPaneActionBar">

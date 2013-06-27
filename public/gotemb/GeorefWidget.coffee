@@ -1191,3 +1191,10 @@ do ->
 						callback?()
 					error: ({message}) => console.error message
 					(usePost: true)
+			importTiepoints: =>
+				ipElement = document.createElement "input"
+				ipElement.type = "file"
+				ipElement.accept = "text/plain"
+				ipElement.click()
+				changeEvent
+			exportTiepoints: =>
