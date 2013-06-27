@@ -121,6 +121,10 @@ do ->
 			atdpStatus: null
 			atdpStartTime: null
 			atdpEndTime: null
+			atdpTime: null
+			atdpStartTimeTr: null
+			atdpEndTimeTr: null
+			atdpTimeTr: null
 			atdpContinueEvent: null
 			atdpContinueButton: null
 			confirmActionPopup: null
@@ -405,10 +409,19 @@ do ->
 							atdpRasterId: "rasterId"
 							atdpStartTime: "startTime"
 							atdpEndTime: "endTime"
+							atdpTime: "time"
 						}
 							@[label].innerHTML = row.data[value] ? "--"
 						domStyle.set @atdpContinueButton.domNode, "display", if row.data.callback? then "inline-block" else "none"
 						domStyle.set @atdpRemoveButton.domNode, "display", if row.data.status is "Pending" then "none" else "block"
+						if row.data.time?
+							domStyle.set @atdpStartTimeTr, "display", "none"
+							domStyle.set @atdpEndTimeTr, "display", "none"
+							domStyle.set @atdpTimeTr, "display", "table-row"
+						else
+							domStyle.set @atdpStartTimeTr, "display", "table-row"
+							domStyle.set @atdpEndTimeTr, "display", "table-row"
+							domStyle.set @atdpTimeTr, "display", "none"
 						@atdpContinueButton.set "label", row.data.callbackLabel ? "Continue Task"
 						@atdpContinueEvent = =>
 							@atdpClose()
@@ -561,9 +574,8 @@ do ->
 						]
 					handleAs: "json"
 					load: =>
-						for task in @asyncResults.data.filter((x) => x.rasterId is @currentId and x.task is "Compute Tiepoints")
+						for task in @asyncResults.data.filter((x) => x.rasterId is @currentId and x.task in ["Compute Tiepoints", "Apply Transform (Tiepoints)"])
 							delete task.callback
-							task.callbackLabel = "Continue Task"
 						@loadFootprints =>
 							selectedRow = @rastersGrid.row(rowId).data for rowId, bool of @rastersGrid.selection when bool
 							@map.setExtent if gotoLocation then selectedRow.footprint.geometry.getExtent() else @map.extent
@@ -767,6 +779,41 @@ do ->
 					=>
 						updateEndEvent = connect @imageServiceLayer, "onUpdateEnd", =>
 							disconnect updateEndEvent
+							appliedTiepoints = new Array selectedRow.tiepoints.data
+							@asyncResults.put asyncTask =
+								resultId: (Math.max @asyncResults.data.map((x) -> x.resultId).concat(0)...) + 1
+								task: "Apply Transform (Tiepoints)"
+								rasterId: @currentId
+								status: "Completed"
+								time: (new Date).toLocaleString()
+								callback: =>
+									domStyle.set @loadingGif, "display", "block"
+									request
+										url: @imageServiceUrl + "/update"
+										content:
+											f: "json"
+											rasterId: @currentId
+											geodataTransforms: JSON.stringify [
+												geodataTransform: "Identity"
+												geodataTransformArguments:
+													spatialReference: selectedRow.spatialReference
+											]
+											geodataTransformApplyMethod: "esriGeodataTransformApplyReplace"
+										handleAs: "json"
+										load: =>
+											for task in @asyncResults.data.filter((x) => x.rasterId is @currentId and x.task in ["Compute Tiepoints", "Apply Transform (Tiepoints)"])
+												delete task.callback
+											@loadFootprints =>
+												selectedRow = @rastersGrid.row(rowId).data for rowId, bool of @rastersGrid.selection when bool
+												selectedRow.tiepoints.put tiepoint for tiepoint in appliedTiepoints
+												delete asyncTask.callback
+												@startEditTiepoints()
+												domStyle.set @loadingGif, "display", "none"
+										error: ({message}) => console.error message
+										(usePost: true)
+								callbackLabel: "Redo Edit Tiepoints"
+							domStyle.set @asyncResultsContainer.domNode, "display", "block" if domStyle.get(@selectRasterContainer.domNode, "display") is "block"
+							@asyncResultsGrid.select asyncTask
 							selectedRow.tiepoints.remove tiepoint.id for tiepoint in selectedRow.tiepoints.data.splice 0
 							@closeEditTiepoints()
 							domStyle.set @loadingGif, "display", "none"

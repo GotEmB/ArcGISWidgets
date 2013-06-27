@@ -75,6 +75,10 @@
       atdpStatus: null,
       atdpStartTime: null,
       atdpEndTime: null,
+      atdpTime: null,
+      atdpStartTimeTr: null,
+      atdpEndTimeTr: null,
+      atdpTimeTr: null,
       atdpContinueEvent: null,
       atdpContinueButton: null,
       confirmActionPopup: null,
@@ -448,7 +452,8 @@
               atdpStatus: "status",
               atdpRasterId: "rasterId",
               atdpStartTime: "startTime",
-              atdpEndTime: "endTime"
+              atdpEndTime: "endTime",
+              atdpTime: "time"
             };
             for (label in _ref) {
               value = _ref[label];
@@ -456,6 +461,15 @@
             }
             domStyle.set(_this.atdpContinueButton.domNode, "display", row.data.callback != null ? "inline-block" : "none");
             domStyle.set(_this.atdpRemoveButton.domNode, "display", row.data.status === "Pending" ? "none" : "block");
+            if (row.data.time != null) {
+              domStyle.set(_this.atdpStartTimeTr, "display", "none");
+              domStyle.set(_this.atdpEndTimeTr, "display", "none");
+              domStyle.set(_this.atdpTimeTr, "display", "table-row");
+            } else {
+              domStyle.set(_this.atdpStartTimeTr, "display", "table-row");
+              domStyle.set(_this.atdpEndTimeTr, "display", "table-row");
+              domStyle.set(_this.atdpTimeTr, "display", "none");
+            }
             _this.atdpContinueButton.set("label", (_ref2 = row.data.callbackLabel) != null ? _ref2 : "Continue Task");
             _this.atdpContinueEvent = function() {
               var atdpOnceDone, selectAspect, _base;
@@ -782,12 +796,13 @@
             var task, _i, _len, _ref;
 
             _ref = _this.asyncResults.data.filter(function(x) {
-              return x.rasterId === _this.currentId && x.task === "Compute Tiepoints";
+              var _ref;
+
+              return x.rasterId === _this.currentId && ((_ref = x.task) === "Compute Tiepoints" || _ref === "Apply Transform (Tiepoints)");
             });
             for (_i = 0, _len = _ref.length; _i < _len; _i++) {
               task = _ref[_i];
               delete task.callback;
-              task.callbackLabel = "Continue Task";
             }
             return _this.loadFootprints(function() {
               var bool, rowId, selectedRow, _ref1;
@@ -1242,9 +1257,83 @@
           var updateEndEvent;
 
           return updateEndEvent = connect(_this.imageServiceLayer, "onUpdateEnd", function() {
-            var tiepoint, _i, _len, _ref2;
+            var appliedTiepoints, asyncTask, tiepoint, _i, _len, _ref2;
 
             disconnect(updateEndEvent);
+            appliedTiepoints = new Array(selectedRow.tiepoints.data);
+            _this.asyncResults.put(asyncTask = {
+              resultId: (Math.max.apply(Math, _this.asyncResults.data.map(function(x) {
+                return x.resultId;
+              }).concat(0))) + 1,
+              task: "Apply Transform (Tiepoints)",
+              rasterId: _this.currentId,
+              status: "Completed",
+              time: (new Date).toLocaleString(),
+              callback: function() {
+                domStyle.set(_this.loadingGif, "display", "block");
+                return request({
+                  url: _this.imageServiceUrl + "/update",
+                  content: {
+                    f: "json",
+                    rasterId: _this.currentId,
+                    geodataTransforms: JSON.stringify([
+                      {
+                        geodataTransform: "Identity",
+                        geodataTransformArguments: {
+                          spatialReference: selectedRow.spatialReference
+                        }
+                      }
+                    ]),
+                    geodataTransformApplyMethod: "esriGeodataTransformApplyReplace"
+                  },
+                  handleAs: "json",
+                  load: function() {
+                    var task, _i, _len, _ref2;
+
+                    _ref2 = _this.asyncResults.data.filter(function(x) {
+                      var _ref2;
+
+                      return x.rasterId === _this.currentId && ((_ref2 = x.task) === "Compute Tiepoints" || _ref2 === "Apply Transform (Tiepoints)");
+                    });
+                    for (_i = 0, _len = _ref2.length; _i < _len; _i++) {
+                      task = _ref2[_i];
+                      delete task.callback;
+                    }
+                    return _this.loadFootprints(function() {
+                      var tiepoint, _j, _len1, _ref3;
+
+                      _ref3 = _this.rastersGrid.selection;
+                      for (rowId in _ref3) {
+                        bool = _ref3[rowId];
+                        if (bool) {
+                          selectedRow = _this.rastersGrid.row(rowId).data;
+                        }
+                      }
+                      for (_j = 0, _len1 = appliedTiepoints.length; _j < _len1; _j++) {
+                        tiepoint = appliedTiepoints[_j];
+                        selectedRow.tiepoints.put(tiepoint);
+                      }
+                      delete asyncTask.callback;
+                      _this.startEditTiepoints();
+                      return domStyle.set(_this.loadingGif, "display", "none");
+                    });
+                  },
+                  error: function(_arg2) {
+                    var message;
+
+                    message = _arg2.message;
+                    return console.error(message);
+                  }
+                }, {
+                  usePost: true
+                });
+              },
+              callbackLabel: "Redo Edit Tiepoints"
+            });
+            if (domStyle.get(_this.selectRasterContainer.domNode, "display") === "block") {
+              domStyle.set(_this.asyncResultsContainer.domNode, "display", "block");
+            }
+            _this.asyncResultsGrid.select(asyncTask);
             _ref2 = selectedRow.tiepoints.data.splice(0);
             for (_i = 0, _len = _ref2.length; _i < _len; _i++) {
               tiepoint = _ref2[_i];
