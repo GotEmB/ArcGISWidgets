@@ -83,6 +83,7 @@
       computeAndTransformButton: null,
       loadingGif: null,
       toggleRasterLayerButton: null,
+      toggleFootprintsButton: null,
       setImageFormat_JPGPNGButton: null,
       setImageFormat_JPGButton: null,
       rastersDisplayMenu: null,
@@ -94,10 +95,13 @@
       applyManualTransform_1stOrderTooltip: null,
       applyManualTransform_2ndOrderTooltip: null,
       applyManualTransform_3rdOrderTooltip: null,
+      footprintsLayer: null,
       sourceSymbol: new SimpleMarkerSymbol(SimpleMarkerSymbol.STYLE_X, 10, new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new Color([20, 20, 180]), 2), new Color([0, 0, 0])),
       targetSymbol: new SimpleMarkerSymbol(SimpleMarkerSymbol.STYLE_X, 10, new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new Color([180, 20, 20]), 2), new Color([0, 0, 0])),
       selectedSourceSymbol: new SimpleMarkerSymbol(SimpleMarkerSymbol.STYLE_X, 16, new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new Color([20, 20, 180]), 3), new Color([0, 0, 0])),
       selectedTargetSymbol: new SimpleMarkerSymbol(SimpleMarkerSymbol.STYLE_X, 16, new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new Color([180, 20, 20]), 3), new Color([0, 0, 0])),
+      footprintSymbol: new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new Color([10, 240, 10]), 1),
+      selectedFootprintSymbol: new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new Color([10, 240, 240]), 2),
       scrollToElement: function(element) {
         var elemNL, prevNL;
 
@@ -144,6 +148,8 @@
             onceDone = true;
           }
           _this.map.addLayer(_this.imageServiceLayer);
+          _this.footprintsLayer = new GraphicsLayer;
+          _this.map.addLayer(_this.footprintsLayer);
           _this.rasters = new Observable(new Memory({
             idProperty: "rasterId"
           }));
@@ -180,11 +186,17 @@
             return _this.rastersGrid.select(_this.rastersGrid.cell(e).row);
           });
           _this.rastersGrid.on("dgrid-select", function(_arg1) {
-            var rows;
+            var raster, rows, _i, _len, _ref;
 
             rows = _arg1.rows;
             _this.currentId = rows[0].data.rasterId;
             _this.scrollToElement(rows[0].element);
+            _ref = _this.rasters.data;
+            for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+              raster = _ref[_i];
+              raster.footprint.setSymbol(_this.footprintSymbol);
+            }
+            rows[0].data.footprint.setSymbol(_this.selectedFootprintSymbol);
             return request({
               url: _this.imageServiceUrl + "/query",
               content: {
@@ -532,15 +544,19 @@
             });
             return _this.asyncTaskDetailsPopup.focus();
           });
-          window.self = _this;
-          return connect(document, "onkeydown", function(e) {
+          connect(document, "onkeydown", function(e) {
             if (document.activeElement.tagName.toLowerCase() === "input" && document.activeElement.type.toLowerCase() === "text") {
               return;
             }
             if (e.which === 82) {
-              return _this.toggleRasterLayerButton.set("checked", !_this.toggleRasterLayerButton.checked);
+              _this.toggleRasterLayerButton.set("checked", !_this.toggleRasterLayerButton.checked);
+              return _this.toggleRasterLayer(_this.toggleRasterLayerButton.checked);
+            } else if (e.which === 70) {
+              _this.toggleFootprintsButton.set("checked", !_this.toggleFootprintsButton.checked);
+              return _this.toggleFootprints(_this.toggleFootprintsButton.checked);
             }
           });
+          return window.self = _this;
         });
       },
       refreshMosaicRule: function(callback) {
@@ -550,7 +566,7 @@
         this.imageServiceLayer.setMosaicRule(extend(new MosaicRule, {
           method: MosaicRule.METHOD_LOCKRASTER,
           lockRasterIds: (function() {
-            var _i, _len, _ref, _results;
+            var _i, _j, _len, _len1, _ref, _ref1, _results;
 
             if (domStyle.get(this.selectRasterContainer.domNode, "display") === "block" || (this.currentId == null)) {
               this.imageServiceLayer.setVisibility(((function() {
@@ -566,10 +582,18 @@
                 }
                 return _results;
               }).call(this)).length > 0);
+              this.footprintsLayer.clear();
               _ref = this.rasters.data;
-              _results = [];
               for (_i = 0, _len = _ref.length; _i < _len; _i++) {
                 raster = _ref[_i];
+                if (raster.display) {
+                  this.footprintsLayer.add(raster.footprint);
+                }
+              }
+              _ref1 = this.rasters.data;
+              _results = [];
+              for (_j = 0, _len1 = _ref1.length; _j < _len1; _j++) {
+                raster = _ref1[_j];
                 if (raster.display) {
                   _results.push(raster.rasterId);
                 }
@@ -577,6 +601,8 @@
               return _results;
             } else {
               this.imageServiceLayer.setVisibility(true);
+              this.footprintsLayer.clear();
+              this.footprintsLayer.add(this.rasters.get(this.currentId).footprint);
               return [this.currentId];
             }
           }).call(this)
@@ -627,17 +653,18 @@
                 });
               }
             }
-            if (typeof callback === "function") {
-              callback();
-            }
-            return domStyle.set(_this.loadingGif, "display", "none");
+            return _this.loadFootprints(function() {
+              if (typeof callback === "function") {
+                callback();
+              }
+              return domStyle.set(_this.loadingGif, "display", "none");
+            });
           },
           error: function(_arg1) {
             var message;
 
             message = _arg1.message;
-            console.error(message);
-            return console.log(esri.config.defaults.io.corsEnabledServers);
+            return console.error(message);
           }
         }, {
           usePost: true
@@ -821,7 +848,9 @@
             }
             if (!gotoLocation) {
               _this.map.setExtent(_this.map.extent);
-              return typeof callback === "function" ? callback() : void 0;
+              return _this.loadFootprints(function() {
+                return typeof callback === "function" ? callback() : void 0;
+              });
             }
             return request({
               url: _this.imageServiceUrl + "/query",
@@ -834,7 +863,9 @@
               handleAs: "json",
               load: function(response2) {
                 _this.map.setExtent(new Polygon(response2.features[0].geometry).getExtent());
-                return typeof callback === "function" ? callback() : void 0;
+                return _this.loadFootprints(function() {
+                  return typeof callback === "function" ? callback() : void 0;
+                });
               },
               error: function(_arg2) {
                 var message;
@@ -892,6 +923,9 @@
       },
       toggleRasterLayer: function(state) {
         return this.imageServiceLayer.setOpacity(state ? 1 : 0);
+      },
+      toggleFootprints: function(state) {
+        return this.footprintsLayer.setOpacity(state ? 1 : 0);
       },
       startEditTiepoints: function() {
         var bool, container, containers, display, rowId, selectedRow, tiepoint, _i, _j, _len, _len1, _ref, _ref1, _ref2, _ref3;
@@ -1477,6 +1511,7 @@
                       var updateEndEvent;
 
                       _this.map.setExtent(new Polygon(response3.features[0].geometry).getExtent());
+                      _this.loadFootprints();
                       return updateEndEvent = connect(_this.imageServiceLayer, "onUpdateEnd", function() {
                         disconnect(updateEndEvent);
                         return domStyle.set(_this.loadingGif, "display", "none");
@@ -2081,6 +2116,52 @@
           this.rastersGrid.select(selectedRowId);
         }
         return this.refreshMosaicRule();
+      },
+      loadFootprints: function(callback) {
+        var raster,
+          _this = this;
+
+        this.footprintsLayer.clear();
+        return request({
+          url: this.imageServiceUrl + "/query",
+          content: {
+            objectIds: ((function() {
+              var _i, _len, _ref, _results;
+
+              _ref = this.rasters.data;
+              _results = [];
+              for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+                raster = _ref[_i];
+                _results.push(raster.rasterId);
+              }
+              return _results;
+            }).call(this)).toString(),
+            returnGeometry: true,
+            outFields: "",
+            f: "json"
+          },
+          handleAs: "json",
+          load: function(_arg1) {
+            var feature, features, graphic, thisRaster, _i, _len;
+
+            features = _arg1.features;
+            for (_i = 0, _len = features.length; _i < _len; _i++) {
+              feature = features[_i];
+              thisRaster = _this.rasters.get(feature.attributes.OBJECTID);
+              graphic = new Graphic(new Polygon(feature.geometry), _this.rastersGrid.isSelected(thisRaster.rasterId) ? _this.selectedFootprintSymbol : _this.footprintSymbol);
+              _this.footprintsLayer.add(thisRaster.footprint = graphic);
+            }
+            return typeof callback === "function" ? callback() : void 0;
+          },
+          error: function(_arg1) {
+            var message;
+
+            message = _arg1.message;
+            return console.error(message);
+          }
+        }, {
+          usePost: true
+        });
       }
     });
   });

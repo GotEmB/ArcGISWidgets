@@ -129,6 +129,7 @@ do ->
 			computeAndTransformButton: null
 			loadingGif: null
 			toggleRasterLayerButton: null
+			toggleFootprintsButton: null
 			setImageFormat_JPGPNGButton: null
 			setImageFormat_JPGButton: null
 			rastersDisplayMenu: null
@@ -140,6 +141,7 @@ do ->
 			applyManualTransform_1stOrderTooltip: null
 			applyManualTransform_2ndOrderTooltip: null
 			applyManualTransform_3rdOrderTooltip: null
+			footprintsLayer: null
 			sourceSymbol:
 				new SimpleMarkerSymbol(
 					SimpleMarkerSymbol.STYLE_X
@@ -184,6 +186,18 @@ do ->
 					)
 					new Color [0, 0, 0]
 				)
+			footprintSymbol:
+				new SimpleLineSymbol(
+					SimpleLineSymbol.STYLE_SOLID
+					new Color [10, 240, 10]
+					1
+				)
+			selectedFootprintSymbol:
+				new SimpleLineSymbol(
+					SimpleLineSymbol.STYLE_SOLID
+					new Color [10, 240, 240]
+					2
+				)
 			scrollToElement: (element) ->
 				elemNL = query(element).closest(".dgrid-row")
 				if (prevNL = elemNL.prev()).length is 0 or prevNL[0].classList.contains "dgrid-preload"
@@ -215,6 +229,8 @@ do ->
 				@watch "map", (attr, oldMap, newMap) =>
 					if onceDone then return else onceDone = true
 					@map.addLayer @imageServiceLayer
+					@footprintsLayer = new GraphicsLayer
+					@map.addLayer @footprintsLayer
 					@rasters = new Observable new Memory idProperty: "rasterId"
 					@rastersGrid = new RastersGrid
 						columns: [
@@ -246,6 +262,8 @@ do ->
 					@rastersGrid.on "dgrid-select", ({rows}) =>
 						@currentId = rows[0].data.rasterId
 						@scrollToElement rows[0].element
+						raster.footprint.setSymbol @footprintSymbol for raster in @rasters.data
+						rows[0].data.footprint.setSymbol @selectedFootprintSymbol
 						request
 							url: @imageServiceUrl + "/query"
 							content:
@@ -440,11 +458,15 @@ do ->
 							around: row.element
 							orient: ["before-centered", "after-centered", "above-centered"]
 						@asyncTaskDetailsPopup.focus()
-					window.self = @
 					connect document, "onkeydown", (e) =>
 						return if document.activeElement.tagName.toLowerCase() is "input" and document.activeElement.type.toLowerCase() is "text"
 						if e.which == 82
 							@toggleRasterLayerButton.set "checked", not @toggleRasterLayerButton.checked
+							@toggleRasterLayer @toggleRasterLayerButton.checked
+						else if e.which == 70
+							@toggleFootprintsButton.set "checked", not @toggleFootprintsButton.checked
+							@toggleFootprints @toggleFootprintsButton.checked
+					window.self = @
 			refreshMosaicRule: (callback) ->
 				@imageServiceLayer.setMosaicRule extend(
 					new MosaicRule
@@ -452,9 +474,13 @@ do ->
 					lockRasterIds:
 						if domStyle.get(@selectRasterContainer.domNode, "display") is "block" or not @currentId?
 							@imageServiceLayer.setVisibility (raster for raster in @rasters.data when raster.display).length > 0
+							@footprintsLayer.clear()
+							@footprintsLayer.add raster.footprint for raster in @rasters.data when raster.display
 							raster.rasterId for raster in @rasters.data when raster.display
 						else
 							@imageServiceLayer.setVisibility true
+							@footprintsLayer.clear()
+							@footprintsLayer.add @rasters.get(@currentId).footprint
 							[@currentId]
 				)
 				if not (domStyle.get(@selectRasterContainer.domNode, "display") is "block" or not @currentId?) or (raster for raster in @rasters.data when raster.display).length > 0
@@ -477,9 +503,10 @@ do ->
 								name: feature.attributes.Name
 								spatialReference: new SpatialReference feature.geometry.spatialReference
 								display: true
-						callback?()
-						domStyle.set @loadingGif, "display", "none"
-					error: ({message}) => console.error message; console.log esri.config.defaults.io.corsEnabledServers
+						@loadFootprints =>
+							callback?()
+							domStyle.set @loadingGif, "display", "none"
+					error: ({message}) => console.error message
 					(usePost: true)
 			showAddRasterDialog: ->
 				@addRasterDialog.show()
@@ -570,7 +597,8 @@ do ->
 							task.callbackLabel = "Continue Task"
 						unless gotoLocation
 							@map.setExtent @map.extent
-							return callback?()
+							return @loadFootprints =>
+								callback?()
 						request
 							url: @imageServiceUrl + "/query"
 							content:
@@ -581,7 +609,8 @@ do ->
 							handleAs: "json"
 							load: (response2) =>
 								@map.setExtent new Polygon(response2.features[0].geometry).getExtent()
-								callback?()
+								@loadFootprints =>
+									callback?()
 							error: ({message}) => console.error message
 							(usePost: true)
 					error: ({message}) => console.error message
@@ -607,6 +636,8 @@ do ->
 					(usePost: true)
 			toggleRasterLayer: (state) ->
 				@imageServiceLayer.setOpacity if state then 1 else 0
+			toggleFootprints: (state) ->
+				@footprintsLayer.setOpacity if state then 1 else 0
 			startEditTiepoints: ->
 				return @showRasterNotSelectedDialog() unless @currentId?
 				selectedRow = @rastersGrid.row(rowId).data for rowId, bool of @rastersGrid.selection when bool
@@ -878,6 +909,7 @@ do ->
 											handleAs: "json"
 											load: (response3) =>
 												@map.setExtent new Polygon(response3.features[0].geometry).getExtent()
+												@loadFootprints()
 												updateEndEvent = connect @imageServiceLayer, "onUpdateEnd", =>
 													disconnect updateEndEvent
 													domStyle.set @loadingGif, "display", "none"
@@ -1169,3 +1201,24 @@ do ->
 					@rasters.notify raster, raster.rasterId
 				@rastersGrid.select selectedRowId if selectedRowId?
 				@refreshMosaicRule()
+			loadFootprints: (callback) ->
+				@footprintsLayer.clear()
+				request
+					url: @imageServiceUrl + "/query"
+					content:
+						objectIds: (raster.rasterId for raster in @rasters.data).toString()
+						returnGeometry: true
+						outFields: ""
+						f: "json"
+					handleAs: "json"
+					load: ({features}) =>
+						for feature in features
+							thisRaster = @rasters.get(feature.attributes.OBJECTID)
+							graphic = new Graphic(
+								new Polygon feature.geometry
+								if @rastersGrid.isSelected thisRaster.rasterId then @selectedFootprintSymbol else @footprintSymbol
+							)
+							@footprintsLayer.add thisRaster.footprint = graphic
+						callback?()
+					error: ({message}) => console.error message
+					(usePost: true)
