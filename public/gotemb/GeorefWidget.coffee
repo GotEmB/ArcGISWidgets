@@ -264,18 +264,7 @@ do ->
 						@scrollToElement rows[0].element
 						raster.footprint.setSymbol @footprintSymbol for raster in @rasters.data
 						rows[0].data.footprint.setSymbol @selectedFootprintSymbol
-						request
-							url: @imageServiceUrl + "/query"
-							content:
-								objectIds: [@currentId]
-								returnGeometry: true
-								outFields: ""
-								f: "json"
-							handleAs: "json"
-							load: (response3) =>
-								@map.setExtent new Polygon(response3.features[0].geometry).getExtent()
-							error: ({message}) => console.error message
-							(usePost: true)
+						@map.setExtent rows[0].data.footprint.geometry.getExtent()
 					@rastersGrid.on "dgrid-datachange", ({cell, value}) =>
 						cell.row.data.display = value
 						@refreshMosaicRule()
@@ -381,31 +370,11 @@ do ->
 						@map.enablePan()
 					connect @map, "onClick", (e) =>
 						return unless domStyle.get(@selectRasterContainer.domNode, "display") is "block"
-						domStyle.set @loadingGif, "display", "block"
-						rtc = (row for row in @rasters.data when row.display)
-						do rec = =>
-							if rtc.length is 0
-								return domStyle.set @loadingGif, "display", "none"
-							row = rtc.pop()
-							request
-								url: @imageServiceUrl + "/query"
-								content:
-									objectIds: row.rasterId
-									returnGeometry: true
-									outFields: ""
-									f: "json"
-								handleAs: "json"
-								load: (response) =>
-									if new Polygon(response.features[0].geometry).contains e.mapPoint
-										@rastersGrid.clearSelection()
-										@rastersGrid.select row
-										updateEvent = connect @imageServiceLayer, "onUpdateEnd", =>
-											disconnect updateEvent
-											domStyle.set @loadingGif, "display", "none"
-									else
-										do rec
-								error: ({message}) => console.error message
-								(usePost: true)
+						for raster in @rasters.data by -1 when raster.display
+							if raster.footprint.geometry.contains e.mapPoint
+								@rastersGrid.clearSelection()
+								@rastersGrid.select raster
+								break
 					@asyncResults = new Observable new Memory idProperty: "resultId"
 					@asyncResultsGrid = new AsyncResultsGrid
 						columns: [	
@@ -595,24 +564,10 @@ do ->
 						for task in @asyncResults.data.filter((x) => x.rasterId is @currentId and x.task is "Compute Tiepoints")
 							delete task.callback
 							task.callbackLabel = "Continue Task"
-						unless gotoLocation
-							@map.setExtent @map.extent
-							return @loadFootprints =>
-								callback?()
-						request
-							url: @imageServiceUrl + "/query"
-							content:
-								objectIds: @currentId
-								returnGeometry: true
-								outFields: ""
-								f: "json"
-							handleAs: "json"
-							load: (response2) =>
-								@map.setExtent new Polygon(response2.features[0].geometry).getExtent()
-								@loadFootprints =>
-									callback?()
-							error: ({message}) => console.error message
-							(usePost: true)
+						@loadFootprints =>
+							selectedRow = @rastersGrid.row(rowId).data for rowId, bool of @rastersGrid.selection when bool
+							@map.setExtent if gotoLocation then selectedRow.footprint.geometry.getExtent() else @map.extent
+							callback?()
 					error: ({message}) => console.error message
 					(usePost: true)
 			computeTiePoints: (callback) ->
@@ -847,78 +802,41 @@ do ->
 						callback? geometries
 				)
 			rt_fit: ->
-				return console.error "No raster selected" unless @currentId?
 				domStyle.set @loadingGif, "display", "block"
-				request
-					url: @imageServiceUrl + "/query"
-					content:
-						objectIds: @currentId
-						returnGeometry: true
-						outFields: ""
-						f: "json"
-					handleAs: "json"
-					load: (response1) =>
-						src = new Polygon(response1.features[0].geometry).getExtent()
-						@projectIfReq
-							geometries: [@map.extent]
-							outSR: src.spatialReference
-							([mapExtent]) =>
-								request
-									url: @imageServiceUrl + "/update"
-									content:
-										f: "json"
-										rasterId: @currentId
-										geodataTransforms: JSON.stringify [
-											geodataTransform: "Polynomial"
-											geodataTransformArguments:
-												sourcePoints: [
-													{x: src.xmin, y: src.ymin}
-													{x: src.xmin, y: src.ymax}
-													{x: src.xmax, y: src.ymin}
-												]
-												targetPoints: do =>
-													aspectRatio = (src.xmax - src.xmin) / (src.ymax - src.ymin)
-													map =
-														width: mapExtent.getWidth()
-														height: mapExtent.getHeight()
-														center: mapExtent.getCenter()
-													dest =
-														width: Math.min map.width, map.height * aspectRatio
-														height: Math.min map.height, map.width / aspectRatio
-													dest.xmin = map.center.x - dest.width / 2
-													dest.xmax = map.center.x + dest.width / 2
-													dest.ymin = map.center.y - dest.height / 2
-													dest.ymax = map.center.y + dest.height / 2
-													[
-														{x: dest.xmin, y: dest.ymin}
-														{x: dest.xmin, y: dest.ymax}
-														{x: dest.xmax, y: dest.ymin}
-													]
-												polynomialOrder: 1
-												spatialReference: src.spatialReference
-										]
-									handleAs: "json"
-									load: =>
-										request
-											url: @imageServiceUrl + "/query"
-											content:
-												objectIds: @currentId
-												returnGeometry: true
-												outFields: ""
-												f: "json"
-											handleAs: "json"
-											load: (response3) =>
-												@map.setExtent new Polygon(response3.features[0].geometry).getExtent()
-												@loadFootprints()
-												updateEndEvent = connect @imageServiceLayer, "onUpdateEnd", =>
-													disconnect updateEndEvent
-													domStyle.set @loadingGif, "display", "none"
-											error: ({message}) => console.error message
-											(usePost: true)
-									error: ({message}) => console.error message
-									(usePost: true)
-					error: ({message}) => console.error message
-					(usePost: true)
+				@projectIfReq
+					geometries: (@rastersGrid.row(rowId).data.footprint.geometry.getExtent() for rowId, bool of @rastersGrid.selection when bool).concat @map.extent
+					outSR: @rasters.data.filter((x) => x.rasterId is @currentId)[0].spatialReference
+					([fromExt, mapExtent]) =>
+						@applyTransform
+							tiePoints:
+								sourcePoints: [
+									new Point x: fromExt.xmin, y: fromExt.ymin, spatialReference: fromExt.spatialReference
+									new Point x: fromExt.xmin, y: fromExt.ymax, spatialReference: fromExt.spatialReference
+									new Point x: fromExt.xmax, y: fromExt.ymin, spatialReference: fromExt.spatialReference
+								]
+								targetPoints: do =>
+									aspectRatio = (fromExt.xmax - fromExt.xmin) / (fromExt.ymax - fromExt.ymin)
+									map =
+										width: mapExtent.getWidth()
+										height: mapExtent.getHeight()
+										center: mapExtent.getCenter()
+									dest =
+										width: Math.min map.width, map.height * aspectRatio
+										height: Math.min map.height, map.width / aspectRatio
+									dest.xmin = map.center.x - dest.width / 2
+									dest.xmax = map.center.x + dest.width / 2
+									dest.ymin = map.center.y - dest.height / 2
+									dest.ymax = map.center.y + dest.height / 2
+									[
+										{x: dest.xmin, y: dest.ymin}
+										{x: dest.xmin, y: dest.ymax}
+										{x: dest.xmax, y: dest.ymin}
+									]
+							gotoLocation: false
+							=>
+								updateEndEvent = connect @imageServiceLayer, "onUpdateEnd", =>
+									disconnect updateEndEvent
+									domStyle.set @loadingGif, "display", "none"
 			rt_move: (state) ->
 				if state
 					domStyle.set @rtMoveContainer.domNode, "display", "block"
@@ -1218,7 +1136,11 @@ do ->
 								new Polygon feature.geometry
 								if @rastersGrid.isSelected thisRaster.rasterId then @selectedFootprintSymbol else @footprintSymbol
 							)
-							@footprintsLayer.add thisRaster.footprint = graphic
+							thisRaster.footprint = graphic
+						if domStyle.get(@selectRasterContainer.domNode, "display") is "block"
+							@footprintsLayer.add raster.footprint for raster in @rasters.data when raster.display
+						else
+							@footprintsLayer.add raster.footprint for raster in @rasters.data when raster.footprint.symbol is @selectedFootprintSymbol
 						callback?()
 					error: ({message}) => console.error message
 					(usePost: true)

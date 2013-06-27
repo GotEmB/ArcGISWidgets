@@ -197,27 +197,7 @@
               raster.footprint.setSymbol(_this.footprintSymbol);
             }
             rows[0].data.footprint.setSymbol(_this.selectedFootprintSymbol);
-            return request({
-              url: _this.imageServiceUrl + "/query",
-              content: {
-                objectIds: [_this.currentId],
-                returnGeometry: true,
-                outFields: "",
-                f: "json"
-              },
-              handleAs: "json",
-              load: function(response3) {
-                return _this.map.setExtent(new Polygon(response3.features[0].geometry).getExtent());
-              },
-              error: function(_arg2) {
-                var message;
-
-                message = _arg2.message;
-                return console.error(message);
-              }
-            }, {
-              usePost: true
-            });
+            return _this.map.setExtent(rows[0].data.footprint.geometry.getExtent());
           });
           _this.rastersGrid.on("dgrid-datachange", function(_arg1) {
             var cell, value;
@@ -410,63 +390,26 @@
             return _this.map.enablePan();
           });
           connect(_this.map, "onClick", function(e) {
-            var rec, row, rtc;
+            var raster, _i, _ref, _results;
 
             if (domStyle.get(_this.selectRasterContainer.domNode, "display") !== "block") {
               return;
             }
-            domStyle.set(_this.loadingGif, "display", "block");
-            rtc = (function() {
-              var _i, _len, _ref, _results;
-
-              _ref = this.rasters.data;
-              _results = [];
-              for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-                row = _ref[_i];
-                if (row.display) {
-                  _results.push(row);
+            _ref = _this.rasters.data;
+            _results = [];
+            for (_i = _ref.length - 1; _i >= 0; _i += -1) {
+              raster = _ref[_i];
+              if (raster.display) {
+                if (raster.footprint.geometry.contains(e.mapPoint)) {
+                  _this.rastersGrid.clearSelection();
+                  _this.rastersGrid.select(raster);
+                  break;
+                } else {
+                  _results.push(void 0);
                 }
               }
-              return _results;
-            }).call(_this);
-            return (rec = function() {
-              if (rtc.length === 0) {
-                return domStyle.set(_this.loadingGif, "display", "none");
-              }
-              row = rtc.pop();
-              return request({
-                url: _this.imageServiceUrl + "/query",
-                content: {
-                  objectIds: row.rasterId,
-                  returnGeometry: true,
-                  outFields: "",
-                  f: "json"
-                },
-                handleAs: "json",
-                load: function(response) {
-                  var updateEvent;
-
-                  if (new Polygon(response.features[0].geometry).contains(e.mapPoint)) {
-                    _this.rastersGrid.clearSelection();
-                    _this.rastersGrid.select(row);
-                    return updateEvent = connect(_this.imageServiceLayer, "onUpdateEnd", function() {
-                      disconnect(updateEvent);
-                      return domStyle.set(_this.loadingGif, "display", "none");
-                    });
-                  } else {
-                    return rec();
-                  }
-                },
-                error: function(_arg1) {
-                  var message;
-
-                  message = _arg1.message;
-                  return console.error(message);
-                }
-              }, {
-                usePost: true
-              });
-            })();
+            }
+            return _results;
           });
           _this.asyncResults = new Observable(new Memory({
             idProperty: "resultId"
@@ -846,35 +789,18 @@
               delete task.callback;
               task.callbackLabel = "Continue Task";
             }
-            if (!gotoLocation) {
-              _this.map.setExtent(_this.map.extent);
-              return _this.loadFootprints(function() {
-                return typeof callback === "function" ? callback() : void 0;
-              });
-            }
-            return request({
-              url: _this.imageServiceUrl + "/query",
-              content: {
-                objectIds: _this.currentId,
-                returnGeometry: true,
-                outFields: "",
-                f: "json"
-              },
-              handleAs: "json",
-              load: function(response2) {
-                _this.map.setExtent(new Polygon(response2.features[0].geometry).getExtent());
-                return _this.loadFootprints(function() {
-                  return typeof callback === "function" ? callback() : void 0;
-                });
-              },
-              error: function(_arg2) {
-                var message;
+            return _this.loadFootprints(function() {
+              var bool, rowId, selectedRow, _ref1;
 
-                message = _arg2.message;
-                return console.error(message);
+              _ref1 = _this.rastersGrid.selection;
+              for (rowId in _ref1) {
+                bool = _ref1[rowId];
+                if (bool) {
+                  selectedRow = _this.rastersGrid.row(rowId).data;
+                }
               }
-            }, {
-              usePost: true
+              _this.map.setExtent(gotoLocation ? selectedRow.footprint.geometry.getExtent() : _this.map.extent);
+              return typeof callback === "function" ? callback() : void 0;
             });
           },
           error: function(_arg2) {
@@ -1413,139 +1339,88 @@
         });
       },
       rt_fit: function() {
-        var _this = this;
+        var bool, rowId,
+          _this = this;
 
-        if (this.currentId == null) {
-          return console.error("No raster selected");
-        }
         domStyle.set(this.loadingGif, "display", "block");
-        return request({
-          url: this.imageServiceUrl + "/query",
-          content: {
-            objectIds: this.currentId,
-            returnGeometry: true,
-            outFields: "",
-            f: "json"
-          },
-          handleAs: "json",
-          load: function(response1) {
-            var src;
+        return this.projectIfReq({
+          geometries: ((function() {
+            var _ref, _results;
 
-            src = new Polygon(response1.features[0].geometry).getExtent();
-            return _this.projectIfReq({
-              geometries: [_this.map.extent],
-              outSR: src.spatialReference
-            }, function(_arg1) {
-              var mapExtent;
+            _ref = this.rastersGrid.selection;
+            _results = [];
+            for (rowId in _ref) {
+              bool = _ref[rowId];
+              if (bool) {
+                _results.push(this.rastersGrid.row(rowId).data.footprint.geometry.getExtent());
+              }
+            }
+            return _results;
+          }).call(this)).concat(this.map.extent),
+          outSR: this.rasters.data.filter(function(x) {
+            return x.rasterId === _this.currentId;
+          })[0].spatialReference
+        }, function(_arg1) {
+          var fromExt, mapExtent;
 
-              mapExtent = _arg1[0];
-              return request({
-                url: _this.imageServiceUrl + "/update",
-                content: {
-                  f: "json",
-                  rasterId: _this.currentId,
-                  geodataTransforms: JSON.stringify([
-                    {
-                      geodataTransform: "Polynomial",
-                      geodataTransformArguments: {
-                        sourcePoints: [
-                          {
-                            x: src.xmin,
-                            y: src.ymin
-                          }, {
-                            x: src.xmin,
-                            y: src.ymax
-                          }, {
-                            x: src.xmax,
-                            y: src.ymin
-                          }
-                        ],
-                        targetPoints: (function() {
-                          var aspectRatio, dest, map;
+          fromExt = _arg1[0], mapExtent = _arg1[1];
+          return _this.applyTransform({
+            tiePoints: {
+              sourcePoints: [
+                new Point({
+                  x: fromExt.xmin,
+                  y: fromExt.ymin,
+                  spatialReference: fromExt.spatialReference
+                }), new Point({
+                  x: fromExt.xmin,
+                  y: fromExt.ymax,
+                  spatialReference: fromExt.spatialReference
+                }), new Point({
+                  x: fromExt.xmax,
+                  y: fromExt.ymin,
+                  spatialReference: fromExt.spatialReference
+                })
+              ],
+              targetPoints: (function() {
+                var aspectRatio, dest, map;
 
-                          aspectRatio = (src.xmax - src.xmin) / (src.ymax - src.ymin);
-                          map = {
-                            width: mapExtent.getWidth(),
-                            height: mapExtent.getHeight(),
-                            center: mapExtent.getCenter()
-                          };
-                          dest = {
-                            width: Math.min(map.width, map.height * aspectRatio),
-                            height: Math.min(map.height, map.width / aspectRatio)
-                          };
-                          dest.xmin = map.center.x - dest.width / 2;
-                          dest.xmax = map.center.x + dest.width / 2;
-                          dest.ymin = map.center.y - dest.height / 2;
-                          dest.ymax = map.center.y + dest.height / 2;
-                          return [
-                            {
-                              x: dest.xmin,
-                              y: dest.ymin
-                            }, {
-                              x: dest.xmin,
-                              y: dest.ymax
-                            }, {
-                              x: dest.xmax,
-                              y: dest.ymin
-                            }
-                          ];
-                        })(),
-                        polynomialOrder: 1,
-                        spatialReference: src.spatialReference
-                      }
-                    }
-                  ])
-                },
-                handleAs: "json",
-                load: function() {
-                  return request({
-                    url: _this.imageServiceUrl + "/query",
-                    content: {
-                      objectIds: _this.currentId,
-                      returnGeometry: true,
-                      outFields: "",
-                      f: "json"
-                    },
-                    handleAs: "json",
-                    load: function(response3) {
-                      var updateEndEvent;
-
-                      _this.map.setExtent(new Polygon(response3.features[0].geometry).getExtent());
-                      _this.loadFootprints();
-                      return updateEndEvent = connect(_this.imageServiceLayer, "onUpdateEnd", function() {
-                        disconnect(updateEndEvent);
-                        return domStyle.set(_this.loadingGif, "display", "none");
-                      });
-                    },
-                    error: function(_arg2) {
-                      var message;
-
-                      message = _arg2.message;
-                      return console.error(message);
-                    }
+                aspectRatio = (fromExt.xmax - fromExt.xmin) / (fromExt.ymax - fromExt.ymin);
+                map = {
+                  width: mapExtent.getWidth(),
+                  height: mapExtent.getHeight(),
+                  center: mapExtent.getCenter()
+                };
+                dest = {
+                  width: Math.min(map.width, map.height * aspectRatio),
+                  height: Math.min(map.height, map.width / aspectRatio)
+                };
+                dest.xmin = map.center.x - dest.width / 2;
+                dest.xmax = map.center.x + dest.width / 2;
+                dest.ymin = map.center.y - dest.height / 2;
+                dest.ymax = map.center.y + dest.height / 2;
+                return [
+                  {
+                    x: dest.xmin,
+                    y: dest.ymin
                   }, {
-                    usePost: true
-                  });
-                },
-                error: function(_arg2) {
-                  var message;
+                    x: dest.xmin,
+                    y: dest.ymax
+                  }, {
+                    x: dest.xmax,
+                    y: dest.ymin
+                  }
+                ];
+              })()
+            },
+            gotoLocation: false
+          }, function() {
+            var updateEndEvent;
 
-                  message = _arg2.message;
-                  return console.error(message);
-                }
-              }, {
-                usePost: true
-              });
+            return updateEndEvent = connect(_this.imageServiceLayer, "onUpdateEnd", function() {
+              disconnect(updateEndEvent);
+              return domStyle.set(_this.loadingGif, "display", "none");
             });
-          },
-          error: function(_arg1) {
-            var message;
-
-            message = _arg1.message;
-            return console.error(message);
-          }
-        }, {
-          usePost: true
+          });
         });
       },
       rt_move: function(state) {
@@ -2142,14 +2017,31 @@
           },
           handleAs: "json",
           load: function(_arg1) {
-            var feature, features, graphic, thisRaster, _i, _len;
+            var feature, features, graphic, thisRaster, _i, _j, _k, _len, _len1, _len2, _ref, _ref1;
 
             features = _arg1.features;
             for (_i = 0, _len = features.length; _i < _len; _i++) {
               feature = features[_i];
               thisRaster = _this.rasters.get(feature.attributes.OBJECTID);
               graphic = new Graphic(new Polygon(feature.geometry), _this.rastersGrid.isSelected(thisRaster.rasterId) ? _this.selectedFootprintSymbol : _this.footprintSymbol);
-              _this.footprintsLayer.add(thisRaster.footprint = graphic);
+              thisRaster.footprint = graphic;
+            }
+            if (domStyle.get(_this.selectRasterContainer.domNode, "display") === "block") {
+              _ref = _this.rasters.data;
+              for (_j = 0, _len1 = _ref.length; _j < _len1; _j++) {
+                raster = _ref[_j];
+                if (raster.display) {
+                  _this.footprintsLayer.add(raster.footprint);
+                }
+              }
+            } else {
+              _ref1 = _this.rasters.data;
+              for (_k = 0, _len2 = _ref1.length; _k < _len2; _k++) {
+                raster = _ref1[_k];
+                if (raster.footprint.symbol === _this.selectedFootprintSymbol) {
+                  _this.footprintsLayer.add(raster.footprint);
+                }
+              }
             }
             return typeof callback === "function" ? callback() : void 0;
           },
