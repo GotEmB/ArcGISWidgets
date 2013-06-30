@@ -60,6 +60,7 @@ do ->
 		"dojo/NodeList-dom"
 		"dijit/TooltipDialog"
 		"dijit/Tooltip"
+		"eligrey/FileSaver"
 	], (declare, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template, {connect, disconnect}, ArcGISImageServiceLayer, request, MosaicRule, Polygon, GeometryService, domStyle, PointGrid, Observable, Memory, TiepointsGrid, GraphicsLayer, Color, SimpleMarkerSymbol, SimpleLineSymbol, Graphic, Point, win, domClass, query, editor, RastersGrid, Extent, ProjectParameters, SpatialReference, Url, ArcGISTiledMapServiceLayer, AsyncResultsGrid, popup, CheckBox, aspect, ImageServiceParameters, RasterFunction) ->
 		declare [_WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin],
 			templateString: template
@@ -146,50 +147,118 @@ do ->
 			applyManualTransform_2ndOrderTooltip: null
 			applyManualTransform_3rdOrderTooltip: null
 			footprintsLayer: null
-			sourceSymbol:
-				new SimpleMarkerSymbol(
+			sourceSymbol: do ->
+				symbol = new SimpleMarkerSymbol(
 					SimpleMarkerSymbol.STYLE_X
 					10
 					new SimpleLineSymbol(
 						SimpleLineSymbol.STYLE_SOLID
-						new Color [20, 20, 180]
-						2
+						new Color [255, 255, 255, 0.5]
+						1
 					)
-					new Color [0, 0, 0]
+					new Color [20, 20, 180]
 				)
-			targetSymbol:
-				new SimpleMarkerSymbol(
+				symbol.setPath """
+					M -7 -5
+					L -5 -7
+					L  0 -2
+					L  5 -7
+					L  7 -5
+					L  2  0
+					L  7  5
+					L  5  7
+					L  0  2
+					L -5  7
+					L -7  5
+					L -2  0
+					L -7 -5
+					Z
+				"""
+				symbol
+			targetSymbol: do ->
+				symbol = new SimpleMarkerSymbol(
 					SimpleMarkerSymbol.STYLE_X
 					10
 					new SimpleLineSymbol(
 						SimpleLineSymbol.STYLE_SOLID
-						new Color [180, 20, 20]
-						2
+						new Color [255, 255, 255, 0.5]
+						1
 					)
-					new Color [0, 0, 0]
+					new Color [180, 20, 20]
 				)
-			selectedSourceSymbol:
-				new SimpleMarkerSymbol(
+				symbol.setPath """
+					M -7 -5
+					L -5 -7
+					L  0 -2
+					L  5 -7
+					L  7 -5
+					L  2  0
+					L  7  5
+					L  5  7
+					L  0  2
+					L -5  7
+					L -7  5
+					L -2  0
+					L -7 -5
+					Z
+				"""
+				symbol
+			selectedSourceSymbol: do ->
+				symbol = new SimpleMarkerSymbol(
 					SimpleMarkerSymbol.STYLE_X
-					16
+					10
 					new SimpleLineSymbol(
 						SimpleLineSymbol.STYLE_SOLID
-						new Color [20, 20, 180]
-						3
+						new Color [255, 255, 255, 0.5]
+						1
 					)
-					new Color [0, 0, 0]
+					new Color [20, 20, 180]
 				)
-			selectedTargetSymbol:
-				new SimpleMarkerSymbol(
+				symbol.setPath """
+					M -9.5 -6.5
+					L -6.5 -9.5
+					L  0   -2
+					L  6.5 -9.5
+					L  9.5 -6.5
+					L  2    0
+					L  9.5  6.5
+					L  6.5  9.5
+					L  0    2
+					L -6.5  9.5
+					L -9.5  6.5
+					L -2    0
+					L -9.5 -6.5
+					Z
+				"""
+				symbol
+			selectedTargetSymbol: do ->
+				symbol = new SimpleMarkerSymbol(
 					SimpleMarkerSymbol.STYLE_X
-					16
+					10
 					new SimpleLineSymbol(
 						SimpleLineSymbol.STYLE_SOLID
-						new Color [180, 20, 20]
-						3
+						new Color [255, 255, 255, 0.5]
+						1
 					)
-					new Color [0, 0, 0]
+					new Color [180, 20, 20]
 				)
+				symbol.setPath """
+					M -9.5 -6.5
+					L -6.5 -9.5
+					L  0   -2
+					L  6.5 -9.5
+					L  9.5 -6.5
+					L  2    0
+					L  9.5  6.5
+					L  6.5  9.5
+					L  0    2
+					L -6.5  9.5
+					L -9.5  6.5
+					L -2    0
+					L -9.5 -6.5
+					Z
+				"""
+				symbol
 			footprintSymbol:
 				new SimpleLineSymbol(
 					SimpleLineSymbol.STYLE_SOLID
@@ -1191,10 +1260,45 @@ do ->
 						callback?()
 					error: ({message}) => console.error message
 					(usePost: true)
-			importTiepoints: =>
+			importTiepoints: ->
 				ipElement = document.createElement "input"
 				ipElement.type = "file"
 				ipElement.accept = "text/plain"
 				ipElement.click()
-				changeEvent
-			exportTiepoints: =>
+				reader = new FileReader
+				changeEvent = connect ipElement, "onchange", (event) ->
+					console.log @files
+					disconnect changeEvent
+					reader.readAsText @files[0]
+				reader.onload = ({target: {result}}) =>
+					selectedRow = @rastersGrid.row(rowId).data for rowId, bool of @rastersGrid.selection when bool
+					newId = Math.max(selectedRow.tiepoints.data.map((x) => x.id).concat(0)...) + 1
+					tiepoints = result.match(/^.+$/gm).map (x) =>
+						arr = x.split(/\t/g).map (x) => Number x
+						sourcePoint: x: arr[0], y: arr[1], spatialReference: @map.spatialReference
+						targetPoint: x: arr[2], y: arr[3], spatialReference: @map.spatialReference
+					for i in [0...tiepoints.length]
+						selectedRow.tiepoints.put
+							id: newId + i
+							sourcePoint: sourcePoint = new Graphic new Point(tiepoints[i].sourcePoint), @sourceSymbol
+							targetPoint: targetPoint = new Graphic new Point(tiepoints[i].targetPoint), @targetSymbol
+							original:
+								sourcePoint: new Point tiepoints[i].sourcePoint
+								targetPoint: new Point tiepoints[i].targetPoint
+							@tiepointsLayer.add sourcePoint
+							@tiepointsLayer.add targetPoint
+					@applyManualTransform_RefreshButtons() if @rastersGrid.isSelected(selectedRow.rasterId) and domStyle.get(@editTiepointsContainer.domNode, "display") is "block"
+			exportTiepoints: ->
+				selectedRow = @rastersGrid.row(rowId).data for rowId, bool of @rastersGrid.selection when bool
+				blob = new Blob ["Hello, world!"], type: "text/plain;charset=utf-8"
+				saveAs(
+					new Blob [
+						selectedRow.tiepoints.data.map((x) => [
+							x.sourcePoint.geometry.x
+							x.sourcePoint.geometry.y
+							x.targetPoint.geometry.x
+							x.targetPoint.geometry.y
+						].join "\t").join "\r\n"
+					]
+					"tiepoints_raster#{selectedRow.rasterId}.txt"
+				)

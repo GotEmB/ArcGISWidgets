@@ -11,9 +11,8 @@
     }
     return obj;
   };
-  return define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dijit/_WidgetsInTemplateMixin", "dojo/text!./GeorefWidget/templates/GeorefWidget.html", "dojo/_base/connect", "esri/layers/ArcGISImageServiceLayer", "esri/request", "esri/layers/MosaicRule", "esri/geometry/Polygon", "esri/tasks/GeometryService", "dojo/dom-style", "gotemb/GeorefWidget/PointGrid", "dojo/store/Observable", "dojo/store/Memory", "gotemb/GeorefWidget/TiepointsGrid", "esri/layers/GraphicsLayer", "dojo/_base/Color", "esri/symbols/SimpleMarkerSymbol", "esri/symbols/SimpleLineSymbol", "esri/graphic", "esri/geometry/Point", "dojo/window", "dojo/dom-class", "dojo/query", "dgrid/editor", "gotemb/GeorefWidget/RastersGrid", "esri/geometry/Extent", "esri/tasks/ProjectParameters", "esri/SpatialReference", "dojo/_base/url", "esri/layers/ArcGISTiledMapServiceLayer", "gotemb/GeorefWidget/AsyncResultsGrid", "dijit/popup", "dijit/form/CheckBox", "dojo/aspect", "esri/layers/ImageServiceParameters", "esri/layers/RasterFunction", "dojox/form/FileInput", "dijit/form/Button", "dijit/form/DropDownButton", "dijit/layout/AccordionContainer", "dijit/layout/ContentPane", "dijit/Dialog", "dijit/Toolbar", "dijit/ToolbarSeparator", "dijit/form/ToggleButton", "dijit/Menu", "dijit/MenuItem", "dijit/CheckedMenuItem", "dojo/NodeList-traverse", "dojo/NodeList-dom", "dijit/TooltipDialog", "dijit/Tooltip"], function(declare, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template, _arg, ArcGISImageServiceLayer, request, MosaicRule, Polygon, GeometryService, domStyle, PointGrid, Observable, Memory, TiepointsGrid, GraphicsLayer, Color, SimpleMarkerSymbol, SimpleLineSymbol, Graphic, Point, win, domClass, query, editor, RastersGrid, Extent, ProjectParameters, SpatialReference, Url, ArcGISTiledMapServiceLayer, AsyncResultsGrid, popup, CheckBox, aspect, ImageServiceParameters, RasterFunction) {
-    var connect, disconnect,
-      _this = this;
+  return define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dijit/_WidgetsInTemplateMixin", "dojo/text!./GeorefWidget/templates/GeorefWidget.html", "dojo/_base/connect", "esri/layers/ArcGISImageServiceLayer", "esri/request", "esri/layers/MosaicRule", "esri/geometry/Polygon", "esri/tasks/GeometryService", "dojo/dom-style", "gotemb/GeorefWidget/PointGrid", "dojo/store/Observable", "dojo/store/Memory", "gotemb/GeorefWidget/TiepointsGrid", "esri/layers/GraphicsLayer", "dojo/_base/Color", "esri/symbols/SimpleMarkerSymbol", "esri/symbols/SimpleLineSymbol", "esri/graphic", "esri/geometry/Point", "dojo/window", "dojo/dom-class", "dojo/query", "dgrid/editor", "gotemb/GeorefWidget/RastersGrid", "esri/geometry/Extent", "esri/tasks/ProjectParameters", "esri/SpatialReference", "dojo/_base/url", "esri/layers/ArcGISTiledMapServiceLayer", "gotemb/GeorefWidget/AsyncResultsGrid", "dijit/popup", "dijit/form/CheckBox", "dojo/aspect", "esri/layers/ImageServiceParameters", "esri/layers/RasterFunction", "dojox/form/FileInput", "dijit/form/Button", "dijit/form/DropDownButton", "dijit/layout/AccordionContainer", "dijit/layout/ContentPane", "dijit/Dialog", "dijit/Toolbar", "dijit/ToolbarSeparator", "dijit/form/ToggleButton", "dijit/Menu", "dijit/MenuItem", "dijit/CheckedMenuItem", "dojo/NodeList-traverse", "dojo/NodeList-dom", "dijit/TooltipDialog", "dijit/Tooltip", "eligrey/FileSaver"], function(declare, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template, _arg, ArcGISImageServiceLayer, request, MosaicRule, Polygon, GeometryService, domStyle, PointGrid, Observable, Memory, TiepointsGrid, GraphicsLayer, Color, SimpleMarkerSymbol, SimpleLineSymbol, Graphic, Point, win, domClass, query, editor, RastersGrid, Extent, ProjectParameters, SpatialReference, Url, ArcGISTiledMapServiceLayer, AsyncResultsGrid, popup, CheckBox, aspect, ImageServiceParameters, RasterFunction) {
+    var connect, disconnect;
 
     connect = _arg.connect, disconnect = _arg.disconnect;
     return declare([_WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin], {
@@ -101,10 +100,34 @@
       applyManualTransform_2ndOrderTooltip: null,
       applyManualTransform_3rdOrderTooltip: null,
       footprintsLayer: null,
-      sourceSymbol: new SimpleMarkerSymbol(SimpleMarkerSymbol.STYLE_X, 10, new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new Color([20, 20, 180]), 2), new Color([0, 0, 0])),
-      targetSymbol: new SimpleMarkerSymbol(SimpleMarkerSymbol.STYLE_X, 10, new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new Color([180, 20, 20]), 2), new Color([0, 0, 0])),
-      selectedSourceSymbol: new SimpleMarkerSymbol(SimpleMarkerSymbol.STYLE_X, 16, new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new Color([20, 20, 180]), 3), new Color([0, 0, 0])),
-      selectedTargetSymbol: new SimpleMarkerSymbol(SimpleMarkerSymbol.STYLE_X, 16, new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new Color([180, 20, 20]), 3), new Color([0, 0, 0])),
+      sourceSymbol: (function() {
+        var symbol;
+
+        symbol = new SimpleMarkerSymbol(SimpleMarkerSymbol.STYLE_X, 10, new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new Color([255, 255, 255, 0.5]), 1), new Color([20, 20, 180]));
+        symbol.setPath("M -7 -5\nL -5 -7\nL  0 -2\nL  5 -7\nL  7 -5\nL  2  0\nL  7  5\nL  5  7\nL  0  2\nL -5  7\nL -7  5\nL -2  0\nL -7 -5\nZ");
+        return symbol;
+      })(),
+      targetSymbol: (function() {
+        var symbol;
+
+        symbol = new SimpleMarkerSymbol(SimpleMarkerSymbol.STYLE_X, 10, new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new Color([255, 255, 255, 0.5]), 1), new Color([180, 20, 20]));
+        symbol.setPath("M -7 -5\nL -5 -7\nL  0 -2\nL  5 -7\nL  7 -5\nL  2  0\nL  7  5\nL  5  7\nL  0  2\nL -5  7\nL -7  5\nL -2  0\nL -7 -5\nZ");
+        return symbol;
+      })(),
+      selectedSourceSymbol: (function() {
+        var symbol;
+
+        symbol = new SimpleMarkerSymbol(SimpleMarkerSymbol.STYLE_X, 10, new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new Color([255, 255, 255, 0.5]), 1), new Color([20, 20, 180]));
+        symbol.setPath("M -9.5 -6.5\nL -6.5 -9.5\nL  0   -2\nL  6.5 -9.5\nL  9.5 -6.5\nL  2    0\nL  9.5  6.5\nL  6.5  9.5\nL  0    2\nL -6.5  9.5\nL -9.5  6.5\nL -2    0\nL -9.5 -6.5\nZ");
+        return symbol;
+      })(),
+      selectedTargetSymbol: (function() {
+        var symbol;
+
+        symbol = new SimpleMarkerSymbol(SimpleMarkerSymbol.STYLE_X, 10, new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new Color([255, 255, 255, 0.5]), 1), new Color([180, 20, 20]));
+        symbol.setPath("M -9.5 -6.5\nL -6.5 -9.5\nL  0   -2\nL  6.5 -9.5\nL  9.5 -6.5\nL  2    0\nL  9.5  6.5\nL  6.5  9.5\nL  0    2\nL -6.5  9.5\nL -9.5  6.5\nL -2    0\nL -9.5 -6.5\nZ");
+        return symbol;
+      })(),
       footprintSymbol: new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new Color([10, 240, 10]), 1),
       selectedFootprintSymbol: new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new Color([10, 240, 240]), 2),
       scrollToElement: function(element) {
@@ -2146,15 +2169,88 @@
         });
       },
       importTiepoints: function() {
-        var ipElement;
+        var changeEvent, ipElement, reader,
+          _this = this;
 
         ipElement = document.createElement("input");
         ipElement.type = "file";
         ipElement.accept = "text/plain";
         ipElement.click();
-        return changeEvent;
+        reader = new FileReader;
+        changeEvent = connect(ipElement, "onchange", function(event) {
+          console.log(this.files);
+          disconnect(changeEvent);
+          return reader.readAsText(this.files[0]);
+        });
+        return reader.onload = function(_arg1) {
+          var bool, i, newId, result, rowId, selectedRow, sourcePoint, targetPoint, tiepoints, _i, _ref, _ref1;
+
+          result = _arg1.target.result;
+          _ref = _this.rastersGrid.selection;
+          for (rowId in _ref) {
+            bool = _ref[rowId];
+            if (bool) {
+              selectedRow = _this.rastersGrid.row(rowId).data;
+            }
+          }
+          newId = Math.max.apply(Math, selectedRow.tiepoints.data.map(function(x) {
+            return x.id;
+          }).concat(0)) + 1;
+          tiepoints = result.match(/^.+$/gm).map(function(x) {
+            var arr;
+
+            arr = x.split(/\t/g).map(function(x) {
+              return Number(x);
+            });
+            return {
+              sourcePoint: {
+                x: arr[0],
+                y: arr[1],
+                spatialReference: _this.map.spatialReference
+              },
+              targetPoint: {
+                x: arr[2],
+                y: arr[3],
+                spatialReference: _this.map.spatialReference
+              }
+            };
+          });
+          for (i = _i = 0, _ref1 = tiepoints.length; 0 <= _ref1 ? _i < _ref1 : _i > _ref1; i = 0 <= _ref1 ? ++_i : --_i) {
+            selectedRow.tiepoints.put({
+              id: newId + i,
+              sourcePoint: sourcePoint = new Graphic(new Point(tiepoints[i].sourcePoint), _this.sourceSymbol),
+              targetPoint: targetPoint = new Graphic(new Point(tiepoints[i].targetPoint), _this.targetSymbol),
+              original: {
+                sourcePoint: new Point(tiepoints[i].sourcePoint),
+                targetPoint: new Point(tiepoints[i].targetPoint)
+              }
+            }, _this.tiepointsLayer.add(sourcePoint), _this.tiepointsLayer.add(targetPoint));
+          }
+          if (_this.rastersGrid.isSelected(selectedRow.rasterId) && domStyle.get(_this.editTiepointsContainer.domNode, "display") === "block") {
+            return _this.applyManualTransform_RefreshButtons();
+          }
+        };
       },
-      exportTiepoints: function() {}
+      exportTiepoints: function() {
+        var blob, bool, rowId, selectedRow, _ref,
+          _this = this;
+
+        _ref = this.rastersGrid.selection;
+        for (rowId in _ref) {
+          bool = _ref[rowId];
+          if (bool) {
+            selectedRow = this.rastersGrid.row(rowId).data;
+          }
+        }
+        blob = new Blob(["Hello, world!"], {
+          type: "text/plain;charset=utf-8"
+        });
+        return saveAs(new Blob([
+          selectedRow.tiepoints.data.map(function(x) {
+            return [x.sourcePoint.geometry.x, x.sourcePoint.geometry.y, x.targetPoint.geometry.x, x.targetPoint.geometry.y].join("\t");
+          }).join("\r\n")
+        ]), "tiepoints_raster" + selectedRow.rasterId + ".txt");
+      }
     });
   });
 })();
