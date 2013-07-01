@@ -4,23 +4,6 @@
 		<div data-dojo-type="dijit/MenuItem" data-dojo-attach-point="resetTiepointMenuItem" data-dojo-attach-event="onClick: resetTiepoint">Reset Tiepoint</div>
 		<div data-dojo-type="dijit/MenuItem" data-dojo-attach-event="onClick: removeTiepoint">Remove Tiepoint</div>
 	</div>
-	<div data-dojo-type="dijit/Dialog" data-dojo-attach-point="addRasterDialog" title="Add Raster">
-		<table class="dijitDialogPaneContentArea">
-			<tr>
-				<td style="height: 25px; vertical-align: middle; width: 1; white-space: nowrap">
-					<label>Raster:</label>
-				</td>
-				<td style="height: 25px; vertical-align: middle">
-					<form data-dojo-attach-point="uploadForm">
-						<input type="file" data-dojo-attach-point="imageFile" style="min-width: 250px; width: 100%" name="file">
-					</form>
-				</td>
-			</tr>
-		</table>
-		<div class="dijitDialogPaneActionBar">
-			<button data-dojo-type="dijit/form/Button" type="button" data-dojo-attach-event="onClick: addRasterDialog_upload">Upload</button>
-		</div>
-	</div>
 	<div data-dojo-type="dijit/Dialog" data-dojo-attach-point="rasterNotSelectedDialog" title="Raster not selected">
 		<div class="dijitDialogPaneContentArea">
 			Please select a Raster to Georeference from the Rasters Panel.
@@ -108,8 +91,6 @@
 	<div data-dojo-type="dijit/layout/AccordionContainer" data-dojo-attach-point="selectRasterContainer" style="display: none">
 		<div data-dojo-type="dijit/layout/ContentPane" title="Rasters" style="padding: 0">
 			<div data-dojo-type="dijit/Toolbar">
-				<div data-dojo-type="dijit/form/Button" data-dojo-attach-event="onClick: showAddRasterDialog" style="display: none">Add Raster</div>
-				<span data-dojo-type="dijit/ToolbarSeparator" style="display: none"></span>
 				<div data-dojo-type="dijit/form/DropDownButton">
 					<span>Visibility</span>
 					<div data-dojo-type="dijit/Menu" data-dojo-attach-point="rastersDisplayMenu">
