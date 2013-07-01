@@ -99,13 +99,13 @@
 					</div>
 				</div>
 				<span data-dojo-type="dijit/ToolbarSeparator"></span>
-				<div data-dojo-type="dijit/form/DropDownButton">
-					<span>Georeference Status</span>
+				<div data-dojo-type="dijit/form/DropDownButton" data-dojo-attach-point="georefStatusDropButton">
+					<span>Filter: Partially Georeferenced</span>
 					<div data-dojo-type="dijit/Menu">
-						<div data-dojo-type="dijit/MenuItem" data-dojo-attach-point="georefStatus_CompleteButton" data-dojo-attach-event="onClick: georefStatus_Complete" class="bold">Georeferenced</div>
+						<div data-dojo-type="dijit/MenuItem" data-dojo-attach-point="georefStatus_CompleteButton" data-dojo-attach-event="onClick: georefStatus_Complete">Georeferenced</div>
 						<div data-dojo-type="dijit/MenuItem" data-dojo-attach-point="georefStatus_FalseButton" data-dojo-attach-event="onClick: georefStatus_False">Not Georeferenced</div>
-						<div data-dojo-type="dijit/MenuItem" data-dojo-attach-point="georefStatus_PartialButton" data-dojo-attach-event="onClick: georefStatus_Partial">Partially Georeferenced</div>
-						<div data-dojo-type="dijit/MenuItem" data-dojo-attach-point="georefStatus_WIPButton" data-dojo-attach-event="onClick: georefStatus_WIP">Not Georeferenced</div>
+						<div data-dojo-type="dijit/MenuItem" data-dojo-attach-point="georefStatus_PartialButton" data-dojo-attach-event="onClick: georefStatus_Partial" class="bold">Partially Georeferenced</div>
+						<div data-dojo-type="dijit/MenuItem" data-dojo-attach-point="georefStatus_WIPButton" data-dojo-attach-event="onClick: georefStatus_WIP">Currently being Georeferenced</div>
 					</div>
 				</div>
 			</div>
@@ -126,6 +126,9 @@
 					</td>
 				</tr>
 			</table>
+			<div class="dijitDialogPaneActionBar">
+				<button data-dojo-type="dijit/form/Button" type="button" data-dojo-attach-point="markGeoreferencedButton" data-dojo-attach-event="onClick: markGeoreferenced">Mark as Georeferenced</button>
+			</div>
 		</div>
 	</div>
 	<div data-dojo-type="dijit/layout/AccordionContainer" data-dojo-attach-point="editTiepointsContainer" style="display: none">

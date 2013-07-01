@@ -64,6 +64,9 @@ th.dgrid-cell {
 td.field-rasterId {
   text-align: right;
 }
+.field-rasterId .dgrid-sort-arrow {
+  display: none;
+}
 td.field-sourcePoint,
 td.field-targetPoint {
   padding: 0;

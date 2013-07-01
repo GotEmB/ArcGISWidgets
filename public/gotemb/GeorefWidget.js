@@ -27,6 +27,7 @@
       geometryService: null,
       rastertype: null,
       currentId: null,
+      rastersArchive: null,
       rasters: null,
       rastersGrid: null,
       addRasterDialog: null,
@@ -104,7 +105,8 @@
       georefStatus_FalseButton: null,
       georefStatus_PartialButton: null,
       georefStatus_WIPButton: null,
-      rastersArchive: null,
+      georefStatusDropButton: null,
+      markGeoreferencedButton: null,
       sourceSymbol: (function() {
         var symbol;
 
@@ -207,7 +209,8 @@
               }
             ],
             store: _this.rasters,
-            selectionMode: "none"
+            selectionMode: "none",
+            sort: "rasterId"
           }, _this.rastersGrid);
           _this.rastersGrid.startup();
           domStyle.set(_this.selectRasterContainer.domNode, "display", "block");
@@ -217,8 +220,12 @@
             return domStyle.set(_this.loadingGif, "display", "none");
           });
           _this.rastersGrid.on(".field-rasterId:click, .field-name:click", function(e) {
+            if (_this.rastersGrid.cell(e).row == null) {
+              return;
+            }
             _this.rastersGrid.clearSelection();
-            return _this.rastersGrid.select(_this.rastersGrid.cell(e).row);
+            _this.rastersGrid.select(_this.rastersGrid.cell(e).row);
+            return _this.map.setExtent(_this.rastersGrid.cell(e).row.data.footprint.geometry.getExtent());
           });
           _this.rastersGrid.on("dgrid-select", function(_arg1) {
             var raster, rows, _i, _len, _ref;
@@ -666,7 +673,10 @@
         var georefStatus,
           _this = this;
 
-        georefStatus = this.georefStatus_CompleteButton.domNode.classList.contains("bold") ? 0 : this.georefStatus_FalseButton.domNode.classList.contains("bold") ? 1 : this.georefStatus_PartialButton.domNode.classList.contains("bold") ? 2 : void 0;
+        if (this.map.extent == null) {
+          return typeof callback === "function" ? callback() : void 0;
+        }
+        georefStatus = this.currentGeorefStatus();
         return request({
           url: this.imageServiceUrl + "/query",
           content: {
@@ -702,17 +712,17 @@
                 continue;
               }
               if ((thisRaster = _this.rastersArchive[feature.attributes.OBJECTID]) == null) {
-                thisRaster = {
+                thisRaster = _this.rastersArchive[feature.attributes.OBJECTID] = {
                   rasterId: feature.attributes.OBJECTID,
                   name: feature.attributes.Name,
                   spatialReference: new SpatialReference(feature.geometry.spatialReference),
-                  display: true
+                  display: true,
+                  footprint: new Graphic(new Polygon(feature.geometry), _this.currentId === feature.attributes.OBJECTID ? _this.selectedFootprintSymbol : _this.footprintSymbol)
                 };
+              } else {
+                thisRaster.footprint.setGeometry(new Polygon(feature.geometry));
               }
-              extend(thisRaster, {
-                georefStatus: feature.attributes.GeorefStatus,
-                footprint: new Graphic(new Polygon(feature.geometry), _this.currentId === feature.attributes.OBJECTID ? _this.selectedFootprintSymbol : _this.footprintSymbol)
-              });
+              thisRaster.georefStatus = feature.attributes.GeorefStatus;
               _this.rasters.put(thisRaster);
             }
             if (domStyle.get(_this.selectRasterContainer.domNode, "display") === "block") {
@@ -810,7 +820,10 @@
                   spatialReference: tiePoints.sourcePoints[0].spatialReference
                 }
               }
-            ])
+            ]),
+            attributes: JSON.stringify({
+              GeorefStatus: 2
+            })
           },
           handleAs: "json",
           load: function() {
@@ -1402,6 +1415,15 @@
           return typeof callback === "function" ? callback(geometries) : void 0;
         });
       },
+      applyRoughTransform: function(argObj, callback) {
+        var _this = this;
+
+        return this.applyTransform(argObj, function() {
+          return _this.refreshRasterMeta(_this.currentId, function() {
+            return typeof callback === "function" ? callback() : void 0;
+          });
+        });
+      },
       rt_fit: function() {
         var bool, rowId,
           _this = this;
@@ -1428,7 +1450,7 @@
           var fromExt, mapExtent;
 
           fromExt = _arg1[0], mapExtent = _arg1[1];
-          return _this.applyTransform({
+          return _this.applyRoughTransform({
             tiePoints: {
               sourcePoints: [
                 new Point({
@@ -1684,7 +1706,7 @@
           var fromPoint, offsets, point, toPoint;
 
           fromPoint = _arg1[0], toPoint = _arg1[1];
-          return _this.applyTransform({
+          return _this.applyRoughTransform({
             tiePoints: {
               sourcePoints: (function() {
                 var _i, _len, _ref2, _results;
@@ -1765,7 +1787,7 @@
 
             scaleFactor = !isNaN(_this.rtScaleFactorInput.value) ? Number(_this.rtScaleFactorInput.value) : 1;
             centerPoint = new Polygon(response.features[0].geometry).getExtent().getCenter();
-            return _this.applyTransform({
+            return _this.applyRoughTransform({
               tiePoints: {
                 sourcePoints: (function() {
                   var _i, _len, _ref, _results;
@@ -1856,7 +1878,7 @@
             sin = Math.sin, cos = Math.cos, PI = Math.PI;
             theta = !isNaN(_this.rtRotateDegreesInput.value) ? PI / 180 * Number(_this.rtRotateDegreesInput.value) : 0;
             centerPoint = new Polygon(response.features[0].geometry).getExtent().getCenter();
-            return _this.applyTransform({
+            return _this.applyRoughTransform({
               tiePoints: {
                 sourcePoints: (function() {
                   var _i, _len, _ref, _results;
@@ -2114,10 +2136,126 @@
           }).join("\r\n")
         ]), "tiepoints_raster" + selectedRow.rasterId + ".txt");
       },
-      georefStatus_Complete: function() {},
-      georefStatus_False: function() {},
-      georefStatus_Partial: function() {},
-      georefStatus_WIP: function() {}
+      refreshRasterMeta: function(rasterId, callback) {
+        var _this = this;
+
+        return request({
+          url: this.imageServiceUrl + "/query",
+          content: {
+            f: "json",
+            where: "OBJECTID = " + rasterId,
+            outFields: "OBJECTID, Name, GeorefStatus"
+          },
+          handlesAs: "json",
+          load: function(_arg1) {
+            var feature, footprintGeometry, georefStatus, oldGeorefStatus, _base, _ref, _ref1, _ref2;
+
+            feature = _arg1.features[0];
+            georefStatus = _this.currentGeorefStatus();
+            footprintGeometry = new Polygon(feature.geometry);
+            if (!((_this.rastersArchive[rasterId] != null) || (georefStatus === feature.attributes.GeorefStatus && _this.map.extent.intersects(footprintGeometry)))) {
+              return typeof callback === "function" ? callback() : void 0;
+            }
+            oldGeorefStatus = (_ref = (_ref1 = _this.rastersArchive[rasterId]) != null ? _ref1.georefStatus : void 0) != null ? _ref : 0;
+            if ((_ref2 = (_base = feature.attributes).GeorefStatus) == null) {
+              _base.GeorefStatus = 0;
+            }
+            if (georefStatus === oldGeorefStatus && oldGeorefStatus !== feature.attributes.GeorefStatus) {
+              _this.rasters.remove(rasterId);
+            }
+            if (georefStatus === feature.attributes.GeorefStatus && oldGeorefStatus !== feature.attributes.GeorefStatus) {
+              _this.rastersArchive[rasterId] = {
+                rasterId: feature.attributes.OBJECTID,
+                name: feature.attributes.Name,
+                spatialReference: new SpatialReference(feature.geometry.spatialReference),
+                display: true,
+                footprint: new Graphic(footprintGeometry, _this.currentId === feature.attributes.OBJECTID ? _this.selectedFootprintSymbol : _this.footprintSymbol)
+              };
+              _this.rasters.put(_this.rastersArchive[rasterId]);
+            } else {
+              _this.rastersArchive[rasterId].footprint.setGeometry(footprintGeometry);
+            }
+            _this.rastersArchive[rasterId].georefStatus = feature.attributes.GeorefStatus;
+            return typeof callback === "function" ? callback() : void 0;
+          },
+          error: function(_arg1) {
+            var message;
+
+            message = _arg1.message;
+            return console.error(message);
+          }
+        }, {
+          usePost: true
+        });
+      },
+      currentGeorefStatus: function() {
+        if (this.georefStatus_CompleteButton.domNode.classList.contains("bold")) {
+          return 0;
+        } else if (this.georefStatus_FalseButton.domNode.classList.contains("bold")) {
+          return 1;
+        } else if (this.georefStatus_PartialButton.domNode.classList.contains("bold")) {
+          return 2;
+        }
+      },
+      georefStatus: function(selectedMenuItem) {
+        var menuItem, menuItems, _i, _len,
+          _this = this;
+
+        menuItems = [this.georefStatus_CompleteButton, this.georefStatus_FalseButton, this.georefStatus_PartialButton, this.georefStatus_WIPButton];
+        for (_i = 0, _len = menuItems.length; _i < _len; _i++) {
+          menuItem = menuItems[_i];
+          if (menuItem !== selectedMenuItem) {
+            query(menuItem.domNode).removeClass("bold");
+          }
+        }
+        query(selectedMenuItem.domNode).addClass("bold");
+        this.georefStatusDropButton.set("label", "Filter: " + selectedMenuItem.label);
+        this.markGeoreferencedButton.set("disabled", selectedMenuItem === this.georefStatus_CompleteButton);
+        return this.loadRastersList(function() {
+          return _this.refreshMosaicRule();
+        });
+      },
+      georefStatus_Complete: function() {
+        return this.georefStatus(this.georefStatus_CompleteButton);
+      },
+      georefStatus_False: function() {
+        return this.georefStatus(this.georefStatus_FalseButton);
+      },
+      georefStatus_Partial: function() {
+        return this.georefStatus(this.georefStatus_PartialButton);
+      },
+      georefStatus_WIP: function() {},
+      markGeoreferenced: function() {
+        var _this = this;
+
+        if (this.currentId == null) {
+          return this.showRasterNotSelectedDialog();
+        }
+        return request({
+          url: this.imageServiceUrl + "/update",
+          content: {
+            f: "json",
+            rasterId: this.currentId,
+            attributes: JSON.stringify({
+              GeorefStatus: 0
+            })
+          },
+          handleAs: "json",
+          load: function() {
+            return _this.loadRastersList(function() {
+              return _this.refreshMosaicRule();
+            });
+          },
+          error: function(_arg1) {
+            var message;
+
+            message = _arg1.message;
+            return console.error(message);
+          }
+        }, {
+          usePost: true
+        });
+      }
     });
   });
 })();

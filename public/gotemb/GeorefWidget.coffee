@@ -74,6 +74,7 @@ do ->
 			geometryService: null
 			rastertype: null
 			currentId: null
+			rastersArchive: null
 			rasters: null
 			rastersGrid: null
 			addRasterDialog: null
@@ -151,7 +152,8 @@ do ->
 			georefStatus_FalseButton: null
 			georefStatus_PartialButton: null
 			georefStatus_WIPButton: null
-			rastersArchive: null
+			georefStatusDropButton: null
+			markGeoreferencedButton: null
 			sourceSymbol: do ->
 				symbol = new SimpleMarkerSymbol(
 					SimpleMarkerSymbol.STYLE_X
@@ -329,6 +331,7 @@ do ->
 						]
 						store: @rasters
 						selectionMode: "none"
+						sort: "rasterId"
 						@rastersGrid
 					@rastersGrid.startup()
 					domStyle.set @selectRasterContainer.domNode, "display", "block"
@@ -337,8 +340,10 @@ do ->
 						@refreshMosaicRule()
 						domStyle.set @loadingGif, "display", "none"
 					@rastersGrid.on ".field-rasterId:click, .field-name:click", (e) =>
+						return unless @rastersGrid.cell(e).row?
 						@rastersGrid.clearSelection()
 						@rastersGrid.select @rastersGrid.cell(e).row
+						@map.setExtent @rastersGrid.cell(e).row.data.footprint.geometry.getExtent()
 					@rastersGrid.on "dgrid-select", ({rows}) =>
 						@currentId = rows[0].data.rasterId
 						@scrollToElement rows[0].element
@@ -565,13 +570,8 @@ do ->
 						domStyle.set @loadingGif, "display", "none"
 						callback?()
 			loadRastersList: (callback) ->
-				georefStatus =
-					if @georefStatus_CompleteButton.domNode.classList.contains "bold"
-						0
-					else if @georefStatus_FalseButton.domNode.classList.contains "bold"
-						1
-					else if @georefStatus_PartialButton.domNode.classList.contains "bold"
-						2
+				return callback?() unless @map.extent?
+				georefStatus = @currentGeorefStatus()
 				request
 					url: @imageServiceUrl + "/query"
 					content:
@@ -590,17 +590,18 @@ do ->
 							@rasters.remove raster.rasterId
 						for feature in features when feature.attributes.Name isnt "World_Imagery"
 							unless (thisRaster = @rastersArchive[feature.attributes.OBJECTID])?
-								thisRaster =
+								thisRaster = @rastersArchive[feature.attributes.OBJECTID] =
 									rasterId: feature.attributes.OBJECTID
 									name: feature.attributes.Name
 									spatialReference: new SpatialReference feature.geometry.spatialReference
 									display: true
-							extend thisRaster,
-								georefStatus: feature.attributes.GeorefStatus
-								footprint: new Graphic(
-									new Polygon feature.geometry
-									if @currentId is feature.attributes.OBJECTID then @selectedFootprintSymbol else @footprintSymbol
-								)
+									footprint: new Graphic(
+										new Polygon feature.geometry
+										if @currentId is feature.attributes.OBJECTID then @selectedFootprintSymbol else @footprintSymbol
+									)
+							else
+								thisRaster.footprint.setGeometry new Polygon feature.geometry
+							thisRaster.georefStatus = feature.attributes.GeorefStatus
 							@rasters.put thisRaster
 						if domStyle.get(@selectRasterContainer.domNode, "display") is "block"
 							@footprintsLayer.add raster.footprint for raster in @rasters.data when raster.display
@@ -633,6 +634,8 @@ do ->
 								polynomialOrder: polynomialOrder if geodataTransform is "Polynomial"
 								spatialReference: tiePoints.sourcePoints[0].spatialReference
 						]
+						attributes: JSON.stringify
+							GeorefStatus: 2
 					handleAs: "json"
 					load: =>
 						for task in @asyncResults.data.filter((x) => x.rasterId is @currentId and x.task in ["Compute Tiepoints", "Apply Transform (Tiepoints)"])
@@ -909,13 +912,17 @@ do ->
 					(geometries) =>
 						callback? geometries
 				)
+			applyRoughTransform: (argObj, callback) ->
+				@applyTransform argObj, =>
+					@refreshRasterMeta @currentId, =>
+						callback?()
 			rt_fit: ->
 				domStyle.set @loadingGif, "display", "block"
 				@projectIfReq
 					geometries: (@rastersGrid.row(rowId).data.footprint.geometry.getExtent() for rowId, bool of @rastersGrid.selection when bool).concat @map.extent
 					outSR: @rasters.data.filter((x) => x.rasterId is @currentId)[0].spatialReference
 					([fromExt, mapExtent]) =>
-						@applyTransform
+						@applyRoughTransform
 							tiePoints:
 								sourcePoints: [
 									new Point x: fromExt.xmin, y: fromExt.ymin, spatialReference: fromExt.spatialReference
@@ -1045,7 +1052,7 @@ do ->
 					geometries: [new Point(@rtMoveFromGrid.graphic?.geometry), new Point(@rtMoveToGrid.graphic?.geometry)]
 					outSR: @rasters.data.filter((x) => x.rasterId is @currentId)[0].spatialReference
 					([fromPoint, toPoint]) =>
-						@applyTransform
+						@applyRoughTransform
 							tiePoints:
 								sourcePoints: for offsets in [[0, 0], [10, 0], [0, 10]]
 									point = new Point fromPoint
@@ -1086,7 +1093,7 @@ do ->
 					load: (response) =>
 						scaleFactor = unless isNaN @rtScaleFactorInput.value then Number @rtScaleFactorInput.value else 1
 						centerPoint = new Polygon(response.features[0].geometry).getExtent().getCenter()
-						@applyTransform
+						@applyRoughTransform
 							tiePoints:
 								sourcePoints: for offsets in [[0, 0], [10, 0], [0, 10]]
 									point = new Point centerPoint
@@ -1130,7 +1137,7 @@ do ->
 						{sin, cos, PI} = Math
 						theta = unless isNaN @rtRotateDegreesInput.value then PI / 180 * Number @rtRotateDegreesInput.value else 0
 						centerPoint = new Polygon(response.features[0].geometry).getExtent().getCenter()
-						@applyTransform
+						@applyRoughTransform
 							tiePoints:
 								sourcePoints: for offsets in [[0, 0], [10, 0], [0, 10]]
 									point = new Point centerPoint
@@ -1268,7 +1275,79 @@ do ->
 					]
 					"tiepoints_raster#{selectedRow.rasterId}.txt"
 				)
+			refreshRasterMeta: (rasterId, callback) ->
+				request
+					url: @imageServiceUrl + "/query"
+					content:
+						f: "json"
+						where: "OBJECTID = #{rasterId}"
+						outFields: "OBJECTID, Name, GeorefStatus"
+					handlesAs: "json"
+					load: ({features: [feature]}) =>
+						georefStatus = @currentGeorefStatus()
+						footprintGeometry = new Polygon feature.geometry
+						return callback?() unless @rastersArchive[rasterId]? or (georefStatus is feature.attributes.GeorefStatus and @map.extent.intersects footprintGeometry)
+						oldGeorefStatus = @rastersArchive[rasterId]?.georefStatus ? 0
+						feature.attributes.GeorefStatus ?= 0
+						if georefStatus is oldGeorefStatus and oldGeorefStatus isnt feature.attributes.GeorefStatus
+							@rasters.remove rasterId
+						if georefStatus is feature.attributes.GeorefStatus and oldGeorefStatus isnt feature.attributes.GeorefStatus
+							@rastersArchive[rasterId] =
+								rasterId: feature.attributes.OBJECTID
+								name: feature.attributes.Name
+								spatialReference: new SpatialReference feature.geometry.spatialReference
+								display: true
+								footprint: new Graphic(
+									footprintGeometry
+									if @currentId is feature.attributes.OBJECTID then @selectedFootprintSymbol else @footprintSymbol
+								)
+							@rasters.put @rastersArchive[rasterId]
+						else
+							@rastersArchive[rasterId].footprint.setGeometry footprintGeometry
+						@rastersArchive[rasterId].georefStatus = feature.attributes.GeorefStatus
+						callback?()
+					error: ({message}) => console.error message
+					(usePost: true)
+			currentGeorefStatus: ->
+				if @georefStatus_CompleteButton.domNode.classList.contains "bold"
+					0
+				else if @georefStatus_FalseButton.domNode.classList.contains "bold"
+					1
+				else if @georefStatus_PartialButton.domNode.classList.contains "bold"
+					2
+			georefStatus: (selectedMenuItem) ->
+				menuItems = [
+					@georefStatus_CompleteButton
+					@georefStatus_FalseButton
+					@georefStatus_PartialButton
+					@georefStatus_WIPButton
+				]
+				for menuItem in menuItems when menuItem isnt selectedMenuItem
+					query(menuItem.domNode).removeClass "bold"
+				query(selectedMenuItem.domNode).addClass "bold"
+				@georefStatusDropButton.set "label", "Filter: #{selectedMenuItem.label}"
+				@markGeoreferencedButton.set "disabled", selectedMenuItem is @georefStatus_CompleteButton
+				@loadRastersList =>
+					@refreshMosaicRule()
 			georefStatus_Complete: ->
+				@georefStatus @georefStatus_CompleteButton
 			georefStatus_False: ->
+				@georefStatus @georefStatus_FalseButton
 			georefStatus_Partial: ->
+				@georefStatus @georefStatus_PartialButton
 			georefStatus_WIP: ->
+			markGeoreferenced: ->
+				return @showRasterNotSelectedDialog() unless @currentId?
+				request
+					url: @imageServiceUrl + "/update"
+					content:
+						f: "json"
+						rasterId: @currentId
+						attributes: JSON.stringify
+							GeorefStatus: 0
+					handleAs: "json"
+					load: =>
+						@loadRastersList =>
+							@refreshMosaicRule()
+					error: ({message}) => console.error message
+					(usePost: true)
