@@ -1,0 +1,20 @@
+{
+  "name": "ArcGISWidgets",
+  "version": "0.0.1",
+  "description": "Widgets created using the ArcGIS JavaScript and REST API.",
+  "main": "web.coffee",
+  "dependencies": {
+    "socket.io": "~0.9.16",
+    "express": "~3.3.1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/GotEmB/ArcGISWidgets.git"
+  },
+  "author": "Gautham Badhrinathan",
+  "gitHead": "dc4e367ab09996932516f01d8109a7291413df17",
+  "readmeFilename": "README.md",
+  "bugs": {
+    "url": "https://github.com/GotEmB/ArcGISWidgets/issues"
+  }
+}

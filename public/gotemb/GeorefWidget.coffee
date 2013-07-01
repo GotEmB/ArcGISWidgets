@@ -43,6 +43,7 @@ do ->
 		"dojo/aspect"
 		"esri/layers/ImageServiceParameters"
 		"esri/layers/RasterFunction"
+		"socket.io/socket.io"
 		# ---
 		"dojox/form/FileInput"
 		"dijit/form/Button"
@@ -61,7 +62,7 @@ do ->
 		"dijit/TooltipDialog"
 		"dijit/Tooltip"
 		"eligrey/FileSaver"
-	], (declare, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template, {connect, disconnect}, ArcGISImageServiceLayer, request, MosaicRule, Polygon, GeometryService, domStyle, PointGrid, Observable, Memory, TiepointsGrid, GraphicsLayer, Color, SimpleMarkerSymbol, SimpleLineSymbol, Graphic, Point, win, domClass, query, editor, RastersGrid, Extent, ProjectParameters, SpatialReference, Url, ArcGISTiledMapServiceLayer, AsyncResultsGrid, popup, CheckBox, aspect, ImageServiceParameters, RasterFunction) ->
+	], (declare, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template, {connect, disconnect}, ArcGISImageServiceLayer, request, MosaicRule, Polygon, GeometryService, domStyle, PointGrid, Observable, Memory, TiepointsGrid, GraphicsLayer, Color, SimpleMarkerSymbol, SimpleLineSymbol, Graphic, Point, win, domClass, query, editor, RastersGrid, Extent, ProjectParameters, SpatialReference, Url, ArcGISTiledMapServiceLayer, AsyncResultsGrid, popup, CheckBox, aspect, ImageServiceParameters, RasterFunction, io) ->
 		declare [_WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin],
 			templateString: template
 			baseClass: "GeorefWidget"
@@ -154,6 +155,8 @@ do ->
 			georefStatus_WIPButton: null
 			georefStatusDropButton: null
 			markGeoreferencedButton: null
+			socket: null
+			wipRasters: null
 			sourceSymbol: do ->
 				symbol = new SimpleMarkerSymbol(
 					SimpleMarkerSymbol.STYLE_X
@@ -345,10 +348,17 @@ do ->
 						@rastersGrid.select @rastersGrid.cell(e).row
 						@map.setExtent @rastersGrid.cell(e).row.data.footprint.geometry.getExtent()
 					@rastersGrid.on "dgrid-select", ({rows}) =>
+						oldId = @currentId
 						@currentId = rows[0].data.rasterId
 						@scrollToElement rows[0].element
 						raster.footprint.setSymbol @footprintSymbol for raster in @rasters.data
 						rows[0].data.footprint.setSymbol @selectedFootprintSymbol
+						if oldId isnt @currentId
+							if oldId?
+								@socket.emit "removeWIP", oldId, ({success}) =>
+									@wipRasters = @wipRasters.filter (x) => x isnt oldId
+							@socket.emit "addWIP", @currentId, ({success}) =>
+								@wipRasters.push @currentId
 					@rastersGrid.on "dgrid-datachange", ({cell, value}) =>
 						cell.row.data.display = value
 						@refreshMosaicRule()
@@ -545,6 +555,18 @@ do ->
 						else if e.which == 70
 							@toggleFootprintsButton.set "checked", not @toggleFootprintsButton.checked
 							@toggleFootprints @toggleFootprintsButton.checked
+					@socket = io.connect()
+					@socket.on "connect", =>
+						@socket.emit "getWIPs", (wips) =>
+							@wipRasters = wips
+					@socket.on "addedWIP", (rasterId) =>
+						@wipRasters.push rasterId
+						@refreshRasterMeta =>
+							@refreshMosaicRule() if domStyle.get(@selectRasterContainer.domNode, "display") is "none"
+					@socket.on "addedWIP", (rasterId) =>
+						@wipRasters = @wipRasters.filter (x) => x isnt rasterId
+						@refreshRasterMeta =>
+							@refreshMosaicRule() if domStyle.get(@selectRasterContainer.domNode, "display") is "none"
 					window.self = @
 			refreshMosaicRule: (callback) ->
 				@imageServiceLayer.setMosaicRule extend(
@@ -576,13 +598,16 @@ do ->
 					url: @imageServiceUrl + "/query"
 					content:
 						f: "json"
-						where: "georefStatus = #{georefStatus}#{if georefStatus is 0 then " OR georefStatus IS NULL" else ""}"
+						where:
+							if georefStatus isnt 3
+								"georefStatus = #{georefStatus}#{if georefStatus is 0 then " OR georefStatus IS NULL" else ""}"
 						outFields: "OBJECTID, Name, GeorefStatus"
 						geometry: JSON.stringify @map.extent.toJson() if georefStatus isnt 1 and @map.extent?
 						geometryType: "esriGeometryEnvelope"
 						spatialRel: "esriSpatialRelIntersects"
 					handlesAs: "json"
 					load: ({features}) =>
+						features = features.filter((x) => x.attributes.OBJECTID not in @wipRasters) if georefStatus is 3
 						@footprintsLayer.clear()
 						for raster in new Array @rasters.data...
 							delete @rastersArchive[raster.rasterId]
@@ -1286,9 +1311,10 @@ do ->
 					load: ({features: [feature]}) =>
 						georefStatus = @currentGeorefStatus()
 						footprintGeometry = new Polygon feature.geometry
-						return callback?() unless @rastersArchive[rasterId]? or (georefStatus is feature.attributes.GeorefStatus and @map.extent.intersects footprintGeometry)
+						return callback?() unless @rastersArchive[rasterId]? or (georefStatus is feature.attributes.GeorefStatus and (georefStatus is 1 or @map.extent.intersects footprintGeometry))
 						oldGeorefStatus = @rastersArchive[rasterId]?.georefStatus ? 0
 						feature.attributes.GeorefStatus ?= 0
+						oldGeorefStatus = feature.attributes.GeorefStatus = 3 if rasterId in @wipRasters
 						if georefStatus is oldGeorefStatus and oldGeorefStatus isnt feature.attributes.GeorefStatus
 							@rasters.remove rasterId
 						if georefStatus is feature.attributes.GeorefStatus and oldGeorefStatus isnt feature.attributes.GeorefStatus
@@ -1315,6 +1341,8 @@ do ->
 					1
 				else if @georefStatus_PartialButton.domNode.classList.contains "bold"
 					2
+				else if @georefStatus_WIPButton.domNode.classList.contains "bold"
+					3
 			georefStatus: (selectedMenuItem) ->
 				menuItems = [
 					@georefStatus_CompleteButton
@@ -1336,6 +1364,7 @@ do ->
 			georefStatus_Partial: ->
 				@georefStatus @georefStatus_PartialButton
 			georefStatus_WIP: ->
+				@georefStatus @georefStatus_WIPButton
 			markGeoreferenced: ->
 				return @showRasterNotSelectedDialog() unless @currentId?
 				request

@@ -20,6 +20,9 @@ dojoConfig = {
     }, {
       name: "eligrey",
       location: location.pathname.replace(/\/[^\/]+$/, "") + "/eligrey"
+    }, {
+      name: "socket.io",
+      location: location.pathname.replace(/\/[^\/]+$/, "") + "/socket.io"
     }
   ],
   async: true
