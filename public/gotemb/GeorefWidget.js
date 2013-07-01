@@ -100,6 +100,11 @@
       applyManualTransform_2ndOrderTooltip: null,
       applyManualTransform_3rdOrderTooltip: null,
       footprintsLayer: null,
+      georefStatus_CompleteButton: null,
+      georefStatus_FalseButton: null,
+      georefStatus_PartialButton: null,
+      georefStatus_WIPButton: null,
+      rastersArchive: null,
       sourceSymbol: (function() {
         var symbol;
 
@@ -206,8 +211,10 @@
           }, _this.rastersGrid);
           _this.rastersGrid.startup();
           domStyle.set(_this.selectRasterContainer.domNode, "display", "block");
+          _this.rastersArchive = [];
           _this.loadRastersList(function() {
-            return _this.refreshMosaicRule();
+            _this.refreshMosaicRule();
+            return domStyle.set(_this.loadingGif, "display", "none");
           });
           _this.rastersGrid.on(".field-rasterId:click, .field-name:click", function(e) {
             _this.rastersGrid.clearSelection();
@@ -224,8 +231,7 @@
               raster = _ref[_i];
               raster.footprint.setSymbol(_this.footprintSymbol);
             }
-            rows[0].data.footprint.setSymbol(_this.selectedFootprintSymbol);
-            return _this.map.setExtent(rows[0].data.footprint.geometry.getExtent());
+            return rows[0].data.footprint.setSymbol(_this.selectedFootprintSymbol);
           });
           _this.rastersGrid.on("dgrid-datachange", function(_arg1) {
             var cell, value;
@@ -439,6 +445,14 @@
             }
             return _results;
           });
+          connect(_this.map, "onExtentChange", function(e) {
+            if (domStyle.get(_this.selectRasterContainer.domNode, "display") === "none" || _this.georefStatus_FalseButton.domNode.classList.contains("bold")) {
+              return;
+            }
+            return _this.loadRastersList(function() {
+              return _this.refreshMosaicRule();
+            });
+          });
           _this.asyncResults = new Observable(new Memory({
             idProperty: "resultId"
           }));
@@ -496,24 +510,56 @@
             }
             _this.atdpContinueButton.set("label", (_ref2 = row.data.callbackLabel) != null ? _ref2 : "Continue Task");
             _this.atdpContinueEvent = function() {
-              var atdpOnceDone, selectAspect, _base;
+              var _base;
 
               _this.atdpClose();
               if (row.data.rasterId != null) {
-                _this.rastersGrid.clearSelection();
-                _this.rastersGrid.select(_this.rastersGrid.row(row.data.rasterId));
-                atdpOnceDone = false;
-                return selectAspect = aspect.after(_this.rastersGrid.on("dgrid-select", function() {
-                  var _base;
+                return request({
+                  url: _this.imageServiceUrl + "/query",
+                  content: {
+                    f: "json",
+                    where: "OBJECTID = " + row.data.rasterId,
+                    returnGeometry: true
+                  },
+                  handlesAs: "json",
+                  load: function(_arg2) {
+                    var features, mosaicRefreshedAspect;
 
-                  if (atdpOnceDone) {
-                    return;
-                  } else {
-                    atdpOnceDone = true;
+                    features = _arg2.features;
+                    _this.map.setExtent(new Polygon(features[0].geometry).getExtent());
+                    return mosaicRefreshedAspect = aspect.after(_this, "refreshMosaicRule", function() {
+                      var selectAspect;
+
+                      if (mosaicRefreshedAspect.done) {
+                        return;
+                      } else {
+                        mosaicRefreshedAspect.done = true;
+                      }
+                      mosaicRefreshedAspect.remove();
+                      _this.rastersGrid.clearSelection();
+                      _this.rastersGrid.select(_this.rastersGrid.row(row.data.rasterId));
+                      return selectAspect = aspect.after(_this.rastersGrid.on("dgrid-select", function() {
+                        var _base;
+
+                        if (selectAspect.done) {
+                          return;
+                        } else {
+                          selectAspect.done = true;
+                        }
+                        selectAspect.remove();
+                        return typeof (_base = row.data).callback === "function" ? _base.callback() : void 0;
+                      }));
+                    });
+                  },
+                  error: function(_arg2) {
+                    var message;
+
+                    message = _arg2.message;
+                    return console.error(message);
                   }
-                  selectAspect.remove();
-                  return typeof (_base = row.data).callback === "function" ? _base.callback() : void 0;
-                }));
+                }, {
+                  usePost: true
+                });
               } else {
                 return typeof (_base = row.data).callback === "function" ? _base.callback() : void 0;
               }
@@ -547,46 +593,53 @@
         this.imageServiceLayer.setMosaicRule(extend(new MosaicRule, {
           method: MosaicRule.METHOD_LOCKRASTER,
           lockRasterIds: (function() {
-            var _i, _j, _len, _len1, _ref, _ref1, _results;
+            var raster, _i, _j, _k, _len, _len1, _len2, _ref, _ref1, _ref2, _ref3, _results;
 
-            if (domStyle.get(this.selectRasterContainer.domNode, "display") === "block" || (this.currentId == null)) {
-              this.imageServiceLayer.setVisibility(((function() {
-                var _i, _len, _ref, _results;
+            _ref = _this.rasters.data;
+            for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+              raster = _ref[_i];
+              raster.footprint.setSymbol(_this.footprintSymbol);
+            }
+            if ((_ref1 = _this.rasters.get(_this.currentId)) != null) {
+              _ref1.footprint.setSymbol(_this.selectedFootprintSymbol);
+            }
+            _this.footprintsLayer.clear();
+            if (domStyle.get(_this.selectRasterContainer.domNode, "display") === "block" || (_this.currentId == null)) {
+              _this.imageServiceLayer.setVisibility(((function() {
+                var _j, _len1, _ref2, _results;
 
-                _ref = this.rasters.data;
+                _ref2 = this.rasters.data;
                 _results = [];
-                for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-                  raster = _ref[_i];
+                for (_j = 0, _len1 = _ref2.length; _j < _len1; _j++) {
+                  raster = _ref2[_j];
                   if (raster.display) {
                     _results.push(raster);
                   }
                 }
                 return _results;
-              }).call(this)).length > 0);
-              this.footprintsLayer.clear();
-              _ref = this.rasters.data;
-              for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-                raster = _ref[_i];
+              }).call(_this)).length > 0);
+              _ref2 = _this.rasters.data;
+              for (_j = 0, _len1 = _ref2.length; _j < _len1; _j++) {
+                raster = _ref2[_j];
                 if (raster.display) {
-                  this.footprintsLayer.add(raster.footprint);
+                  _this.footprintsLayer.add(raster.footprint);
                 }
               }
-              _ref1 = this.rasters.data;
+              _ref3 = _this.rasters.data;
               _results = [];
-              for (_j = 0, _len1 = _ref1.length; _j < _len1; _j++) {
-                raster = _ref1[_j];
+              for (_k = 0, _len2 = _ref3.length; _k < _len2; _k++) {
+                raster = _ref3[_k];
                 if (raster.display) {
                   _results.push(raster.rasterId);
                 }
               }
               return _results;
             } else {
-              this.imageServiceLayer.setVisibility(true);
-              this.footprintsLayer.clear();
-              this.footprintsLayer.add(this.rasters.get(this.currentId).footprint);
-              return [this.currentId];
+              _this.imageServiceLayer.setVisibility(true);
+              _this.footprintsLayer.add(_this.rasters.get(_this.currentId).footprint);
+              return [_this.currentId];
             }
-          }).call(this)
+          })()
         }));
         if (!(domStyle.get(this.selectRasterContainer.domNode, "display") === "block" || (this.currentId == null)) || ((function() {
           var _i, _len, _ref, _results;
@@ -610,36 +663,87 @@
         }
       },
       loadRastersList: function(callback) {
-        var _this = this;
+        var georefStatus,
+          _this = this;
 
+        georefStatus = this.georefStatus_CompleteButton.domNode.classList.contains("bold") ? 0 : this.georefStatus_FalseButton.domNode.classList.contains("bold") ? 1 : this.georefStatus_PartialButton.domNode.classList.contains("bold") ? 2 : void 0;
         return request({
           url: this.imageServiceUrl + "/query",
           content: {
             f: "json",
-            outFields: "OBJECTID, Name"
+            where: "georefStatus = " + georefStatus + (georefStatus === 0 ? " OR georefStatus IS NULL" : ""),
+            outFields: "OBJECTID, Name, GeorefStatus",
+            geometry: georefStatus !== 1 && (this.map.extent != null) ? JSON.stringify(this.map.extent.toJson()) : void 0,
+            geometryType: "esriGeometryEnvelope",
+            spatialRel: "esriSpatialRelIntersects"
           },
           handlesAs: "json",
-          load: function(response) {
-            var feature, _i, _len, _ref;
+          load: function(_arg1) {
+            var feature, features, raster, thisRaster, _i, _j, _k, _l, _len, _len1, _len2, _len3, _ref, _ref1, _ref2;
 
-            _ref = response.features;
+            features = _arg1.features;
+            _this.footprintsLayer.clear();
+            _ref = (function(func, args, ctor) {
+              ctor.prototype = func.prototype;
+              var child = new ctor, result = func.apply(child, args);
+              return Object(result) === result ? result : child;
+            })(Array, _this.rasters.data, function(){});
             for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-              feature = _ref[_i];
-              if (feature.attributes.Name !== "World_Imagery") {
-                _this.rasters.put({
+              raster = _ref[_i];
+              delete _this.rastersArchive[raster.rasterId];
+              if (!raster.display || (raster.tiepoints != null)) {
+                _this.rastersArchive[raster.rasterId] = raster;
+              }
+              _this.rasters.remove(raster.rasterId);
+            }
+            for (_j = 0, _len1 = features.length; _j < _len1; _j++) {
+              feature = features[_j];
+              if (!(feature.attributes.Name !== "World_Imagery")) {
+                continue;
+              }
+              if ((thisRaster = _this.rastersArchive[feature.attributes.OBJECTID]) == null) {
+                thisRaster = {
                   rasterId: feature.attributes.OBJECTID,
                   name: feature.attributes.Name,
                   spatialReference: new SpatialReference(feature.geometry.spatialReference),
                   display: true
-                });
+                };
+              }
+              extend(thisRaster, {
+                georefStatus: feature.attributes.GeorefStatus,
+                footprint: new Graphic(new Polygon(feature.geometry), _this.currentId === feature.attributes.OBJECTID ? _this.selectedFootprintSymbol : _this.footprintSymbol)
+              });
+              _this.rasters.put(thisRaster);
+            }
+            if (domStyle.get(_this.selectRasterContainer.domNode, "display") === "block") {
+              _ref1 = _this.rasters.data;
+              for (_k = 0, _len2 = _ref1.length; _k < _len2; _k++) {
+                raster = _ref1[_k];
+                if (raster.display) {
+                  _this.footprintsLayer.add(raster.footprint);
+                }
+              }
+            } else {
+              _ref2 = _this.rasters.data;
+              for (_l = 0, _len3 = _ref2.length; _l < _len3; _l++) {
+                raster = _ref2[_l];
+                if (raster.footprint.symbol === _this.selectedFootprintSymbol) {
+                  _this.footprintsLayer.add(raster.footprint);
+                }
               }
             }
-            return _this.loadFootprints(function() {
-              if (typeof callback === "function") {
-                callback();
+            _this.rastersGrid.set("store", _this.rasters);
+            if (typeof callback === "function") {
+              callback();
+            }
+            _this.rastersGrid.clearSelection();
+            if (_this.currentId != null) {
+              if (_this.rasters.get(_this.currentId) != null) {
+                return _this.rastersGrid.select(_this.currentId);
+              } else {
+                return delete _this.currentId;
               }
-              return domStyle.set(_this.loadingGif, "display", "none");
-            });
+            }
           },
           error: function(_arg1) {
             var message;
@@ -817,7 +921,7 @@
           },
           handleAs: "json",
           load: function() {
-            var task, _i, _len, _ref;
+            var selectedRow, task, _i, _len, _ref;
 
             _ref = _this.asyncResults.data.filter(function(x) {
               var _ref;
@@ -828,19 +932,9 @@
               task = _ref[_i];
               delete task.callback;
             }
-            return _this.loadFootprints(function() {
-              var bool, rowId, selectedRow, _ref1;
-
-              _ref1 = _this.rastersGrid.selection;
-              for (rowId in _ref1) {
-                bool = _ref1[rowId];
-                if (bool) {
-                  selectedRow = _this.rastersGrid.row(rowId).data;
-                }
-              }
-              _this.map.setExtent(gotoLocation ? selectedRow.footprint.geometry.getExtent() : _this.map.extent);
-              return typeof callback === "function" ? callback() : void 0;
-            });
+            selectedRow = _this.rasters.get(_this.currentId);
+            _this.map.setExtent(gotoLocation ? selectedRow.footprint.geometry.getExtent() : _this.map.extent);
+            return typeof callback === "function" ? callback() : void 0;
           },
           error: function(_arg2) {
             var message;
@@ -893,34 +987,28 @@
         return this.footprintsLayer.setOpacity(state ? 1 : 0);
       },
       startEditTiepoints: function() {
-        var bool, container, containers, display, rowId, selectedRow, tiepoint, _i, _j, _len, _len1, _ref, _ref1, _ref2, _ref3;
+        var container, containers, display, selectedRow, tiepoint, _i, _j, _len, _len1, _ref, _ref1, _ref2;
 
         if (this.currentId == null) {
           return this.showRasterNotSelectedDialog();
         }
-        _ref = this.rastersGrid.selection;
-        for (rowId in _ref) {
-          bool = _ref[rowId];
-          if (bool) {
-            selectedRow = this.rastersGrid.row(rowId).data;
-          }
-        }
-        this.tiepointsGrid.set("store", (_ref1 = selectedRow.tiepoints) != null ? _ref1 : selectedRow.tiepoints = new Observable(new Memory({
+        selectedRow = this.rasters.get(this.currentId);
+        this.tiepointsGrid.set("store", (_ref = selectedRow.tiepoints) != null ? _ref : selectedRow.tiepoints = new Observable(new Memory({
           idProperty: "id"
         })));
-        _ref2 = selectedRow.tiepoints.data;
-        for (_i = 0, _len = _ref2.length; _i < _len; _i++) {
-          tiepoint = _ref2[_i];
+        _ref1 = selectedRow.tiepoints.data;
+        for (_i = 0, _len = _ref1.length; _i < _len; _i++) {
+          tiepoint = _ref1[_i];
           this.tiepointsLayer.add(tiepoint.sourcePoint);
           this.tiepointsLayer.add(tiepoint.targetPoint);
         }
         this.applyManualTransform_RefreshButtons();
-        _ref3 = {
+        _ref2 = {
           none: [this.selectRasterContainer, this.tasksContainer, this.asyncResultsContainer],
           block: [this.editTiepointsContainer]
         };
-        for (display in _ref3) {
-          containers = _ref3[display];
+        for (display in _ref2) {
+          containers = _ref2[display];
           for (_j = 0, _len1 = containers.length; _j < _len1; _j++) {
             container = containers[_j];
             domStyle.set(container.domNode, "display", display);
@@ -960,7 +1048,7 @@
               });
               return _this.asyncResults.notify(asyncTask, asyncTask.resultId);
             }
-            selectedRow = _this.rasters.get(asyncTask.rasterId);
+            selectedRow = _this.rastersArchive[asyncTask.rasterId];
             newId = Math.max.apply(Math, selectedRow.tiepoints.data.map(function(x) {
               return x.id;
             }).concat(0)) + 1;
@@ -1001,7 +1089,8 @@
         return this.confirmActionPopup.focus();
       },
       closeEditTiepoints: function() {
-        var container, containers, display, _i, _len, _ref;
+        var container, containers, display, _i, _len, _ref,
+          _this = this;
 
         this.tiepointsLayer.clear();
         _ref = {
@@ -1018,7 +1107,9 @@
         if (this.asyncResults.data.length > 0) {
           domStyle.set(this.asyncResultsContainer.domNode, "display", "block");
         }
-        return this.refreshMosaicRule();
+        return this.loadRastersList(function() {
+          return _this.refreshMosaicRule();
+        });
       },
       toggleTiepointsSelection: function() {
         if (this.toggleTiepointsSelectionMenuItem.label === "Clear Selection") {
@@ -1031,19 +1122,13 @@
         return domStyle.set(this.resetTiepointMenuItem.domNode, "display", this.tiepointsGrid.cell(this.tiepointsContextMenu.currentTarget).row.data.original != null ? "table-row" : "none");
       },
       removeTiepoint: function() {
-        var bool, graphic, rowId, selectedRow, tiepoint, _i, _len, _ref, _ref1;
+        var graphic, selectedRow, tiepoint, _i, _len, _ref;
 
-        _ref = this.rastersGrid.selection;
-        for (rowId in _ref) {
-          bool = _ref[rowId];
-          if (bool) {
-            selectedRow = this.rastersGrid.row(rowId).data;
-          }
-        }
+        selectedRow = this.rasters.get(this.currentId);
         selectedRow.tiepoints.remove((tiepoint = this.tiepointsGrid.cell(this.tiepointsContextMenu.currentTarget).row.data).id);
-        _ref1 = [tiepoint.sourcePoint, tiepoint.targetPoint];
-        for (_i = 0, _len = _ref1.length; _i < _len; _i++) {
-          graphic = _ref1[_i];
+        _ref = [tiepoint.sourcePoint, tiepoint.targetPoint];
+        for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+          graphic = _ref[_i];
           this.tiepointsLayer.remove(graphic);
         }
         return this.applyManualTransform_RefreshButtons();
@@ -1062,17 +1147,11 @@
         return _results;
       },
       addTiepoint: function(state) {
-        var bool, closeMouseTip, contextMenuEvent, currentState, mapDownEvent, mapDragEvent, mapUpEvent, mouseTipDownEvent, mouseTipMoveEvent, rowId, selectedRow, sourcePoint, targetPoint, _ref,
+        var closeMouseTip, contextMenuEvent, currentState, mapDownEvent, mapDragEvent, mapUpEvent, mouseTipDownEvent, mouseTipMoveEvent, selectedRow, sourcePoint, targetPoint,
           _this = this;
 
         if (state) {
-          _ref = this.rastersGrid.selection;
-          for (rowId in _ref) {
-            bool = _ref[rowId];
-            if (bool) {
-              selectedRow = this.rastersGrid.row(rowId).data;
-            }
-          }
+          selectedRow = this.rasters.get(this.currentId);
           currentState = "started";
           this.map.setMapCursor("crosshair");
           sourcePoint = null;
@@ -1084,7 +1163,7 @@
             return domStyle.set(_this.mouseTip, "top", e.clientY + 20 + "px");
           });
           mouseTipDownEvent = connect(query("body")[0], "onmousedown", function(e) {
-            var point, _i, _len, _ref1;
+            var point, _i, _len, _ref;
 
             if (_this.toggleRasterLayerButton.hovering) {
               return;
@@ -1100,9 +1179,9 @@
                 closeMouseTip();
               }
             }
-            _ref1 = [sourcePoint, targetPoint];
-            for (_i = 0, _len = _ref1.length; _i < _len; _i++) {
-              point = _ref1[_i];
+            _ref = [sourcePoint, targetPoint];
+            for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+              point = _ref[_i];
               _this.tiepointsLayer.remove(point);
             }
             if (!_this.addTiepointButton.hovering) {
@@ -1181,25 +1260,19 @@
         }
       },
       removeSelectedTiepoints: function() {
-        var bool, graphic, rowId, selectedRow, tiepoint, _i, _len, _ref, _ref1, _ref2;
+        var bool, graphic, rowId, selectedRow, tiepoint, _i, _len, _ref, _ref1;
 
-        _ref = this.rastersGrid.selection;
+        selectedRow = this.rasters.get(this.currentId);
+        _ref = this.tiepointsGrid.selection;
         for (rowId in _ref) {
           bool = _ref[rowId];
-          if (bool) {
-            selectedRow = this.rastersGrid.row(rowId).data;
-          }
-        }
-        _ref1 = this.tiepointsGrid.selection;
-        for (rowId in _ref1) {
-          bool = _ref1[rowId];
           if (!(bool)) {
             continue;
           }
           selectedRow.tiepoints.remove((tiepoint = this.tiepointsGrid.row(rowId).data).id);
-          _ref2 = [tiepoint.sourcePoint, tiepoint.targetPoint];
-          for (_i = 0, _len = _ref2.length; _i < _len; _i++) {
-            graphic = _ref2[_i];
+          _ref1 = [tiepoint.sourcePoint, tiepoint.targetPoint];
+          for (_i = 0, _len = _ref1.length; _i < _len; _i++) {
+            graphic = _ref1[_i];
             this.tiepointsLayer.remove(graphic);
           }
         }
@@ -1235,15 +1308,9 @@
         return _results;
       },
       applyManualTransform_RefreshButtons: function() {
-        var bool, rowId, selectedRow, _ref;
+        var selectedRow;
 
-        _ref = this.rastersGrid.selection;
-        for (rowId in _ref) {
-          bool = _ref[rowId];
-          if (bool) {
-            selectedRow = this.rastersGrid.row(rowId).data;
-          }
-        }
+        selectedRow = this.rasters.get(this.currentId);
         this.applyManualTransform_ProjectiveButton.set("disabled", selectedRow.tiepoints.data.length < 4);
         this.applyManualTransform_1stOrderButton.set("disabled", selectedRow.tiepoints.data.length < 3);
         this.applyManualTransform_2ndOrderButton.set("disabled", selectedRow.tiepoints.data.length < 6);
@@ -1254,18 +1321,12 @@
         return this.applyManualTransform_3rdOrderTooltip.set("connectId", (selectedRow.tiepoints.data.length < 10 ? this.applyManualTransform_3rdOrderButton.domNode : void 0));
       },
       applyManualTransform: function(_arg1) {
-        var bool, geodataTransform, polynomialOrder, rowId, selectedRow, _ref, _ref1,
+        var geodataTransform, polynomialOrder, selectedRow, _ref,
           _this = this;
 
         _ref = _arg1 != null ? _arg1 : {}, geodataTransform = _ref.geodataTransform, polynomialOrder = _ref.polynomialOrder;
         domStyle.set(this.loadingGif, "display", "block");
-        _ref1 = this.rastersGrid.selection;
-        for (rowId in _ref1) {
-          bool = _ref1[rowId];
-          if (bool) {
-            selectedRow = this.rastersGrid.row(rowId).data;
-          }
-        }
+        selectedRow = this.rasters.get(this.currentId);
         return this.applyTransform({
           tiePoints: {
             sourcePoints: selectedRow.tiepoints.data.map(function(x) {
@@ -1281,10 +1342,14 @@
           var updateEndEvent;
 
           return updateEndEvent = connect(_this.imageServiceLayer, "onUpdateEnd", function() {
-            var appliedTiepoints, asyncTask, tiepoint, _i, _len, _ref2;
+            var appliedTiepoints, asyncTask, tiepoint, _i, _len, _ref1;
 
             disconnect(updateEndEvent);
-            appliedTiepoints = new Array(selectedRow.tiepoints.data);
+            appliedTiepoints = (function(func, args, ctor) {
+              ctor.prototype = func.prototype;
+              var child = new ctor, result = func.apply(child, args);
+              return Object(result) === result ? result : child;
+            })(Array, selectedRow.tiepoints.data, function(){});
             _this.asyncResults.put(asyncTask = {
               resultId: (Math.max.apply(Math, _this.asyncResults.data.map(function(x) {
                 return x.resultId;
@@ -1312,35 +1377,25 @@
                   },
                   handleAs: "json",
                   load: function() {
-                    var task, _i, _len, _ref2;
+                    var task, tiepoint, _i, _j, _len, _len1, _ref1;
 
-                    _ref2 = _this.asyncResults.data.filter(function(x) {
-                      var _ref2;
+                    _ref1 = _this.asyncResults.data.filter(function(x) {
+                      var _ref1;
 
-                      return x.rasterId === _this.currentId && ((_ref2 = x.task) === "Compute Tiepoints" || _ref2 === "Apply Transform (Tiepoints)");
+                      return x.rasterId === _this.currentId && ((_ref1 = x.task) === "Compute Tiepoints" || _ref1 === "Apply Transform (Tiepoints)");
                     });
-                    for (_i = 0, _len = _ref2.length; _i < _len; _i++) {
-                      task = _ref2[_i];
+                    for (_i = 0, _len = _ref1.length; _i < _len; _i++) {
+                      task = _ref1[_i];
                       delete task.callback;
                     }
-                    return _this.loadFootprints(function() {
-                      var tiepoint, _j, _len1, _ref3;
-
-                      _ref3 = _this.rastersGrid.selection;
-                      for (rowId in _ref3) {
-                        bool = _ref3[rowId];
-                        if (bool) {
-                          selectedRow = _this.rastersGrid.row(rowId).data;
-                        }
-                      }
-                      for (_j = 0, _len1 = appliedTiepoints.length; _j < _len1; _j++) {
-                        tiepoint = appliedTiepoints[_j];
-                        selectedRow.tiepoints.put(tiepoint);
-                      }
-                      delete asyncTask.callback;
-                      _this.startEditTiepoints();
-                      return domStyle.set(_this.loadingGif, "display", "none");
-                    });
+                    selectedRow = _this.rasters.get(_this.currentId);
+                    for (_j = 0, _len1 = appliedTiepoints.length; _j < _len1; _j++) {
+                      tiepoint = appliedTiepoints[_j];
+                      selectedRow.tiepoints.put(tiepoint);
+                    }
+                    delete asyncTask.callback;
+                    _this.startEditTiepoints();
+                    return domStyle.set(_this.loadingGif, "display", "none");
                   },
                   error: function(_arg2) {
                     var message;
@@ -1358,9 +1413,9 @@
               domStyle.set(_this.asyncResultsContainer.domNode, "display", "block");
             }
             _this.asyncResultsGrid.select(asyncTask);
-            _ref2 = selectedRow.tiepoints.data.splice(0);
-            for (_i = 0, _len = _ref2.length; _i < _len; _i++) {
-              tiepoint = _ref2[_i];
+            _ref1 = selectedRow.tiepoints.data.splice(0);
+            for (_i = 0, _len = _ref1.length; _i < _len; _i++) {
+              tiepoint = _ref1[_i];
               selectedRow.tiepoints.remove(tiepoint.id);
             }
             _this.closeEditTiepoints();
@@ -1411,7 +1466,8 @@
         return this.refreshMosaicRule();
       },
       closeRoughTransform: function() {
-        var button, container, containers, display, _i, _j, _len, _len1, _ref, _ref1;
+        var button, container, containers, display, _i, _j, _len, _len1, _ref, _ref1,
+          _this = this;
 
         _ref = {
           block: [this.selectRasterContainer, this.tasksContainer],
@@ -1432,7 +1488,9 @@
           button = _ref1[_j];
           button.set("checked", false);
         }
-        return this.refreshMosaicRule();
+        return this.loadRastersList(function() {
+          return _this.refreshMosaicRule();
+        });
       },
       projectIfReq: function(_arg1, callback) {
         var geometries, outSR,
@@ -1976,6 +2034,7 @@
         query(selectedMenuItem.domNode).addClass("bold");
         if (this.naturalVueServiceLayer != null) {
           this.map.removeLayer(this.naturalVueServiceLayer);
+          this.naturalVueServiceLayer.suspend();
           delete this.naturalVueServiceLayer;
           _ref = this.map.basemapLayerIds;
           _results = [];
@@ -2064,44 +2123,30 @@
         return this.imageServiceLayer.setImageFormat("jpg");
       },
       rastersDisplay_enableAll: function() {
-        var bool, raster, rowId, selectedRowId, _i, _len, _ref, _ref1;
+        var raster, _i, _len, _ref;
 
-        _ref = this.rastersGrid.selection;
-        for (rowId in _ref) {
-          bool = _ref[rowId];
-          if (bool) {
-            selectedRowId = rowId;
-          }
-        }
-        _ref1 = this.rasters.data;
-        for (_i = 0, _len = _ref1.length; _i < _len; _i++) {
-          raster = _ref1[_i];
+        _ref = this.rasters.data;
+        for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+          raster = _ref[_i];
           raster.display = true;
           this.rasters.notify(raster, raster.rasterId);
         }
-        if (selectedRowId != null) {
-          this.rastersGrid.select(selectedRowId);
+        if (this.currentId != null) {
+          this.rastersGrid.select(this.currentId);
         }
         return this.refreshMosaicRule();
       },
       rastersDisplay_disableAll: function() {
-        var bool, raster, rowId, selectedRowId, _i, _len, _ref, _ref1;
+        var raster, _i, _len, _ref;
 
-        _ref = this.rastersGrid.selection;
-        for (rowId in _ref) {
-          bool = _ref[rowId];
-          if (bool) {
-            selectedRowId = rowId;
-          }
-        }
-        _ref1 = this.rasters.data;
-        for (_i = 0, _len = _ref1.length; _i < _len; _i++) {
-          raster = _ref1[_i];
+        _ref = this.rasters.data;
+        for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+          raster = _ref[_i];
           raster.display = false;
           this.rasters.notify(raster, raster.rasterId);
         }
-        if (selectedRowId != null) {
-          this.rastersGrid.select(selectedRowId);
+        if (this.currentId != null) {
+          this.rastersGrid.select(this.currentId);
         }
         return this.refreshMosaicRule();
       },
@@ -2183,16 +2228,10 @@
           return reader.readAsText(this.files[0]);
         });
         return reader.onload = function(_arg1) {
-          var bool, i, newId, result, rowId, selectedRow, sourcePoint, targetPoint, tiepoints, _i, _ref, _ref1;
+          var i, newId, result, selectedRow, sourcePoint, targetPoint, tiepoints, _i, _ref;
 
           result = _arg1.target.result;
-          _ref = _this.rastersGrid.selection;
-          for (rowId in _ref) {
-            bool = _ref[rowId];
-            if (bool) {
-              selectedRow = _this.rastersGrid.row(rowId).data;
-            }
-          }
+          selectedRow = _this.rasters.get(_this.currentId);
           newId = Math.max.apply(Math, selectedRow.tiepoints.data.map(function(x) {
             return x.id;
           }).concat(0)) + 1;
@@ -2215,7 +2254,7 @@
               }
             };
           });
-          for (i = _i = 0, _ref1 = tiepoints.length; 0 <= _ref1 ? _i < _ref1 : _i > _ref1; i = 0 <= _ref1 ? ++_i : --_i) {
+          for (i = _i = 0, _ref = tiepoints.length; 0 <= _ref ? _i < _ref : _i > _ref; i = 0 <= _ref ? ++_i : --_i) {
             selectedRow.tiepoints.put({
               id: newId + i,
               sourcePoint: sourcePoint = new Graphic(new Point(tiepoints[i].sourcePoint), _this.sourceSymbol),
@@ -2232,16 +2271,10 @@
         };
       },
       exportTiepoints: function() {
-        var blob, bool, rowId, selectedRow, _ref,
+        var blob, selectedRow,
           _this = this;
 
-        _ref = this.rastersGrid.selection;
-        for (rowId in _ref) {
-          bool = _ref[rowId];
-          if (bool) {
-            selectedRow = this.rastersGrid.row(rowId).data;
-          }
-        }
+        selectedRow = this.rasters.get(this.currentId);
         blob = new Blob(["Hello, world!"], {
           type: "text/plain;charset=utf-8"
         });
@@ -2250,7 +2283,11 @@
             return [x.sourcePoint.geometry.x, x.sourcePoint.geometry.y, x.targetPoint.geometry.x, x.targetPoint.geometry.y].join("\t");
           }).join("\r\n")
         ]), "tiepoints_raster" + selectedRow.rasterId + ".txt");
-      }
+      },
+      georefStatus_Complete: function() {},
+      georefStatus_False: function() {},
+      georefStatus_Partial: function() {},
+      georefStatus_WIP: function() {}
     });
   });
 })();

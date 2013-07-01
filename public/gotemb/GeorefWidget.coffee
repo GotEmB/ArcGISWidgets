@@ -147,6 +147,11 @@ do ->
 			applyManualTransform_2ndOrderTooltip: null
 			applyManualTransform_3rdOrderTooltip: null
 			footprintsLayer: null
+			georefStatus_CompleteButton: null
+			georefStatus_FalseButton: null
+			georefStatus_PartialButton: null
+			georefStatus_WIPButton: null
+			rastersArchive: null
 			sourceSymbol: do ->
 				symbol = new SimpleMarkerSymbol(
 					SimpleMarkerSymbol.STYLE_X
@@ -327,8 +332,10 @@ do ->
 						@rastersGrid
 					@rastersGrid.startup()
 					domStyle.set @selectRasterContainer.domNode, "display", "block"
+					@rastersArchive = []
 					@loadRastersList =>
 						@refreshMosaicRule()
+						domStyle.set @loadingGif, "display", "none"
 					@rastersGrid.on ".field-rasterId:click, .field-name:click", (e) =>
 						@rastersGrid.clearSelection()
 						@rastersGrid.select @rastersGrid.cell(e).row
@@ -337,7 +344,6 @@ do ->
 						@scrollToElement rows[0].element
 						raster.footprint.setSymbol @footprintSymbol for raster in @rasters.data
 						rows[0].data.footprint.setSymbol @selectedFootprintSymbol
-						@map.setExtent rows[0].data.footprint.geometry.getExtent()
 					@rastersGrid.on "dgrid-datachange", ({cell, value}) =>
 						cell.row.data.display = value
 						@refreshMosaicRule()
@@ -448,6 +454,10 @@ do ->
 								@rastersGrid.clearSelection()
 								@rastersGrid.select raster
 								break
+					connect @map, "onExtentChange", (e) =>
+						return if domStyle.get(@selectRasterContainer.domNode, "display") is "none" or @georefStatus_FalseButton.domNode.classList.contains "bold"
+						@loadRastersList =>
+							@refreshMosaicRule()
 					@asyncResults = new Observable new Memory idProperty: "resultId"
 					@asyncResultsGrid = new AsyncResultsGrid
 						columns: [	
@@ -495,13 +505,26 @@ do ->
 						@atdpContinueEvent = =>
 							@atdpClose()
 							if row.data.rasterId?
-								@rastersGrid.clearSelection()
-								@rastersGrid.select @rastersGrid.row row.data.rasterId
-								atdpOnceDone = false
-								selectAspect = aspect.after @rastersGrid.on "dgrid-select", =>
-									if atdpOnceDone then return else atdpOnceDone = true
-									selectAspect.remove()
-									row.data.callback?()
+								request
+									url: @imageServiceUrl + "/query"
+									content:
+										f: "json"
+										where: "OBJECTID = #{row.data.rasterId}"
+										returnGeometry: true
+									handlesAs: "json"
+									load: ({features}) =>
+										@map.setExtent new Polygon(features[0].geometry).getExtent()
+										mosaicRefreshedAspect = aspect.after @, "refreshMosaicRule", =>
+											if mosaicRefreshedAspect.done then return else mosaicRefreshedAspect.done = true
+											mosaicRefreshedAspect.remove()
+											@rastersGrid.clearSelection()
+											@rastersGrid.select @rastersGrid.row row.data.rasterId
+											selectAspect = aspect.after @rastersGrid.on "dgrid-select", =>
+												if selectAspect.done then return else selectAspect.done = true
+												selectAspect.remove()
+												row.data.callback?()
+									error: ({message}) => console.error message
+									(usePost: true)
 							else
 								row.data.callback?()
 						popup.open
@@ -522,15 +545,16 @@ do ->
 				@imageServiceLayer.setMosaicRule extend(
 					new MosaicRule
 					method: MosaicRule.METHOD_LOCKRASTER
-					lockRasterIds:
+					lockRasterIds: do =>
+						raster.footprint.setSymbol @footprintSymbol for raster in @rasters.data
+						@rasters.get(@currentId)?.footprint.setSymbol @selectedFootprintSymbol
+						@footprintsLayer.clear()
 						if domStyle.get(@selectRasterContainer.domNode, "display") is "block" or not @currentId?
 							@imageServiceLayer.setVisibility (raster for raster in @rasters.data when raster.display).length > 0
-							@footprintsLayer.clear()
 							@footprintsLayer.add raster.footprint for raster in @rasters.data when raster.display
 							raster.rasterId for raster in @rasters.data when raster.display
 						else
 							@imageServiceLayer.setVisibility true
-							@footprintsLayer.clear()
 							@footprintsLayer.add @rasters.get(@currentId).footprint
 							[@currentId]
 				)
@@ -541,22 +565,55 @@ do ->
 						domStyle.set @loadingGif, "display", "none"
 						callback?()
 			loadRastersList: (callback) ->
+				georefStatus =
+					if @georefStatus_CompleteButton.domNode.classList.contains "bold"
+						0
+					else if @georefStatus_FalseButton.domNode.classList.contains "bold"
+						1
+					else if @georefStatus_PartialButton.domNode.classList.contains "bold"
+						2
 				request
 					url: @imageServiceUrl + "/query"
 					content:
 						f: "json"
-						outFields: "OBJECTID, Name"
+						where: "georefStatus = #{georefStatus}#{if georefStatus is 0 then " OR georefStatus IS NULL" else ""}"
+						outFields: "OBJECTID, Name, GeorefStatus"
+						geometry: JSON.stringify @map.extent.toJson() if georefStatus isnt 1 and @map.extent?
+						geometryType: "esriGeometryEnvelope"
+						spatialRel: "esriSpatialRelIntersects"
 					handlesAs: "json"
-					load: (response) =>
-						for feature in response.features when feature.attributes.Name isnt "World_Imagery"
-							@rasters.put
-								rasterId: feature.attributes.OBJECTID
-								name: feature.attributes.Name
-								spatialReference: new SpatialReference feature.geometry.spatialReference
-								display: true
-						@loadFootprints =>
-							callback?()
-							domStyle.set @loadingGif, "display", "none"
+					load: ({features}) =>
+						@footprintsLayer.clear()
+						for raster in new Array @rasters.data...
+							delete @rastersArchive[raster.rasterId]
+							@rastersArchive[raster.rasterId] = raster if not raster.display or raster.tiepoints?
+							@rasters.remove raster.rasterId
+						for feature in features when feature.attributes.Name isnt "World_Imagery"
+							unless (thisRaster = @rastersArchive[feature.attributes.OBJECTID])?
+								thisRaster =
+									rasterId: feature.attributes.OBJECTID
+									name: feature.attributes.Name
+									spatialReference: new SpatialReference feature.geometry.spatialReference
+									display: true
+							extend thisRaster,
+								georefStatus: feature.attributes.GeorefStatus
+								footprint: new Graphic(
+									new Polygon feature.geometry
+									if @currentId is feature.attributes.OBJECTID then @selectedFootprintSymbol else @footprintSymbol
+								)
+							@rasters.put thisRaster
+						if domStyle.get(@selectRasterContainer.domNode, "display") is "block"
+							@footprintsLayer.add raster.footprint for raster in @rasters.data when raster.display
+						else
+							@footprintsLayer.add raster.footprint for raster in @rasters.data when raster.footprint.symbol is @selectedFootprintSymbol
+						@rastersGrid.set "store", @rasters
+						callback?()
+						@rastersGrid.clearSelection()
+						if @currentId?
+							if @rasters.get(@currentId)?
+								@rastersGrid.select @currentId
+							else
+								delete @currentId
 					error: ({message}) => console.error message
 					(usePost: true)
 			showAddRasterDialog: ->
@@ -645,10 +702,9 @@ do ->
 					load: =>
 						for task in @asyncResults.data.filter((x) => x.rasterId is @currentId and x.task in ["Compute Tiepoints", "Apply Transform (Tiepoints)"])
 							delete task.callback
-						@loadFootprints =>
-							selectedRow = @rastersGrid.row(rowId).data for rowId, bool of @rastersGrid.selection when bool
-							@map.setExtent if gotoLocation then selectedRow.footprint.geometry.getExtent() else @map.extent
-							callback?()
+						selectedRow = @rasters.get @currentId
+						@map.setExtent if gotoLocation then selectedRow.footprint.geometry.getExtent() else @map.extent
+						callback?()
 					error: ({message}) => console.error message
 					(usePost: true)
 			computeTiePoints: (callback) ->
@@ -676,7 +732,7 @@ do ->
 				@footprintsLayer.setOpacity if state then 1 else 0
 			startEditTiepoints: ->
 				return @showRasterNotSelectedDialog() unless @currentId?
-				selectedRow = @rastersGrid.row(rowId).data for rowId, bool of @rastersGrid.selection when bool
+				selectedRow = @rasters.get @currentId
 				@tiepointsGrid.set "store", selectedRow.tiepoints ?= new Observable new Memory idProperty: "id"
 				for tiepoint in selectedRow.tiepoints.data
 					@tiepointsLayer.add tiepoint.sourcePoint
@@ -703,7 +759,7 @@ do ->
 								status: "Failed"
 								endTime: (new Date).toLocaleString()
 							return @asyncResults.notify asyncTask, asyncTask.resultId
-						selectedRow = @rasters.get asyncTask.rasterId
+						selectedRow = @rastersArchive[asyncTask.rasterId]
 						newId = Math.max(selectedRow.tiepoints.data.map((x) => x.id).concat(0)...) + 1
 						for i in [0...tiePoints.sourcePoints.length]
 							selectedRow.tiepoints.put
@@ -734,7 +790,8 @@ do ->
 				for display, containers of {block: [@selectRasterContainer, @tasksContainer], none: [@editTiepointsContainer]}
 					domStyle.set container.domNode, "display", display for container in containers
 				domStyle.set @asyncResultsContainer.domNode, "display", "block" if @asyncResults.data.length > 0
-				@refreshMosaicRule()
+				@loadRastersList =>
+					@refreshMosaicRule()
 			toggleTiepointsSelection: ->
 				if @toggleTiepointsSelectionMenuItem.label is "Clear Selection"
 					@tiepointsGrid.clearSelection()
@@ -743,7 +800,7 @@ do ->
 			tiepointsContextMenuOpen: ->
 				domStyle.set @resetTiepointMenuItem.domNode, "display", if @tiepointsGrid.cell(@tiepointsContextMenu.currentTarget).row.data.original? then "table-row" else "none"
 			removeTiepoint: ->
-				selectedRow = @rastersGrid.row(rowId).data for rowId, bool of @rastersGrid.selection when bool
+				selectedRow = @rasters.get @currentId
 				selectedRow.tiepoints.remove (tiepoint = @tiepointsGrid.cell(@tiepointsContextMenu.currentTarget).row.data).id
 				@tiepointsLayer.remove graphic for graphic in [tiepoint.sourcePoint, tiepoint.targetPoint]
 				@applyManualTransform_RefreshButtons()
@@ -754,7 +811,7 @@ do ->
 					tiepoint[key].pointChanged()
 			addTiepoint: (state) ->
 				if state
-					selectedRow = @rastersGrid.row(rowId).data for rowId, bool of @rastersGrid.selection when bool
+					selectedRow = @rasters.get @currentId
 					currentState = "started"
 					@map.setMapCursor "crosshair"
 					sourcePoint = null
@@ -814,7 +871,7 @@ do ->
 						@map.setMapCursor "default"
 						currentState = "placedTiepoint"
 			removeSelectedTiepoints: ->
-				selectedRow = @rastersGrid.row(rowId).data for rowId, bool of @rastersGrid.selection when bool
+				selectedRow = @rasters.get @currentId
 				for rowId, bool of @tiepointsGrid.selection when bool
 					selectedRow.tiepoints.remove (tiepoint = @tiepointsGrid.row(rowId).data).id
 					@tiepointsLayer.remove graphic for graphic in [tiepoint.sourcePoint, tiepoint.targetPoint]
@@ -827,7 +884,7 @@ do ->
 						tiepoint[key].setGeometry tiepoint.original[key]
 						tiepoint[key].pointChanged()
 			applyManualTransform_RefreshButtons: ->
-				selectedRow = @rastersGrid.row(rowId).data for rowId, bool of @rastersGrid.selection when bool
+				selectedRow = @rasters.get @currentId
 				@applyManualTransform_ProjectiveButton.set "disabled", selectedRow.tiepoints.data.length < 4
 				@applyManualTransform_1stOrderButton.set "disabled", selectedRow.tiepoints.data.length < 3
 				@applyManualTransform_2ndOrderButton.set "disabled", selectedRow.tiepoints.data.length < 6
@@ -838,7 +895,7 @@ do ->
 				@applyManualTransform_3rdOrderTooltip.set "connectId", (@applyManualTransform_3rdOrderButton.domNode if selectedRow.tiepoints.data.length < 10)
 			applyManualTransform: ({geodataTransform, polynomialOrder} = {}) ->
 				domStyle.set @loadingGif, "display", "block"
-				selectedRow = @rastersGrid.row(rowId).data for rowId, bool of @rastersGrid.selection when bool
+				selectedRow = @rasters.get @currentId
 				@applyTransform
 					tiePoints:
 						sourcePoints: selectedRow.tiepoints.data.map (x) => x.sourcePoint.geometry
@@ -848,7 +905,7 @@ do ->
 					=>
 						updateEndEvent = connect @imageServiceLayer, "onUpdateEnd", =>
 							disconnect updateEndEvent
-							appliedTiepoints = new Array selectedRow.tiepoints.data
+							appliedTiepoints = new Array selectedRow.tiepoints.data...
 							@asyncResults.put asyncTask =
 								resultId: (Math.max @asyncResults.data.map((x) -> x.resultId).concat(0)...) + 1
 								task: "Apply Transform (Tiepoints)"
@@ -872,12 +929,11 @@ do ->
 										load: =>
 											for task in @asyncResults.data.filter((x) => x.rasterId is @currentId and x.task in ["Compute Tiepoints", "Apply Transform (Tiepoints)"])
 												delete task.callback
-											@loadFootprints =>
-												selectedRow = @rastersGrid.row(rowId).data for rowId, bool of @rastersGrid.selection when bool
-												selectedRow.tiepoints.put tiepoint for tiepoint in appliedTiepoints
-												delete asyncTask.callback
-												@startEditTiepoints()
-												domStyle.set @loadingGif, "display", "none"
+											selectedRow = @rasters.get @currentId
+											selectedRow.tiepoints.put tiepoint for tiepoint in appliedTiepoints
+											delete asyncTask.callback
+											@startEditTiepoints()
+											domStyle.set @loadingGif, "display", "none"
 										error: ({message}) => console.error message
 										(usePost: true)
 								callbackLabel: "Redo Edit Tiepoints"
@@ -905,7 +961,8 @@ do ->
 				domStyle.set @asyncResultsContainer.domNode, "display", "block" if @asyncResults.data.length > 0
 				for button in [@rt_moveButton, @rt_scaleButton, @rt_rotateButton]
 					button.set "checked", false
-				@refreshMosaicRule()
+				@loadRastersList =>
+					@refreshMosaicRule()
 			projectIfReq: ({geometries, outSR}, callback) ->
 				return callback? geometries if geometries.every (x) => x.spatialReference.equals outSR
 				@geometryService.project(
@@ -1175,6 +1232,7 @@ do ->
 				query(selectedMenuItem.domNode).addClass "bold"
 				if @naturalVueServiceLayer?
 					@map.removeLayer @naturalVueServiceLayer
+					@naturalVueServiceLayer.suspend()
 					delete @naturalVueServiceLayer
 					@map.getLayer(layerId).setVisibility true for layerId in @map.basemapLayerIds
 			selectBasemap_Satellite: ->
@@ -1222,44 +1280,17 @@ do ->
 				@setImageFormat @setImageFormat_JPGButton
 				@imageServiceLayer.setImageFormat "jpg"
 			rastersDisplay_enableAll: ->
-				selectedRowId = rowId for rowId, bool of @rastersGrid.selection when bool
 				for raster in @rasters.data
 					raster.display = true
 					@rasters.notify raster, raster.rasterId
-				@rastersGrid.select selectedRowId if selectedRowId?
+				@rastersGrid.select @currentId if @currentId?
 				@refreshMosaicRule()
 			rastersDisplay_disableAll: ->
-				selectedRowId = rowId for rowId, bool of @rastersGrid.selection when bool
 				for raster in @rasters.data
 					raster.display = false
 					@rasters.notify raster, raster.rasterId
-				@rastersGrid.select selectedRowId if selectedRowId?
+				@rastersGrid.select @currentId if @currentId?
 				@refreshMosaicRule()
-			loadFootprints: (callback) ->
-				@footprintsLayer.clear()
-				request
-					url: @imageServiceUrl + "/query"
-					content:
-						objectIds: (raster.rasterId for raster in @rasters.data).toString()
-						returnGeometry: true
-						outFields: ""
-						f: "json"
-					handleAs: "json"
-					load: ({features}) =>
-						for feature in features
-							thisRaster = @rasters.get(feature.attributes.OBJECTID)
-							graphic = new Graphic(
-								new Polygon feature.geometry
-								if @rastersGrid.isSelected thisRaster.rasterId then @selectedFootprintSymbol else @footprintSymbol
-							)
-							thisRaster.footprint = graphic
-						if domStyle.get(@selectRasterContainer.domNode, "display") is "block"
-							@footprintsLayer.add raster.footprint for raster in @rasters.data when raster.display
-						else
-							@footprintsLayer.add raster.footprint for raster in @rasters.data when raster.footprint.symbol is @selectedFootprintSymbol
-						callback?()
-					error: ({message}) => console.error message
-					(usePost: true)
 			importTiepoints: ->
 				ipElement = document.createElement "input"
 				ipElement.type = "file"
@@ -1271,7 +1302,7 @@ do ->
 					disconnect changeEvent
 					reader.readAsText @files[0]
 				reader.onload = ({target: {result}}) =>
-					selectedRow = @rastersGrid.row(rowId).data for rowId, bool of @rastersGrid.selection when bool
+					selectedRow = @rasters.get @currentId
 					newId = Math.max(selectedRow.tiepoints.data.map((x) => x.id).concat(0)...) + 1
 					tiepoints = result.match(/^.+$/gm).map (x) =>
 						arr = x.split(/\t/g).map (x) => Number x
@@ -1289,7 +1320,7 @@ do ->
 							@tiepointsLayer.add targetPoint
 					@applyManualTransform_RefreshButtons() if @rastersGrid.isSelected(selectedRow.rasterId) and domStyle.get(@editTiepointsContainer.domNode, "display") is "block"
 			exportTiepoints: ->
-				selectedRow = @rastersGrid.row(rowId).data for rowId, bool of @rastersGrid.selection when bool
+				selectedRow = @rasters.get @currentId
 				blob = new Blob ["Hello, world!"], type: "text/plain;charset=utf-8"
 				saveAs(
 					new Blob [
@@ -1302,3 +1333,7 @@ do ->
 					]
 					"tiepoints_raster#{selectedRow.rasterId}.txt"
 				)
+			georefStatus_Complete: ->
+			georefStatus_False: ->
+			georefStatus_Partial: ->
+			georefStatus_WIP: ->
