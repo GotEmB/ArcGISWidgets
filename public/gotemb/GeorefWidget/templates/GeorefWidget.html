@@ -60,8 +60,8 @@
 	</div>
 	<div data-dojo-attach-point="loadingGif" style="position: absolute; background-color: rgba(255, 255, 255, 0.75); background-image:url(resources/loader.gif); background-repeat: no-repeat; background-position: center; width: 100%; top: 30px; bottom: 0; z-index: 1000"></div>
 	<div data-dojo-type="dijit/Toolbar" style="border: solid 1px #759dc0; margin-bottom: 1px; padding-left: 0">
-		<div data-dojo-type="dijit/form/DropDownButton">
-			<span>Basemap</span>
+		<div data-dojo-type="dijit/form/DropDownButton" data-dojo-attach-point="selectBasemap_dropButton" data-dojo-props="iconClass: 'basemapIcon'">
+			<span>Satellite</span>
 			<div data-dojo-type="dijit/Menu">
 				<div data-dojo-type="dijit/MenuItem" data-dojo-attach-point="selectBasemap_SatelliteButton" data-dojo-attach-event="onClick: selectBasemap_Satellite" class="bold">Satellite</div>
 				<div data-dojo-type="dijit/MenuItem" data-dojo-attach-point="selectBasemap_NaturalVueButton" data-dojo-attach-event="onClick: selectBasemap_NaturalVue">NaturalVue</div>
@@ -70,23 +70,17 @@
 				<div data-dojo-type="dijit/MenuItem" data-dojo-attach-point="selectBasemap_StreetsButton" data-dojo-attach-event="onClick: selectBasemap_Streets" >Streets</div>
 			</div>
 		</div>
-		<div data-dojo-type="dijit/form/DropDownButton">
-			<span>Image Format</span>
-			<div data-dojo-type="dijit/Menu">
-				<div data-dojo-type="dijit/MenuItem" data-dojo-attach-point="setImageFormat_JPGPNGButton" data-dojo-attach-event="onClick: setImageFormat_JPGPNG" class="bold">JPGPNG</div>
-				<div data-dojo-type="dijit/MenuItem" data-dojo-attach-point="setImageFormat_JPGButton" data-dojo-attach-event="onClick: setImageFormat_JPG">JPG</div>
-			</div>
-		</div>
 		<span data-dojo-type="dijit/ToolbarSeparator"></span>
-		<div data-dojo-type="dijit/form/DropDownButton">
-			<span>Toggle</span>
-			<div data-dojo-type="dijit/Menu">
-				<div id="${id}_toggleRasterLayerButton" data-dojo-type="dijit/CheckedMenuItem" data-dojo-attach-point="toggleRasterLayerButton" data-dojo-attach-event="onChange: toggleRasterLayer" data-dojo-props="checked: true">Images</div>
-				<div id="${id}_toggleFootprintsButton" data-dojo-type="dijit/CheckedMenuItem" data-dojo-attach-point="toggleFootprintsButton" data-dojo-attach-event="onChange: toggleFootprints" data-dojo-props="checked: true">Footprints</div>
-			</div>
-		</div>
-		<div data-dojo-type="dijit/Tooltip" data-dojo-props="connectId: '${id}_toggleRasterLayerButton', position: ['before-centered', 'after-centered'], showDelay: 0">Keyboard Shortcut: R</div>
-		<div data-dojo-type="dijit/Tooltip" data-dojo-props="connectId: '${id}_toggleFootprintsButton', position: ['before-centered', 'after-centered'], showDelay: 0">Keyboard Shortcut: F</div>
+		<div id="${id}_setImageFormat_JPGPNGButton" data-dojo-type="dijit/form/ToggleButton" data-dojo-attach-point="setImageFormat_JPGPNGButton" data-dojo-attach-event="onClick: setImageFormat_JPGPNG" data-dojo-props="iconClass: 'pngIcon', showLabel: false, checked: true"></div>
+		<div data-dojo-type="dijit/Tooltip" data-dojo-props="connectId: '${id}_setImageFormat_JPGPNGButton', position: ['below-centered', 'above-centered'], showDelay: 0">Set Image Format to JPGPNG</div>
+		<div id="${id}_setImageFormat_JPGButton" data-dojo-type="dijit/form/ToggleButton" data-dojo-attach-point="setImageFormat_JPGButton" data-dojo-attach-event="onClick: setImageFormat_JPG" data-dojo-props="iconClass: 'jpgIcon', showLabel: false"></div>
+		<div data-dojo-type="dijit/Tooltip" data-dojo-props="connectId: '${id}_setImageFormat_JPGButton', position: ['below-centered', 'above-centered'], showDelay: 0">Set Image Format to JPG</div>
+		<span data-dojo-type="dijit/ToolbarSeparator"></span>
+		
+		<div id="${id}_toggleRasterLayerButton" data-dojo-type="dijit/form/ToggleButton" data-dojo-attach-point="toggleRasterLayerButton" data-dojo-attach-event="onChange: toggleRasterLayer" data-dojo-props="checked: true, iconClass: 'toggleImagesIcon', showLabel: false"></div>
+		<div data-dojo-type="dijit/Tooltip" data-dojo-props="connectId: '${id}_toggleRasterLayerButton', position: ['below-centered', 'above-centered'], showDelay: 0">Toggle Imagery (Keyboard Shortcut: R)</div>
+		<div id="${id}_toggleFootprintsButton" data-dojo-type="dijit/form/ToggleButton" data-dojo-attach-point="toggleFootprintsButton" data-dojo-attach-event="onChange: toggleFootprints" data-dojo-props="checked: true, iconClass: 'toggleFootprintsIcon', showLabel: false"></div>
+		<div data-dojo-type="dijit/Tooltip" data-dojo-props="connectId: '${id}_toggleFootprintsButton', position: ['below-centered', 'above-centered'], showDelay: 0">Toggle Footprints (Keyboard Shortcut: F)</div>
 	</div>
 	<div data-dojo-type="dijit/layout/AccordionContainer" data-dojo-attach-point="selectRasterContainer" style="display: none">
 		<div data-dojo-type="dijit/layout/ContentPane" title="Rasters" style="padding: 0">
@@ -99,8 +93,8 @@
 					</div>
 				</div>
 				<span data-dojo-type="dijit/ToolbarSeparator"></span>
-				<div data-dojo-type="dijit/form/DropDownButton" data-dojo-attach-point="georefStatusDropButton">
-					<span>Filter: Partially Georeferenced</span>
+				<div id="${id}_georefStatusDropButton" data-dojo-type="dijit/form/DropDownButton" data-dojo-attach-point="georefStatusDropButton" data-dojo-props="iconClass: 'filterIcon'" style="padding: 0">
+					<span>Partially Georeferenced</span>
 					<div data-dojo-type="dijit/Menu">
 						<div data-dojo-type="dijit/MenuItem" data-dojo-attach-point="georefStatus_CompleteButton" data-dojo-attach-event="onClick: georefStatus_Complete">Georeferenced</div>
 						<div data-dojo-type="dijit/MenuItem" data-dojo-attach-point="georefStatus_FalseButton" data-dojo-attach-event="onClick: georefStatus_False">Not Georeferenced</div>
@@ -135,8 +129,9 @@
 	<div data-dojo-type="dijit/layout/AccordionContainer" data-dojo-attach-point="editTiepointsContainer" style="display: none">
 		<div data-dojo-type="dijit/layout/ContentPane" title="Edit Tiepoints" style="padding: 0">
 			<div data-dojo-type="dijit/Toolbar">
-				<div data-dojo-type="dijit/form/ToggleButton" data-dojo-attach-point="addTiepointButton" data-dojo-attach-event="onChange: addTiepoint">Add Points</div>
-				<div data-dojo-type="dijit/form/DropDownButton">
+				<div id="${id}_addTiepointButton" data-dojo-type="dijit/form/ToggleButton" data-dojo-attach-point="addTiepointButton" data-dojo-attach-event="onChange: addTiepoint" data-dojo-props="iconClass: 'plusIcon', showLabel: false"></div>
+				<div data-dojo-type="dijit/Tooltip" data-dojo-props="connectId: '${id}_addTiepointButton', position: ['below-centered', 'above-centered'], showDelay: 0">Add Points</div>
+				<div data-dojo-type="dijit/form/DropDownButton" data-dojo-props="iconClass: 'selectionIcon'" style="padding-left: 0">
 					<span>Selection</span>
 					<div data-dojo-type="dijit/Menu">
 						<div data-dojo-type="dijit/MenuItem" data-dojo-attach-point="toggleTiepointsSelectionMenuItem" data-dojo-attach-event="onClick: toggleTiepointsSelection">Select All</div>
@@ -145,13 +140,10 @@
 					</div>
 				</div>
 				<span data-dojo-type="dijit/ToolbarSeparator"></span>
-				<div data-dojo-type="dijit/form/DropDownButton">
-					<span>File</span>
-					<div data-dojo-type="dijit/Menu">
-						<div data-dojo-type="dijit/MenuItem" data-dojo-attach-event="onClick: importTiepoints">Import</div>
-						<div data-dojo-type="dijit/MenuItem" data-dojo-attach-event="onClick: exportTiepoints">Export</div>
-					</div>
-				</div>
+				<div id="${id}_importTiepointsButton" data-dojo-type="dijit/form/Button" data-dojo-attach-event="onClick: importTiepoints" data-dojo-props="iconClass: 'importIcon', showLabel: false"></div>
+				<div data-dojo-type="dijit/Tooltip" data-dojo-props="connectId: '${id}_importTiepointsButton', position: ['below-centered', 'above-centered'], showDelay: 0">Import Tiepoints</div>
+				<div id="${id}_exportTiepointsButton" data-dojo-type="dijit/form/Button" data-dojo-attach-event="onClick: exportTiepoints" data-dojo-props="iconClass: 'exportIcon', showLabel: false"></div>
+				<div data-dojo-type="dijit/Tooltip" data-dojo-props="connectId: '${id}_exportTiepointsButton', position: ['below-centered', 'above-centered'], showDelay: 0">Export Tiepoints</div>
 			</div>
 			<div data-dojo-attach-point="tiepointsGrid" style="height: 300px"></div>
 			<div class="dijitDialogPaneActionBar">

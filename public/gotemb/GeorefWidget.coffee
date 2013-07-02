@@ -112,6 +112,7 @@ do ->
 			selectBasemap_TopographicButton: null
 			selectBasemap_StreetsButton: null
 			selectBasemap_NaturalVueButton: null
+			selectBasemap_dropButton: null
 			naturalVueServiceUrl: "http://raster.arcgisonline.com/ArcGIS/rest/services/MDA_NaturalVue_Imagery_cached/MapServer"
 			naturalVueServiceLayer: null
 			asyncResultsContainer: null
@@ -1210,6 +1211,7 @@ do ->
 				for menuItem in menuItems when menuItem isnt selectedMenuItem
 					query(menuItem.domNode).removeClass "bold"
 				query(selectedMenuItem.domNode).addClass "bold"
+				@selectBasemap_dropButton.set "label", selectedMenuItem.label
 				if @naturalVueServiceLayer?
 					@map.removeLayer @naturalVueServiceLayer
 					@naturalVueServiceLayer.suspend()
@@ -1251,8 +1253,8 @@ do ->
 					@setImageFormat_JPGButton
 				]
 				for menuItem in menuItems when menuItem isnt selectedMenuItem
-					query(menuItem.domNode).removeClass "bold"
-				query(selectedMenuItem.domNode).addClass "bold"
+					menuItem.set "checked", false
+				selectedMenuItem.set "checked", true
 			setImageFormat_JPGPNG: ->
 				@setImageFormat @setImageFormat_JPGPNGButton
 				@imageServiceLayer.setImageFormat "jpgpng"
@@ -1371,7 +1373,7 @@ do ->
 				for menuItem in menuItems when menuItem isnt selectedMenuItem
 					query(menuItem.domNode).removeClass "bold"
 				query(selectedMenuItem.domNode).addClass "bold"
-				@georefStatusDropButton.set "label", "Filter: #{selectedMenuItem.label}"
+				@georefStatusDropButton.set "label", selectedMenuItem.label
 				@markGeoreferencedButton.set "disabled", selectedMenuItem in [
 					@georefStatus_CompleteButton
 					@georefStatus_WIPButton

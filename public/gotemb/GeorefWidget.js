@@ -66,6 +66,7 @@ var __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; 
       selectBasemap_TopographicButton: null,
       selectBasemap_StreetsButton: null,
       selectBasemap_NaturalVueButton: null,
+      selectBasemap_dropButton: null,
       naturalVueServiceUrl: "http://raster.arcgisonline.com/ArcGIS/rest/services/MDA_NaturalVue_Imagery_cached/MapServer",
       naturalVueServiceLayer: null,
       asyncResultsContainer: null,
@@ -2031,6 +2032,7 @@ var __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; 
           }
         }
         query(selectedMenuItem.domNode).addClass("bold");
+        this.selectBasemap_dropButton.set("label", selectedMenuItem.label);
         if (this.naturalVueServiceLayer != null) {
           this.map.removeLayer(this.naturalVueServiceLayer);
           this.naturalVueServiceLayer.suspend();
@@ -2108,10 +2110,10 @@ var __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; 
         for (_i = 0, _len = menuItems.length; _i < _len; _i++) {
           menuItem = menuItems[_i];
           if (menuItem !== selectedMenuItem) {
-            query(menuItem.domNode).removeClass("bold");
+            menuItem.set("checked", false);
           }
         }
-        return query(selectedMenuItem.domNode).addClass("bold");
+        return selectedMenuItem.set("checked", true);
       },
       setImageFormat_JPGPNG: function() {
         this.setImageFormat(this.setImageFormat_JPGPNGButton);
@@ -2307,7 +2309,7 @@ var __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; 
           }
         }
         query(selectedMenuItem.domNode).addClass("bold");
-        this.georefStatusDropButton.set("label", "Filter: " + selectedMenuItem.label);
+        this.georefStatusDropButton.set("label", selectedMenuItem.label);
         this.markGeoreferencedButton.set("disabled", selectedMenuItem === this.georefStatus_CompleteButton || selectedMenuItem === this.georefStatus_WIPButton);
         _ref = [this.openRoughTransformButton, this.startEditTiepointsButton];
         for (_j = 0, _len1 = _ref.length; _j < _len1; _j++) {
