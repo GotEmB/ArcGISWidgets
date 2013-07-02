@@ -5,6 +5,3 @@ http://lamborghini:6080/arcgis/rest/services/Utilities/Geometry/GeometryServer
 (?=^(?!#|\/\/).+$)(^.*$)
 
 ---
-
-* oldId code where delete @currentId
-* emit modified event when modified and act on it (other clients)

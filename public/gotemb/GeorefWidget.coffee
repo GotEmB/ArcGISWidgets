@@ -357,7 +357,7 @@ do ->
 						raster.footprint.setSymbol @footprintSymbol for raster in @rasters.data
 						rows[0].data.footprint.setSymbol @selectedFootprintSymbol
 						if oldId isnt @currentId
-							if oldId? and not @rastersArchive[oldId].tiepoints?.data.length > 0
+							if oldId? and not @rastersArchive[oldId].tiepoints?.data.length > 0 and not @asyncResults.data.some((x) => x.rasterId is oldId and x.status is "Pending")
 								@socket.emit "removeWIP", oldId, ({success}) =>
 							@socket.emit "addWIP", @currentId, ({success}) =>
 					@rastersGrid.on "dgrid-datachange", ({cell, value}) =>
@@ -528,9 +528,11 @@ do ->
 										f: "json"
 										where: "OBJECTID = #{row.data.rasterId}"
 										returnGeometry: true
+										outFields: "OBJECTID, Name, GeoRefStatus"
 									handlesAs: "json"
-									load: ({features}) =>
-										@map.setExtent new Polygon(features[0].geometry).getExtent()
+									load: ({features: [feature]}) =>
+										@setGeorefStatus feature.attributes.GeoRefStatus
+										@map.setExtent new Polygon(feature.geometry).getExtent()
 										mosaicRefreshedAspect = aspect.after @, "refreshMosaicRule", =>
 											if mosaicRefreshedAspect.done then return else mosaicRefreshedAspect.done = true
 											mosaicRefreshedAspect.remove()
@@ -646,9 +648,8 @@ do ->
 							if @rasters.get(@currentId)?
 								@rastersGrid.select @currentId
 							else
-								if @currentId? and not @rastersArchive[@currentId]?.tiepoints?.data.length > 0
-									oldId = @currentId
-									@socket.emit "removeWIP", oldId, ({success}) =>
+								if @currentId? and not @rastersArchive[@currentId]?.tiepoints?.data.length > 0 and not @asyncResults.data.some((x) => x.rasterId is @currentId and x.status is "Pending")
+									@socket.emit "removeWIP", @currentId, ({success}) =>
 								delete @currentId
 					error: ({message}) => console.error message
 					(usePost: true)
@@ -1354,6 +1355,12 @@ do ->
 					2
 				else if @georefStatus_WIPButton.domNode.classList.contains "bold"
 					3
+			setGeorefStatus: (num) ->
+				switch num
+					when 0 then @georefStatus_Complete()
+					when 1 then @georefStatus_False()
+					when 2 then @georefStatus_Partial()
+					when 3 then @georefStatus_WIP()
 			georefStatus: (selectedMenuItem) ->
 				menuItems = [
 					@georefStatus_CompleteButton

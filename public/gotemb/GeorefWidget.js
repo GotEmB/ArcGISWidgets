@@ -252,7 +252,9 @@ var __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; 
             }
             rows[0].data.footprint.setSymbol(_this.selectedFootprintSymbol);
             if (oldId !== _this.currentId) {
-              if ((oldId != null) && !((_ref1 = _this.rastersArchive[oldId].tiepoints) != null ? _ref1.data.length : void 0) > 0) {
+              if ((oldId != null) && !((_ref1 = _this.rastersArchive[oldId].tiepoints) != null ? _ref1.data.length : void 0) > 0 && !_this.asyncResults.data.some(function(x) {
+                return x.rasterId === oldId && x.status === "Pending";
+              })) {
                 _this.socket.emit("removeWIP", oldId, function(_arg2) {
                   var success;
 
@@ -555,14 +557,16 @@ var __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; 
                   content: {
                     f: "json",
                     where: "OBJECTID = " + row.data.rasterId,
-                    returnGeometry: true
+                    returnGeometry: true,
+                    outFields: "OBJECTID, Name, GeoRefStatus"
                   },
                   handlesAs: "json",
                   load: function(_arg2) {
-                    var features, mosaicRefreshedAspect;
+                    var feature, mosaicRefreshedAspect;
 
-                    features = _arg2.features;
-                    _this.map.setExtent(new Polygon(features[0].geometry).getExtent());
+                    feature = _arg2.features[0];
+                    _this.setGeorefStatus(feature.attributes.GeoRefStatus);
+                    _this.map.setExtent(new Polygon(feature.geometry).getExtent());
                     return mosaicRefreshedAspect = aspect.after(_this, "refreshMosaicRule", function() {
                       var selectAspect;
 
@@ -758,7 +762,7 @@ var __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; 
           },
           handlesAs: "json",
           load: function(_arg1) {
-            var feature, features, oldId, raster, thisRaster, _i, _j, _k, _l, _len, _len1, _len2, _len3, _ref, _ref1, _ref2, _ref3, _ref4;
+            var feature, features, raster, thisRaster, _i, _j, _k, _l, _len, _len1, _len2, _len3, _ref, _ref1, _ref2, _ref3, _ref4;
 
             features = _arg1.features;
             _this.footprintsLayer.clear();
@@ -820,9 +824,10 @@ var __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; 
               if (_this.rasters.get(_this.currentId) != null) {
                 return _this.rastersGrid.select(_this.currentId);
               } else {
-                if ((_this.currentId != null) && !((_ref3 = _this.rastersArchive[_this.currentId]) != null ? (_ref4 = _ref3.tiepoints) != null ? _ref4.data.length : void 0 : void 0) > 0) {
-                  oldId = _this.currentId;
-                  _this.socket.emit("removeWIP", oldId, function(_arg2) {
+                if ((_this.currentId != null) && !((_ref3 = _this.rastersArchive[_this.currentId]) != null ? (_ref4 = _ref3.tiepoints) != null ? _ref4.data.length : void 0 : void 0) > 0 && !_this.asyncResults.data.some(function(x) {
+                  return x.rasterId === _this.currentId && x.status === "Pending";
+                })) {
+                  _this.socket.emit("removeWIP", _this.currentId, function(_arg2) {
                     var success;
 
                     success = _arg2.success;
@@ -2276,6 +2281,18 @@ var __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; 
           return 2;
         } else if (this.georefStatus_WIPButton.domNode.classList.contains("bold")) {
           return 3;
+        }
+      },
+      setGeorefStatus: function(num) {
+        switch (num) {
+          case 0:
+            return this.georefStatus_Complete();
+          case 1:
+            return this.georefStatus_False();
+          case 2:
+            return this.georefStatus_Partial();
+          case 3:
+            return this.georefStatus_WIP();
         }
       },
       georefStatus: function(selectedMenuItem) {
