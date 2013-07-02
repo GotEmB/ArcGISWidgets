@@ -155,6 +155,8 @@ do ->
 			georefStatus_WIPButton: null
 			georefStatusDropButton: null
 			markGeoreferencedButton: null
+			openRoughTransformButton: null
+			startEditTiepointsButton: null
 			socket: null
 			wipRasters: null
 			sourceSymbol: do ->
@@ -344,9 +346,10 @@ do ->
 						domStyle.set @loadingGif, "display", "none"
 					@rastersGrid.on ".field-rasterId:click, .field-name:click", (e) =>
 						return unless @rastersGrid.cell(e).row?
+						@map.setExtent @rastersGrid.cell(e).row.data.footprint.geometry.getExtent() unless @currentGeorefStatus() is 1
+						return if @currentGeorefStatus() is 3
 						@rastersGrid.clearSelection()
 						@rastersGrid.select @rastersGrid.cell(e).row
-						@map.setExtent @rastersGrid.cell(e).row.data.footprint.geometry.getExtent()
 					@rastersGrid.on "dgrid-select", ({rows}) =>
 						oldId = @currentId
 						@currentId = rows[0].data.rasterId
@@ -354,11 +357,9 @@ do ->
 						raster.footprint.setSymbol @footprintSymbol for raster in @rasters.data
 						rows[0].data.footprint.setSymbol @selectedFootprintSymbol
 						if oldId isnt @currentId
-							if oldId?
+							if oldId? and not @rastersArchive[oldId].tiepoints?.data.length > 0
 								@socket.emit "removeWIP", oldId, ({success}) =>
-									@wipRasters = @wipRasters.filter (x) => x isnt oldId
 							@socket.emit "addWIP", @currentId, ({success}) =>
-								@wipRasters.push @currentId
 					@rastersGrid.on "dgrid-datachange", ({cell, value}) =>
 						cell.row.data.display = value
 						@refreshMosaicRule()
@@ -464,6 +465,7 @@ do ->
 						@map.enablePan()
 					connect @map, "onClick", (e) =>
 						return unless domStyle.get(@selectRasterContainer.domNode, "display") is "block"
+						return if @currentGeorefStatus() is 3
 						for raster in @rasters.data by -1 when raster.display
 							if raster.footprint.geometry.contains e.mapPoint
 								@rastersGrid.clearSelection()
@@ -561,12 +563,15 @@ do ->
 							@wipRasters = wips
 					@socket.on "addedWIP", (rasterId) =>
 						@wipRasters.push rasterId
-						@refreshRasterMeta =>
-							@refreshMosaicRule() if domStyle.get(@selectRasterContainer.domNode, "display") is "none"
-					@socket.on "addedWIP", (rasterId) =>
+						@refreshRasterMeta rasterId, =>
+							@refreshMosaicRule() if domStyle.get(@selectRasterContainer.domNode, "display") is "block"
+					@socket.on "removedWIP", (rasterId) =>
 						@wipRasters = @wipRasters.filter (x) => x isnt rasterId
-						@refreshRasterMeta =>
-							@refreshMosaicRule() if domStyle.get(@selectRasterContainer.domNode, "display") is "none"
+						@refreshRasterMeta rasterId, =>
+							@refreshMosaicRule() if domStyle.get(@selectRasterContainer.domNode, "display") is "block"
+					@socket.on "modifiedRaster", (rasterId) =>
+						@refreshRasterMeta rasterId, =>
+							@refreshMosaicRule() if domStyle.get(@selectRasterContainer.domNode, "display") is "block"
 					window.self = @
 			refreshMosaicRule: (callback) ->
 				@imageServiceLayer.setMosaicRule extend(
@@ -598,16 +603,18 @@ do ->
 					url: @imageServiceUrl + "/query"
 					content:
 						f: "json"
-						where:
+						where: do =>
+							wipRs = if @wipRasters.length > 0 then @wipRasters else ["null"]
 							if georefStatus isnt 3
-								"georefStatus = #{georefStatus}#{if georefStatus is 0 then " OR georefStatus IS NULL" else ""}"
-						outFields: "OBJECTID, Name, GeorefStatus"
+								"georefStatus = #{georefStatus}#{if georefStatus is 0 then " OR georefStatus IS NULL" else ""} AND OBJECTID NOT IN (#{wipRs.join ", "})"
+							else
+								"OBJECTID IN (#{wipRs.join ", "})"
+						outFields: "OBJECTID, Name, GeoRefStatus"
 						geometry: JSON.stringify @map.extent.toJson() if georefStatus isnt 1 and @map.extent?
 						geometryType: "esriGeometryEnvelope"
 						spatialRel: "esriSpatialRelIntersects"
 					handlesAs: "json"
 					load: ({features}) =>
-						features = features.filter((x) => x.attributes.OBJECTID not in @wipRasters) if georefStatus is 3
 						@footprintsLayer.clear()
 						for raster in new Array @rasters.data...
 							delete @rastersArchive[raster.rasterId]
@@ -626,7 +633,7 @@ do ->
 									)
 							else
 								thisRaster.footprint.setGeometry new Polygon feature.geometry
-							thisRaster.georefStatus = feature.attributes.GeorefStatus
+							thisRaster.georefStatus = feature.attributes.GeoRefStatus
 							@rasters.put thisRaster
 						if domStyle.get(@selectRasterContainer.domNode, "display") is "block"
 							@footprintsLayer.add raster.footprint for raster in @rasters.data when raster.display
@@ -639,6 +646,9 @@ do ->
 							if @rasters.get(@currentId)?
 								@rastersGrid.select @currentId
 							else
+								if @currentId? and not @rastersArchive[@currentId]?.tiepoints?.data.length > 0
+									oldId = @currentId
+									@socket.emit "removeWIP", oldId, ({success}) =>
 								delete @currentId
 					error: ({message}) => console.error message
 					(usePost: true)
@@ -660,13 +670,14 @@ do ->
 								spatialReference: tiePoints.sourcePoints[0].spatialReference
 						]
 						attributes: JSON.stringify
-							GeorefStatus: 2
+							GeoRefStatus: 2
 					handleAs: "json"
 					load: =>
 						for task in @asyncResults.data.filter((x) => x.rasterId is @currentId and x.task in ["Compute Tiepoints", "Apply Transform (Tiepoints)"])
 							delete task.callback
 						selectedRow = @rasters.get @currentId
 						@map.setExtent if gotoLocation then selectedRow.footprint.geometry.getExtent() else @map.extent
+						@socket.emit "modifiedRaster", @currentId
 						callback?()
 					error: ({message}) => console.error message
 					(usePost: true)
@@ -897,6 +908,7 @@ do ->
 											delete asyncTask.callback
 											@startEditTiepoints()
 											domStyle.set @loadingGif, "display", "none"
+											@socket.emit "modifiedRaster", @currentId
 										error: ({message}) => console.error message
 										(usePost: true)
 								callbackLabel: "Redo Edit Tiepoints"
@@ -1306,18 +1318,16 @@ do ->
 					content:
 						f: "json"
 						where: "OBJECTID = #{rasterId}"
-						outFields: "OBJECTID, Name, GeorefStatus"
+						outFields: "OBJECTID, Name, GeoRefStatus"
 					handlesAs: "json"
 					load: ({features: [feature]}) =>
 						georefStatus = @currentGeorefStatus()
 						footprintGeometry = new Polygon feature.geometry
-						return callback?() unless @rastersArchive[rasterId]? or (georefStatus is feature.attributes.GeorefStatus and (georefStatus is 1 or @map.extent.intersects footprintGeometry))
-						oldGeorefStatus = @rastersArchive[rasterId]?.georefStatus ? 0
-						feature.attributes.GeorefStatus ?= 0
-						oldGeorefStatus = feature.attributes.GeorefStatus = 3 if rasterId in @wipRasters
-						if georefStatus is oldGeorefStatus and oldGeorefStatus isnt feature.attributes.GeorefStatus
-							@rasters.remove rasterId
-						if georefStatus is feature.attributes.GeorefStatus and oldGeorefStatus isnt feature.attributes.GeorefStatus
+						feature.attributes.GeoRefStatus = 3 if rasterId in @wipRasters
+						return callback?() unless @rastersArchive[rasterId]? or (georefStatus is feature.attributes.GeoRefStatus and (georefStatus is 1 or @map.extent.intersects footprintGeometry))
+						if @rastersArchive[rasterId]?
+							@rastersArchive[rasterId].footprint.setGeometry footprintGeometry
+						else
 							@rastersArchive[rasterId] =
 								rasterId: feature.attributes.OBJECTID
 								name: feature.attributes.Name
@@ -1327,10 +1337,11 @@ do ->
 									footprintGeometry
 									if @currentId is feature.attributes.OBJECTID then @selectedFootprintSymbol else @footprintSymbol
 								)
+						@rastersArchive[rasterId].georefStatus = feature.attributes.GeoRefStatus
+						if georefStatus is feature.attributes.GeoRefStatus and (georefStatus is 1 or @map.extent.intersects footprintGeometry)
 							@rasters.put @rastersArchive[rasterId]
 						else
-							@rastersArchive[rasterId].footprint.setGeometry footprintGeometry
-						@rastersArchive[rasterId].georefStatus = feature.attributes.GeorefStatus
+							@rasters.remove rasterId
 						callback?()
 					error: ({message}) => console.error message
 					(usePost: true)
@@ -1354,7 +1365,14 @@ do ->
 					query(menuItem.domNode).removeClass "bold"
 				query(selectedMenuItem.domNode).addClass "bold"
 				@georefStatusDropButton.set "label", "Filter: #{selectedMenuItem.label}"
-				@markGeoreferencedButton.set "disabled", selectedMenuItem is @georefStatus_CompleteButton
+				@markGeoreferencedButton.set "disabled", selectedMenuItem in [
+					@georefStatus_CompleteButton
+					@georefStatus_WIPButton
+				]
+				button.set "disabled", selectedMenuItem is @georefStatus_WIPButton for button in [
+					@openRoughTransformButton
+					@startEditTiepointsButton
+				]
 				@loadRastersList =>
 					@refreshMosaicRule()
 			georefStatus_Complete: ->
@@ -1373,10 +1391,11 @@ do ->
 						f: "json"
 						rasterId: @currentId
 						attributes: JSON.stringify
-							GeorefStatus: 0
+							GeoRefStatus: 0
 					handleAs: "json"
 					load: =>
 						@loadRastersList =>
 							@refreshMosaicRule()
+						@socket.emit "modifiedRaster", @currentId
 					error: ({message}) => console.error message
 					(usePost: true)

@@ -37,6 +37,7 @@ io.sockets.on("connection", function(socket) {
   socket.on("getWIPs", function(callback) {
     var _ref;
 
+    console.log(" - getWIPs");
     return typeof callback === "function" ? callback((_ref = []).concat.apply(_ref, io.sockets.clients().filter(function(x) {
       return x !== socket;
     }).map(function(x) {
@@ -44,6 +45,7 @@ io.sockets.on("connection", function(socket) {
     }))) : void 0;
   });
   socket.on("addWIP", function(rasterId, callback) {
+    console.log(" - addWIP: " + rasterId);
     if (io.sockets.clients().some(function(x) {
       return __indexOf.call(x.wip, rasterId) >= 0;
     })) {
@@ -58,7 +60,8 @@ io.sockets.on("connection", function(socket) {
       }) : void 0;
     }
   });
-  return socket.on("removeWIP", function(rasterId) {
+  socket.on("removeWIP", function(rasterId, callback) {
+    console.log(" - removeWIP: " + rasterId);
     if (__indexOf.call(socket.wip, rasterId) < 0) {
       return typeof callback === "function" ? callback({
         success: false
@@ -72,6 +75,31 @@ io.sockets.on("connection", function(socket) {
         success: true
       }) : void 0;
     }
+  });
+  socket.on("modifiedRaster", function(rasterId, callback) {
+    console.log(" - modifiedRaster: " + rasterId);
+    if (__indexOf.call(socket.wip, rasterId) < 0) {
+      return typeof callback === "function" ? callback({
+        success: false
+      }) : void 0;
+    } else {
+      socket.broadcast.emit("modifiedRaster", rasterId);
+      return typeof callback === "function" ? callback({
+        success: true
+      }) : void 0;
+    }
+  });
+  return socket.on("disconnect", function() {
+    var rasterId, _i, _len, _ref, _results;
+
+    _ref = socket.wip;
+    _results = [];
+    for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+      rasterId = _ref[_i];
+      console.log(" - removeWIP: " + rasterId);
+      _results.push(socket.broadcast.emit("removedWIP", rasterId));
+    }
+    return _results;
   });
 });
 

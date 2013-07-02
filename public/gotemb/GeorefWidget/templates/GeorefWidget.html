@@ -105,7 +105,8 @@
 						<div data-dojo-type="dijit/MenuItem" data-dojo-attach-point="georefStatus_CompleteButton" data-dojo-attach-event="onClick: georefStatus_Complete">Georeferenced</div>
 						<div data-dojo-type="dijit/MenuItem" data-dojo-attach-point="georefStatus_FalseButton" data-dojo-attach-event="onClick: georefStatus_False">Not Georeferenced</div>
 						<div data-dojo-type="dijit/MenuItem" data-dojo-attach-point="georefStatus_PartialButton" data-dojo-attach-event="onClick: georefStatus_Partial" class="bold">Partially Georeferenced</div>
-						<div data-dojo-type="dijit/MenuItem" data-dojo-attach-point="georefStatus_WIPButton" data-dojo-attach-event="onClick: georefStatus_WIP">Currently being Georeferenced</div>
+						<div id="${id}_georefStatus_WIPButton" data-dojo-type="dijit/MenuItem" data-dojo-attach-point="georefStatus_WIPButton" data-dojo-attach-event="onClick: georefStatus_WIP">Locked Rasters</div>
+						<div data-dojo-type="dijit/Tooltip" data-dojo-props="connectId: '${id}_georefStatus_WIPButton', position: ['before-centered', 'after-centered'], showDelay: 0">These rasters are currently being worked on by others.</div>
 					</div>
 				</div>
 			</div>
@@ -117,12 +118,12 @@
 			<table style="width: 100%">
 				<tr>
 					<td style="height: 25px; vertical-align: middle; text-align: center">
-						<button class="fixedWidth250" data-dojo-type="dijit/form/Button" style="margin-top: 0; margin-bottom: 0; margin-right: 0" data-dojo-attach-event="onClick: openRoughTransform">Affine Transform</button>
+						<button class="fixedWidth250" data-dojo-type="dijit/form/Button" style="margin-top: 0; margin-bottom: 0; margin-right: 0" data-dojo-attach-point="openRoughTransformButton" data-dojo-attach-event="onClick: openRoughTransform">Affine Transform</button>
 					</td>
 				</tr>
 				<tr>
 					<td style="height: 25px; vertical-align: middle; text-align: center">
-						<button class="fixedWidth250" data-dojo-type="dijit/form/Button" style="margin-top: 0; margin-bottom: 0; margin-right: 0" data-dojo-attach-event="onClick: startEditTiepoints">Edit Tiepoints</button>
+						<button class="fixedWidth250" data-dojo-type="dijit/form/Button" style="margin-top: 0; margin-bottom: 0; margin-right: 0" data-dojo-attach-point="startEditTiepointsButton" data-dojo-attach-event="onClick: startEditTiepoints">Edit Tiepoints</button>
 					</td>
 				</tr>
 			</table>
