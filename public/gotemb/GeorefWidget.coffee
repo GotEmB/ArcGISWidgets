@@ -663,6 +663,7 @@ do ->
 								if @currentId? and not @rastersArchive[@currentId]?.tiepoints?.data.length > 0 and not @asyncResults.data.some((x) => x.rasterId is @currentId and x.status is "Pending")
 									@socket.emit "removeWIP", @currentId, ({success}) =>
 								delete @currentId
+								@toggleSelectionOnlyButton.set "checked", false
 					error: ({message}) => console.error message
 					(usePost: true)
 			applyTransform: ({tiePoints, gotoLocation, geodataTransform, polynomialOrder}, callback) ->
@@ -722,6 +723,7 @@ do ->
 			toggleFootprints: (state) ->
 				@footprintsLayer.setOpacity if state then 1 else 0
 			toggleSelectionOnly: (state) ->
+				return @toggleSelectionOnlyButton.set("checked", false) unless @currentId?
 				@loadRastersList =>
 					@refreshMosaicRule()
 			startEditTiepoints: ->

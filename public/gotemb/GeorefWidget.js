@@ -855,7 +855,8 @@ var __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; 
                     success = _arg2.success;
                   });
                 }
-                return delete _this.currentId;
+                delete _this.currentId;
+                return _this.toggleSelectionOnlyButton.set("checked", false);
               }
             }
           },
@@ -1005,6 +1006,9 @@ var __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; 
       toggleSelectionOnly: function(state) {
         var _this = this;
 
+        if (this.currentId == null) {
+          return this.toggleSelectionOnlyButton.set("checked", false);
+        }
         return this.loadRastersList(function() {
           return _this.refreshMosaicRule();
         });
