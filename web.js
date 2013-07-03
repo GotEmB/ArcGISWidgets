@@ -19,7 +19,10 @@ server = http.createServer(expressServer);
 
 io = socket_io.listen(server);
 
-io.set("log level", 0);
+io.configure(function() {
+  io.set("log level", 0);
+  return io.set("transports", ["xhr-polling"]);
+});
 
 io.sockets.on("connection", function(socket) {
   socket.wip = [];

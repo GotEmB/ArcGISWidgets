@@ -4,14 +4,16 @@ socket_io = require "socket.io"
 
 expressServer = express()
 expressServer.configure ->
-
 	expressServer.use express.bodyParser()
 	expressServer.use expressServer.router
 
 server = http.createServer expressServer
 
 io = socket_io.listen server
-io.set "log level", 0
+io.configure ->
+	io.set "log level", 0
+	io.set "transports", ["xhr-polling"]
+
 io.sockets.on "connection", (socket) ->
 	socket.wip = []
 
