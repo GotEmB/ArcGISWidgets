@@ -85,13 +85,8 @@
 	<div data-dojo-type="dijit/layout/AccordionContainer" data-dojo-attach-point="selectRasterContainer" style="display: none">
 		<div data-dojo-type="dijit/layout/ContentPane" title="Rasters" style="padding: 0">
 			<div data-dojo-type="dijit/Toolbar">
-				<div data-dojo-type="dijit/form/DropDownButton">
-					<span>Visibility</span>
-					<div data-dojo-type="dijit/Menu" data-dojo-attach-point="rastersDisplayMenu">
-						<div data-dojo-type="dijit/MenuItem" data-dojo-attach-event="onClick: rastersDisplay_enableAll">Enable All</div>
-						<div data-dojo-type="dijit/MenuItem" data-dojo-attach-event="onClick: rastersDisplay_disableAll">Disable All</div>
-					</div>
-				</div>
+				<div data-dojo-type="dijit/form/Button" data-dojo-attach-event="onClick: rastersDisplay_enableAll" data-dojo-props="iconClass: 'tableSelectIcon', showLabel: false">Enable All</div>
+				<div data-dojo-type="dijit/form/Button" data-dojo-attach-event="onClick: rastersDisplay_disableAll" data-dojo-props="iconClass: 'tableDeselectIcon', showLabel: false">Disable All</div>
 				<span data-dojo-type="dijit/ToolbarSeparator"></span>
 				<div id="${id}_georefStatusDropButton" data-dojo-type="dijit/form/DropDownButton" data-dojo-attach-point="georefStatusDropButton" data-dojo-props="iconClass: 'filterIcon'" style="padding: 0">
 					<span>Partially Georeferenced</span>

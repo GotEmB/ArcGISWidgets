@@ -94,7 +94,6 @@ var __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; 
       toggleFootprintsButton: null,
       setImageFormat_JPGPNGButton: null,
       setImageFormat_JPGButton: null,
-      rastersDisplayMenu: null,
       applyManualTransform_ProjectiveButton: null,
       applyManualTransform_1stOrderButton: null,
       applyManualTransform_2ndOrderButton: null,
@@ -222,10 +221,6 @@ var __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; 
           _this.rastersGrid.startup();
           domStyle.set(_this.selectRasterContainer.domNode, "display", "block");
           _this.rastersArchive = [];
-          _this.loadRastersList(function() {
-            _this.refreshMosaicRule();
-            return domStyle.set(_this.loadingGif, "display", "none");
-          });
           _this.rastersGrid.on(".field-rasterId:click, .field-name:click", function(e) {
             if (_this.rastersGrid.cell(e).row == null) {
               return;
@@ -488,6 +483,9 @@ var __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; 
             if (domStyle.get(_this.selectRasterContainer.domNode, "display") === "none" || _this.georefStatus_FalseButton.domNode.classList.contains("bold")) {
               return;
             }
+            if (_this.wipRasters == null) {
+              return;
+            }
             return _this.loadRastersList(function() {
               return _this.refreshMosaicRule();
             });
@@ -627,7 +625,11 @@ var __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; 
           _this.socket = io.connect();
           _this.socket.on("connect", function() {
             return _this.socket.emit("getWIPs", function(wips) {
-              return _this.wipRasters = wips;
+              _this.wipRasters = wips;
+              return _this.loadRastersList(function() {
+                _this.refreshMosaicRule();
+                return domStyle.set(_this.loadingGif, "display", "none");
+              });
             });
           });
           _this.socket.on("addedWIP", function(rasterId) {

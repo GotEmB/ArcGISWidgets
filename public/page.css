@@ -233,6 +233,29 @@ td.field-resultId {
   background-position: center;
   background-repeat: no-repeat;
 }
+.claro .dijitToolbar .dijitToggleButtonChecked .dijitButtonNode {
+  background-color: #add8e6;
+}
+.tableSelectIcon {
+  background-image: url("resources/table-select-all.png");
+  width: 20px;
+  height: 16px;
+  -webkit-background-size: 20px 16px;
+  -moz-background-size: 20px 16px;
+  background-size: 20px 16px;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+.tableDeselectIcon {
+  background-image: url("resources/table.png");
+  width: 20px;
+  height: 16px;
+  -webkit-background-size: 20px 16px;
+  -moz-background-size: 20px 16px;
+  background-size: 20px 16px;
+  background-position: center;
+  background-repeat: no-repeat;
+}
 @-moz-keyframes yellowAnimate {
   0% {
     background-color: #ff0;

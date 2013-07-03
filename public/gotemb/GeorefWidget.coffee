@@ -140,7 +140,6 @@ do ->
 			toggleFootprintsButton: null
 			setImageFormat_JPGPNGButton: null
 			setImageFormat_JPGButton: null
-			rastersDisplayMenu: null
 			applyManualTransform_ProjectiveButton: null
 			applyManualTransform_1stOrderButton: null
 			applyManualTransform_2ndOrderButton: null
@@ -342,9 +341,6 @@ do ->
 					@rastersGrid.startup()
 					domStyle.set @selectRasterContainer.domNode, "display", "block"
 					@rastersArchive = []
-					@loadRastersList =>
-						@refreshMosaicRule()
-						domStyle.set @loadingGif, "display", "none"
 					@rastersGrid.on ".field-rasterId:click, .field-name:click", (e) =>
 						return unless @rastersGrid.cell(e).row?
 						@map.setExtent @rastersGrid.cell(e).row.data.footprint.geometry.getExtent() unless @currentGeorefStatus() is 1
@@ -474,6 +470,7 @@ do ->
 								break
 					connect @map, "onExtentChange", (e) =>
 						return if domStyle.get(@selectRasterContainer.domNode, "display") is "none" or @georefStatus_FalseButton.domNode.classList.contains "bold"
+						return unless @wipRasters?
 						@loadRastersList =>
 							@refreshMosaicRule()
 					@asyncResults = new Observable new Memory idProperty: "resultId"
@@ -564,6 +561,9 @@ do ->
 					@socket.on "connect", =>
 						@socket.emit "getWIPs", (wips) =>
 							@wipRasters = wips
+							@loadRastersList =>
+								@refreshMosaicRule()
+								domStyle.set @loadingGif, "display", "none"
 					@socket.on "addedWIP", (rasterId) =>
 						@wipRasters.push rasterId
 						@refreshRasterMeta rasterId, =>
