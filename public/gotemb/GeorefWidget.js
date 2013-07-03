@@ -631,7 +631,8 @@ var __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; 
               return _this.toggleRasterLayer(_this.toggleSelectionOnlyButton.checked);
             }
           });
-          _this.socket = io.connect();
+          io.transports = ["xhr-polling", "jsonp-polling", "htmlfile"];
+          _this.socket = io.connect("http://georefiserv1.herokuapp.com:80");
           _this.socket.on("connect", function() {
             return _this.socket.emit("getWIPs", function(wips) {
               _this.wipRasters = wips;

@@ -562,7 +562,8 @@ do ->
 						else if e.which == 83
 							@toggleSelectionOnlyButton.set "checked", not @toggleSelectionOnlyButton.checked
 							@toggleRasterLayer @toggleSelectionOnlyButton.checked
-					@socket = io.connect()
+					io.transports = ["xhr-polling", "jsonp-polling", "htmlfile"]
+					@socket = io.connect("http://georefiserv1.herokuapp.com:80")
 					@socket.on "connect", =>
 						@socket.emit "getWIPs", (wips) =>
 							@wipRasters = wips
