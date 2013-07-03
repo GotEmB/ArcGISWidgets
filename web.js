@@ -12,17 +12,6 @@ expressServer = express();
 
 expressServer.configure(function() {
   expressServer.use(express.bodyParser());
-  expressServer.use(function(req, res, next) {
-    if (req.url === "/") {
-      req.url = "/page.html";
-    }
-    return next();
-  });
-  expressServer.use(express["static"]("" + __dirname + "/public", {
-    maxAge: 31557600000
-  }, function(err) {
-    return console.log("Static: " + err);
-  }));
   return expressServer.use(expressServer.router);
 });
 

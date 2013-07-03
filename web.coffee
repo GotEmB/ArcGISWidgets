@@ -6,10 +6,6 @@ expressServer = express()
 expressServer.configure ->
 
 	expressServer.use express.bodyParser()
-	expressServer.use (req, res, next) ->
-		req.url = "/page.html" if req.url is "/"
-		next()
-	expressServer.use express.static "#{__dirname}/public", maxAge: 31557600000, (err) -> console.log "Static: #{err}"
 	expressServer.use expressServer.router
 
 server = http.createServer expressServer
