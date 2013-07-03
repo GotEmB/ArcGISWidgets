@@ -236,23 +236,33 @@ td.field-resultId {
 .claro .dijitToolbar .dijitToggleButtonChecked .dijitButtonNode {
   background-color: #add8e6;
 }
-.tableSelectIcon {
-  background-image: url("resources/table-select-all.png");
+.displayAllIcon {
+  background-image: url("resources/select_by_adding_to_selection.png");
   width: 20px;
   height: 16px;
-  -webkit-background-size: 20px 16px;
-  -moz-background-size: 20px 16px;
-  background-size: 20px 16px;
+  -webkit-background-size: 16px;
+  -moz-background-size: 16px;
+  background-size: 16px;
   background-position: center;
   background-repeat: no-repeat;
 }
-.tableDeselectIcon {
-  background-image: url("resources/table.png");
+.displayNoneIcon {
+  background-image: url("resources/select_restangular.png");
   width: 20px;
   height: 16px;
-  -webkit-background-size: 20px 16px;
-  -moz-background-size: 20px 16px;
-  background-size: 20px 16px;
+  -webkit-background-size: 16px;
+  -moz-background-size: 16px;
+  background-size: 16px;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+.selectionOnlyIcon {
+  background-image: url("resources/select_by_difference.png");
+  width: 20px;
+  height: 16px;
+  -webkit-background-size: 16px;
+  -moz-background-size: 16px;
+  background-size: 16px;
   background-position: center;
   background-repeat: no-repeat;
 }

@@ -43,7 +43,7 @@ do ->
 		"dojo/aspect"
 		"esri/layers/ImageServiceParameters"
 		"esri/layers/RasterFunction"
-		"socket.io/socket.io"
+		"LearnBoost/socket.io"
 		# ---
 		"dojox/form/FileInput"
 		"dijit/form/Button"
@@ -138,6 +138,7 @@ do ->
 			loadingGif: null
 			toggleRasterLayerButton: null
 			toggleFootprintsButton: null
+			toggleSelectionOnlyButton: null
 			setImageFormat_JPGPNGButton: null
 			setImageFormat_JPGButton: null
 			applyManualTransform_ProjectiveButton: null
@@ -353,6 +354,7 @@ do ->
 						@scrollToElement rows[0].element
 						raster.footprint.setSymbol @footprintSymbol for raster in @rasters.data
 						rows[0].data.footprint.setSymbol @selectedFootprintSymbol
+						@refreshMosaicRule() if @toggleSelectionOnlyButton.checked and oldId isnt @currentId
 						if oldId isnt @currentId
 							if oldId? and not @rastersArchive[oldId].tiepoints?.data.length > 0 and not @asyncResults.data.some((x) => x.rasterId is oldId and x.status is "Pending")
 								@socket.emit "removeWIP", oldId, ({success}) =>
@@ -461,7 +463,7 @@ do ->
 						delete @graphicBeingMoved
 						@map.enablePan()
 					connect @map, "onClick", (e) =>
-						return unless domStyle.get(@selectRasterContainer.domNode, "display") is "block"
+						return unless domStyle.get(@selectRasterContainer.domNode, "display") is "block" and not @toggleSelectionOnlyButton.checked
 						return if @currentGeorefStatus() is 3
 						for raster in @rasters.data by -1 when raster.display
 							if raster.footprint.geometry.contains e.mapPoint
@@ -469,10 +471,10 @@ do ->
 								@rastersGrid.select raster
 								break
 					connect @map, "onExtentChange", (e) =>
-						return if domStyle.get(@selectRasterContainer.domNode, "display") is "none" or @georefStatus_FalseButton.domNode.classList.contains "bold"
+						return if @georefStatus_FalseButton.domNode.classList.contains "bold"
 						return unless @wipRasters?
 						@loadRastersList =>
-							@refreshMosaicRule()
+							@refreshMosaicRule() unless @toggleSelectionOnlyButton.checked
 					@asyncResults = new Observable new Memory idProperty: "resultId"
 					@asyncResultsGrid = new AsyncResultsGrid
 						columns: [	
@@ -557,6 +559,9 @@ do ->
 						else if e.which == 70
 							@toggleFootprintsButton.set "checked", not @toggleFootprintsButton.checked
 							@toggleFootprints @toggleFootprintsButton.checked
+						else if e.which == 83
+							@toggleSelectionOnlyButton.set "checked", not @toggleSelectionOnlyButton.checked
+							@toggleRasterLayer @toggleSelectionOnlyButton.checked
 					@socket = io.connect()
 					@socket.on "connect", =>
 						@socket.emit "getWIPs", (wips) =>
@@ -567,38 +572,43 @@ do ->
 					@socket.on "addedWIP", (rasterId) =>
 						@wipRasters.push rasterId
 						@refreshRasterMeta rasterId, =>
-							@refreshMosaicRule() if domStyle.get(@selectRasterContainer.domNode, "display") is "block"
+							@refreshMosaicRule() unless @toggleSelectionOnlyButton.checked
 					@socket.on "removedWIP", (rasterId) =>
 						@wipRasters = @wipRasters.filter (x) => x isnt rasterId
 						@refreshRasterMeta rasterId, =>
-							@refreshMosaicRule() if domStyle.get(@selectRasterContainer.domNode, "display") is "block"
+							@refreshMosaicRule() unless @toggleSelectionOnlyButton.checked
 					@socket.on "modifiedRaster", (rasterId) =>
 						@refreshRasterMeta rasterId, =>
-							@refreshMosaicRule() if domStyle.get(@selectRasterContainer.domNode, "display") is "block"
+							@refreshMosaicRule() unless @toggleSelectionOnlyButton.checked
 					window.self = @
 			refreshMosaicRule: (callback) ->
+				newLockIds =
+					if not @toggleSelectionOnlyButton.checked or not @currentId?
+						raster.rasterId for raster in @rasters.data when raster.display
+					else
+						[@currentId]
+				return if newLockIds.join(", ") is @imageServiceLayer.mosaicRule?.lockRasterIds.join(", ")
+				raster.footprint.setSymbol @footprintSymbol for raster in @rasters.data
+				@rasters.get(@currentId)?.footprint.setSymbol @selectedFootprintSymbol
+				@footprintsLayer.clear()
+				if not @toggleSelectionOnlyButton.checked or not @currentId?
+					@imageServiceLayer.setVisibility (raster for raster in @rasters.data when raster.display).length > 0
+					@footprintsLayer.add raster.footprint for raster in @rasters.data when raster.display
+				else
+					@imageServiceLayer.setVisibility true
+					@footprintsLayer.add @rasters.get(@currentId).footprint
 				@imageServiceLayer.setMosaicRule extend(
 					new MosaicRule
 					method: MosaicRule.METHOD_LOCKRASTER
-					lockRasterIds: do =>
-						raster.footprint.setSymbol @footprintSymbol for raster in @rasters.data
-						@rasters.get(@currentId)?.footprint.setSymbol @selectedFootprintSymbol
-						@footprintsLayer.clear()
-						if domStyle.get(@selectRasterContainer.domNode, "display") is "block" or not @currentId?
-							@imageServiceLayer.setVisibility (raster for raster in @rasters.data when raster.display).length > 0
-							@footprintsLayer.add raster.footprint for raster in @rasters.data when raster.display
-							raster.rasterId for raster in @rasters.data when raster.display
-						else
-							@imageServiceLayer.setVisibility true
-							@footprintsLayer.add @rasters.get(@currentId).footprint
-							[@currentId]
+					lockRasterIds: newLockIds
 				)
-				if not (domStyle.get(@selectRasterContainer.domNode, "display") is "block" or not @currentId?) or (raster for raster in @rasters.data when raster.display).length > 0
-					domStyle.set @loadingGif, "display", "block"
-					updateEvent = connect @imageServiceLayer, "onUpdateEnd", =>
-						disconnect updateEvent
-						domStyle.set @loadingGif, "display", "none"
-						callback?()
+				if (@toggleSelectionOnlyButton.checked and @currentId?) or (raster for raster in @rasters.data when raster.display).length > 0
+					unless @imageServiceLayer.suspended
+						domStyle.set @loadingGif, "display", "block"
+						updateEvent = connect @imageServiceLayer, "onUpdateEnd", =>
+							disconnect updateEvent
+							domStyle.set @loadingGif, "display", "none"
+							callback?()
 			loadRastersList: (callback) ->
 				return callback?() unless @map.extent?
 				georefStatus = @currentGeorefStatus()
@@ -638,7 +648,7 @@ do ->
 								thisRaster.footprint.setGeometry new Polygon feature.geometry
 							thisRaster.georefStatus = feature.attributes.GeoRefStatus
 							@rasters.put thisRaster
-						if domStyle.get(@selectRasterContainer.domNode, "display") is "block"
+						unless @toggleSelectionOnlyButton.checked
 							@footprintsLayer.add raster.footprint for raster in @rasters.data when raster.display
 						else
 							@footprintsLayer.add raster.footprint for raster in @rasters.data when raster.footprint.symbol is @selectedFootprintSymbol
@@ -704,8 +714,15 @@ do ->
 					(usePost: true)
 			toggleRasterLayer: (state) ->
 				@imageServiceLayer.setOpacity if state then 1 else 0
+				if state
+					@imageServiceLayer.resume()
+				else
+					@imageServiceLayer.suspend()
 			toggleFootprints: (state) ->
 				@footprintsLayer.setOpacity if state then 1 else 0
+			toggleSelectionOnly: (state) ->
+				@loadRastersList =>
+					@refreshMosaicRule()
 			startEditTiepoints: ->
 				return @showRasterNotSelectedDialog() unless @currentId?
 				selectedRow = @rasters.get @currentId
@@ -716,7 +733,6 @@ do ->
 				@applyManualTransform_RefreshButtons()
 				for display, containers of {none: [@selectRasterContainer, @tasksContainer, @asyncResultsContainer], block: [@editTiepointsContainer]}
 					domStyle.set container.domNode, "display", display for container in containers
-				@refreshMosaicRule()
 			collectComputedTiepoints: ->
 				@confirmActionPopupContinueEvent = =>
 					@confirmActionPopupClose()
@@ -766,8 +782,6 @@ do ->
 				for display, containers of {block: [@selectRasterContainer, @tasksContainer], none: [@editTiepointsContainer]}
 					domStyle.set container.domNode, "display", display for container in containers
 				domStyle.set @asyncResultsContainer.domNode, "display", "block" if @asyncResults.data.length > 0
-				@loadRastersList =>
-					@refreshMosaicRule()
 			toggleTiepointsSelection: ->
 				if @toggleTiepointsSelectionMenuItem.label is "Clear Selection"
 					@tiepointsGrid.clearSelection()
@@ -931,15 +945,12 @@ do ->
 				return @showRasterNotSelectedDialog() unless @currentId?
 				for display, containers of {none: [@selectRasterContainer, @tasksContainer, @asyncResultsContainer], block: [@manualTransformContainer]}
 					domStyle.set container.domNode, "display", display for container in containers
-				@refreshMosaicRule()
 			closeRoughTransform: ->
 				for display, containers of {block: [@selectRasterContainer, @tasksContainer], none: [@manualTransformContainer]}
 					domStyle.set container.domNode, "display", display for container in containers
 				domStyle.set @asyncResultsContainer.domNode, "display", "block" if @asyncResults.data.length > 0
 				for button in [@rt_moveButton, @rt_scaleButton, @rt_rotateButton]
 					button.set "checked", false
-				@loadRastersList =>
-					@refreshMosaicRule()
 			projectIfReq: ({geometries, outSR}, callback) ->
 				return callback? geometries if geometries.every (x) => x.spatialReference.equals outSR
 				@geometryService.project(
@@ -1374,11 +1385,12 @@ do ->
 					query(menuItem.domNode).removeClass "bold"
 				query(selectedMenuItem.domNode).addClass "bold"
 				@georefStatusDropButton.set "label", selectedMenuItem.label
-				@markGeoreferencedButton.set "disabled", selectedMenuItem in [
-					@georefStatus_CompleteButton
+				@markGeoreferencedButton.set "disabled", selectedMenuItem is @georefStatus_WIPButton
+				@markGeoreferencedButton.set "label", "Mark as #{if selectedMenuItem is @georefStatus_CompleteButton then "Partially " else ""}Georeferenced"
+				button.set "disabled", selectedMenuItem in [
 					@georefStatus_WIPButton
-				]
-				button.set "disabled", selectedMenuItem is @georefStatus_WIPButton for button in [
+					@georefStatus_CompleteButton
+				] for button in [
 					@openRoughTransformButton
 					@startEditTiepointsButton
 				]
@@ -1400,7 +1412,7 @@ do ->
 						f: "json"
 						rasterId: @currentId
 						attributes: JSON.stringify
-							GeoRefStatus: 0
+							GeoRefStatus: if @georefStatus_CompleteButton.domNode.classList.contains "bold" then 2 else 0
 					handleAs: "json"
 					load: =>
 						@loadRastersList =>

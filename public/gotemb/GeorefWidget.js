@@ -13,7 +13,7 @@ var __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; 
     }
     return obj;
   };
-  return define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dijit/_WidgetsInTemplateMixin", "dojo/text!./GeorefWidget/templates/GeorefWidget.html", "dojo/_base/connect", "esri/layers/ArcGISImageServiceLayer", "esri/request", "esri/layers/MosaicRule", "esri/geometry/Polygon", "esri/tasks/GeometryService", "dojo/dom-style", "gotemb/GeorefWidget/PointGrid", "dojo/store/Observable", "dojo/store/Memory", "gotemb/GeorefWidget/TiepointsGrid", "esri/layers/GraphicsLayer", "dojo/_base/Color", "esri/symbols/SimpleMarkerSymbol", "esri/symbols/SimpleLineSymbol", "esri/graphic", "esri/geometry/Point", "dojo/window", "dojo/dom-class", "dojo/query", "dgrid/editor", "gotemb/GeorefWidget/RastersGrid", "esri/geometry/Extent", "esri/tasks/ProjectParameters", "esri/SpatialReference", "dojo/_base/url", "esri/layers/ArcGISTiledMapServiceLayer", "gotemb/GeorefWidget/AsyncResultsGrid", "dijit/popup", "dijit/form/CheckBox", "dojo/aspect", "esri/layers/ImageServiceParameters", "esri/layers/RasterFunction", "socket.io/socket.io", "dojox/form/FileInput", "dijit/form/Button", "dijit/form/DropDownButton", "dijit/layout/AccordionContainer", "dijit/layout/ContentPane", "dijit/Dialog", "dijit/Toolbar", "dijit/ToolbarSeparator", "dijit/form/ToggleButton", "dijit/Menu", "dijit/MenuItem", "dijit/CheckedMenuItem", "dojo/NodeList-traverse", "dojo/NodeList-dom", "dijit/TooltipDialog", "dijit/Tooltip", "eligrey/FileSaver"], function(declare, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template, _arg, ArcGISImageServiceLayer, request, MosaicRule, Polygon, GeometryService, domStyle, PointGrid, Observable, Memory, TiepointsGrid, GraphicsLayer, Color, SimpleMarkerSymbol, SimpleLineSymbol, Graphic, Point, win, domClass, query, editor, RastersGrid, Extent, ProjectParameters, SpatialReference, Url, ArcGISTiledMapServiceLayer, AsyncResultsGrid, popup, CheckBox, aspect, ImageServiceParameters, RasterFunction, io) {
+  return define(["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dijit/_WidgetsInTemplateMixin", "dojo/text!./GeorefWidget/templates/GeorefWidget.html", "dojo/_base/connect", "esri/layers/ArcGISImageServiceLayer", "esri/request", "esri/layers/MosaicRule", "esri/geometry/Polygon", "esri/tasks/GeometryService", "dojo/dom-style", "gotemb/GeorefWidget/PointGrid", "dojo/store/Observable", "dojo/store/Memory", "gotemb/GeorefWidget/TiepointsGrid", "esri/layers/GraphicsLayer", "dojo/_base/Color", "esri/symbols/SimpleMarkerSymbol", "esri/symbols/SimpleLineSymbol", "esri/graphic", "esri/geometry/Point", "dojo/window", "dojo/dom-class", "dojo/query", "dgrid/editor", "gotemb/GeorefWidget/RastersGrid", "esri/geometry/Extent", "esri/tasks/ProjectParameters", "esri/SpatialReference", "dojo/_base/url", "esri/layers/ArcGISTiledMapServiceLayer", "gotemb/GeorefWidget/AsyncResultsGrid", "dijit/popup", "dijit/form/CheckBox", "dojo/aspect", "esri/layers/ImageServiceParameters", "esri/layers/RasterFunction", "LearnBoost/socket.io", "dojox/form/FileInput", "dijit/form/Button", "dijit/form/DropDownButton", "dijit/layout/AccordionContainer", "dijit/layout/ContentPane", "dijit/Dialog", "dijit/Toolbar", "dijit/ToolbarSeparator", "dijit/form/ToggleButton", "dijit/Menu", "dijit/MenuItem", "dijit/CheckedMenuItem", "dojo/NodeList-traverse", "dojo/NodeList-dom", "dijit/TooltipDialog", "dijit/Tooltip", "eligrey/FileSaver"], function(declare, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template, _arg, ArcGISImageServiceLayer, request, MosaicRule, Polygon, GeometryService, domStyle, PointGrid, Observable, Memory, TiepointsGrid, GraphicsLayer, Color, SimpleMarkerSymbol, SimpleLineSymbol, Graphic, Point, win, domClass, query, editor, RastersGrid, Extent, ProjectParameters, SpatialReference, Url, ArcGISTiledMapServiceLayer, AsyncResultsGrid, popup, CheckBox, aspect, ImageServiceParameters, RasterFunction, io) {
     var connect, disconnect;
 
     connect = _arg.connect, disconnect = _arg.disconnect;
@@ -92,6 +92,7 @@ var __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; 
       loadingGif: null,
       toggleRasterLayerButton: null,
       toggleFootprintsButton: null,
+      toggleSelectionOnlyButton: null,
       setImageFormat_JPGPNGButton: null,
       setImageFormat_JPGButton: null,
       applyManualTransform_ProjectiveButton: null,
@@ -247,6 +248,9 @@ var __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; 
               raster.footprint.setSymbol(_this.footprintSymbol);
             }
             rows[0].data.footprint.setSymbol(_this.selectedFootprintSymbol);
+            if (_this.toggleSelectionOnlyButton.checked && oldId !== _this.currentId) {
+              _this.refreshMosaicRule();
+            }
             if (oldId !== _this.currentId) {
               if ((oldId != null) && !((_ref1 = _this.rastersArchive[oldId].tiepoints) != null ? _ref1.data.length : void 0) > 0 && !_this.asyncResults.data.some(function(x) {
                 return x.rasterId === oldId && x.status === "Pending";
@@ -457,7 +461,7 @@ var __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; 
           connect(_this.map, "onClick", function(e) {
             var raster, _i, _ref, _results;
 
-            if (domStyle.get(_this.selectRasterContainer.domNode, "display") !== "block") {
+            if (!(domStyle.get(_this.selectRasterContainer.domNode, "display") === "block" && !_this.toggleSelectionOnlyButton.checked)) {
               return;
             }
             if (_this.currentGeorefStatus() === 3) {
@@ -480,14 +484,16 @@ var __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; 
             return _results;
           });
           connect(_this.map, "onExtentChange", function(e) {
-            if (domStyle.get(_this.selectRasterContainer.domNode, "display") === "none" || _this.georefStatus_FalseButton.domNode.classList.contains("bold")) {
+            if (_this.georefStatus_FalseButton.domNode.classList.contains("bold")) {
               return;
             }
             if (_this.wipRasters == null) {
               return;
             }
             return _this.loadRastersList(function() {
-              return _this.refreshMosaicRule();
+              if (!_this.toggleSelectionOnlyButton.checked) {
+                return _this.refreshMosaicRule();
+              }
             });
           });
           _this.asyncResults = new Observable(new Memory({
@@ -620,6 +626,9 @@ var __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; 
             } else if (e.which === 70) {
               _this.toggleFootprintsButton.set("checked", !_this.toggleFootprintsButton.checked);
               return _this.toggleFootprints(_this.toggleFootprintsButton.checked);
+            } else if (e.which === 83) {
+              _this.toggleSelectionOnlyButton.set("checked", !_this.toggleSelectionOnlyButton.checked);
+              return _this.toggleRasterLayer(_this.toggleSelectionOnlyButton.checked);
             }
           });
           _this.socket = io.connect();
@@ -635,7 +644,7 @@ var __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; 
           _this.socket.on("addedWIP", function(rasterId) {
             _this.wipRasters.push(rasterId);
             return _this.refreshRasterMeta(rasterId, function() {
-              if (domStyle.get(_this.selectRasterContainer.domNode, "display") === "block") {
+              if (!_this.toggleSelectionOnlyButton.checked) {
                 return _this.refreshMosaicRule();
               }
             });
@@ -645,14 +654,14 @@ var __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; 
               return x !== rasterId;
             });
             return _this.refreshRasterMeta(rasterId, function() {
-              if (domStyle.get(_this.selectRasterContainer.domNode, "display") === "block") {
+              if (!_this.toggleSelectionOnlyButton.checked) {
                 return _this.refreshMosaicRule();
               }
             });
           });
           _this.socket.on("modifiedRaster", function(rasterId) {
             return _this.refreshRasterMeta(rasterId, function() {
-              if (domStyle.get(_this.selectRasterContainer.domNode, "display") === "block") {
+              if (!_this.toggleSelectionOnlyButton.checked) {
                 return _this.refreshMosaicRule();
               }
             });
@@ -661,79 +670,88 @@ var __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; 
         });
       },
       refreshMosaicRule: function(callback) {
-        var raster, updateEvent,
+        var newLockIds, raster, updateEvent, _i, _j, _len, _len1, _ref, _ref1, _ref2, _ref3,
           _this = this;
 
-        this.imageServiceLayer.setMosaicRule(extend(new MosaicRule, {
-          method: MosaicRule.METHOD_LOCKRASTER,
-          lockRasterIds: (function() {
-            var raster, _i, _j, _k, _len, _len1, _len2, _ref, _ref1, _ref2, _ref3, _results;
-
-            _ref = _this.rasters.data;
-            for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-              raster = _ref[_i];
-              raster.footprint.setSymbol(_this.footprintSymbol);
-            }
-            if ((_ref1 = _this.rasters.get(_this.currentId)) != null) {
-              _ref1.footprint.setSymbol(_this.selectedFootprintSymbol);
-            }
-            _this.footprintsLayer.clear();
-            if (domStyle.get(_this.selectRasterContainer.domNode, "display") === "block" || (_this.currentId == null)) {
-              _this.imageServiceLayer.setVisibility(((function() {
-                var _j, _len1, _ref2, _results;
-
-                _ref2 = this.rasters.data;
-                _results = [];
-                for (_j = 0, _len1 = _ref2.length; _j < _len1; _j++) {
-                  raster = _ref2[_j];
-                  if (raster.display) {
-                    _results.push(raster);
-                  }
-                }
-                return _results;
-              }).call(_this)).length > 0);
-              _ref2 = _this.rasters.data;
-              for (_j = 0, _len1 = _ref2.length; _j < _len1; _j++) {
-                raster = _ref2[_j];
-                if (raster.display) {
-                  _this.footprintsLayer.add(raster.footprint);
-                }
-              }
-              _ref3 = _this.rasters.data;
-              _results = [];
-              for (_k = 0, _len2 = _ref3.length; _k < _len2; _k++) {
-                raster = _ref3[_k];
-                if (raster.display) {
-                  _results.push(raster.rasterId);
-                }
-              }
-              return _results;
-            } else {
-              _this.imageServiceLayer.setVisibility(true);
-              _this.footprintsLayer.add(_this.rasters.get(_this.currentId).footprint);
-              return [_this.currentId];
-            }
-          })()
-        }));
-        if (!(domStyle.get(this.selectRasterContainer.domNode, "display") === "block" || (this.currentId == null)) || ((function() {
+        newLockIds = (function() {
           var _i, _len, _ref, _results;
 
-          _ref = this.rasters.data;
+          if (!this.toggleSelectionOnlyButton.checked || (this.currentId == null)) {
+            _ref = this.rasters.data;
+            _results = [];
+            for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+              raster = _ref[_i];
+              if (raster.display) {
+                _results.push(raster.rasterId);
+              }
+            }
+            return _results;
+          } else {
+            return [this.currentId];
+          }
+        }).call(this);
+        if (newLockIds.join(", ") === ((_ref = this.imageServiceLayer.mosaicRule) != null ? _ref.lockRasterIds.join(", ") : void 0)) {
+          return;
+        }
+        _ref1 = this.rasters.data;
+        for (_i = 0, _len = _ref1.length; _i < _len; _i++) {
+          raster = _ref1[_i];
+          raster.footprint.setSymbol(this.footprintSymbol);
+        }
+        if ((_ref2 = this.rasters.get(this.currentId)) != null) {
+          _ref2.footprint.setSymbol(this.selectedFootprintSymbol);
+        }
+        this.footprintsLayer.clear();
+        if (!this.toggleSelectionOnlyButton.checked || (this.currentId == null)) {
+          this.imageServiceLayer.setVisibility(((function() {
+            var _j, _len1, _ref3, _results;
+
+            _ref3 = this.rasters.data;
+            _results = [];
+            for (_j = 0, _len1 = _ref3.length; _j < _len1; _j++) {
+              raster = _ref3[_j];
+              if (raster.display) {
+                _results.push(raster);
+              }
+            }
+            return _results;
+          }).call(this)).length > 0);
+          _ref3 = this.rasters.data;
+          for (_j = 0, _len1 = _ref3.length; _j < _len1; _j++) {
+            raster = _ref3[_j];
+            if (raster.display) {
+              this.footprintsLayer.add(raster.footprint);
+            }
+          }
+        } else {
+          this.imageServiceLayer.setVisibility(true);
+          this.footprintsLayer.add(this.rasters.get(this.currentId).footprint);
+        }
+        this.imageServiceLayer.setMosaicRule(extend(new MosaicRule, {
+          method: MosaicRule.METHOD_LOCKRASTER,
+          lockRasterIds: newLockIds
+        }));
+        if ((this.toggleSelectionOnlyButton.checked && (this.currentId != null)) || ((function() {
+          var _k, _len2, _ref4, _results;
+
+          _ref4 = this.rasters.data;
           _results = [];
-          for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-            raster = _ref[_i];
+          for (_k = 0, _len2 = _ref4.length; _k < _len2; _k++) {
+            raster = _ref4[_k];
             if (raster.display) {
               _results.push(raster);
             }
           }
           return _results;
         }).call(this)).length > 0) {
-          domStyle.set(this.loadingGif, "display", "block");
-          return updateEvent = connect(this.imageServiceLayer, "onUpdateEnd", function() {
-            disconnect(updateEvent);
-            domStyle.set(_this.loadingGif, "display", "none");
-            return typeof callback === "function" ? callback() : void 0;
-          });
+          if (!this.imageServiceLayer.suspended) {
+            domStyle.set(this.loadingGif, "display", "block");
+            return updateEvent = connect(this.imageServiceLayer, "onUpdateEnd", function() {
+              disconnect(updateEvent);
+              domStyle.set(_this.loadingGif, "display", "none");
+              return typeof callback === "function" ? callback() : void 0;
+            });
+          }
         }
       },
       loadRastersList: function(callback) {
@@ -801,7 +819,7 @@ var __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; 
               thisRaster.georefStatus = feature.attributes.GeoRefStatus;
               _this.rasters.put(thisRaster);
             }
-            if (domStyle.get(_this.selectRasterContainer.domNode, "display") === "block") {
+            if (!_this.toggleSelectionOnlyButton.checked) {
               _ref1 = _this.rasters.data;
               for (_k = 0, _len2 = _ref1.length; _k < _len2; _k++) {
                 raster = _ref1[_k];
@@ -973,13 +991,25 @@ var __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; 
         });
       },
       toggleRasterLayer: function(state) {
-        return this.imageServiceLayer.setOpacity(state ? 1 : 0);
+        this.imageServiceLayer.setOpacity(state ? 1 : 0);
+        if (state) {
+          return this.imageServiceLayer.resume();
+        } else {
+          return this.imageServiceLayer.suspend();
+        }
       },
       toggleFootprints: function(state) {
         return this.footprintsLayer.setOpacity(state ? 1 : 0);
       },
+      toggleSelectionOnly: function(state) {
+        var _this = this;
+
+        return this.loadRastersList(function() {
+          return _this.refreshMosaicRule();
+        });
+      },
       startEditTiepoints: function() {
-        var container, containers, display, selectedRow, tiepoint, _i, _j, _len, _len1, _ref, _ref1, _ref2;
+        var container, containers, display, selectedRow, tiepoint, _i, _len, _ref, _ref1, _ref2, _results;
 
         if (this.currentId == null) {
           return this.showRasterNotSelectedDialog();
@@ -999,14 +1029,21 @@ var __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; 
           none: [this.selectRasterContainer, this.tasksContainer, this.asyncResultsContainer],
           block: [this.editTiepointsContainer]
         };
+        _results = [];
         for (display in _ref2) {
           containers = _ref2[display];
-          for (_j = 0, _len1 = containers.length; _j < _len1; _j++) {
-            container = containers[_j];
-            domStyle.set(container.domNode, "display", display);
-          }
+          _results.push((function() {
+            var _j, _len1, _results1;
+
+            _results1 = [];
+            for (_j = 0, _len1 = containers.length; _j < _len1; _j++) {
+              container = containers[_j];
+              _results1.push(domStyle.set(container.domNode, "display", display));
+            }
+            return _results1;
+          })());
         }
-        return this.refreshMosaicRule();
+        return _results;
       },
       collectComputedTiepoints: function() {
         var _this = this;
@@ -1081,8 +1118,7 @@ var __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; 
         return this.confirmActionPopup.focus();
       },
       closeEditTiepoints: function() {
-        var container, containers, display, _i, _len, _ref,
-          _this = this;
+        var container, containers, display, _i, _len, _ref;
 
         this.tiepointsLayer.clear();
         _ref = {
@@ -1097,11 +1133,8 @@ var __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; 
           }
         }
         if (this.asyncResults.data.length > 0) {
-          domStyle.set(this.asyncResultsContainer.domNode, "display", "block");
+          return domStyle.set(this.asyncResultsContainer.domNode, "display", "block");
         }
-        return this.loadRastersList(function() {
-          return _this.refreshMosaicRule();
-        });
       },
       toggleTiepointsSelection: function() {
         if (this.toggleTiepointsSelectionMenuItem.label === "Clear Selection") {
@@ -1440,7 +1473,7 @@ var __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; 
         });
       },
       openRoughTransform: function() {
-        var container, containers, display, _i, _len, _ref;
+        var container, containers, display, _ref, _results;
 
         if (this.currentId == null) {
           return this.showRasterNotSelectedDialog();
@@ -1449,18 +1482,24 @@ var __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; 
           none: [this.selectRasterContainer, this.tasksContainer, this.asyncResultsContainer],
           block: [this.manualTransformContainer]
         };
+        _results = [];
         for (display in _ref) {
           containers = _ref[display];
-          for (_i = 0, _len = containers.length; _i < _len; _i++) {
-            container = containers[_i];
-            domStyle.set(container.domNode, "display", display);
-          }
+          _results.push((function() {
+            var _i, _len, _results1;
+
+            _results1 = [];
+            for (_i = 0, _len = containers.length; _i < _len; _i++) {
+              container = containers[_i];
+              _results1.push(domStyle.set(container.domNode, "display", display));
+            }
+            return _results1;
+          })());
         }
-        return this.refreshMosaicRule();
+        return _results;
       },
       closeRoughTransform: function() {
-        var button, container, containers, display, _i, _j, _len, _len1, _ref, _ref1,
-          _this = this;
+        var button, container, containers, display, _i, _j, _len, _len1, _ref, _ref1, _results;
 
         _ref = {
           block: [this.selectRasterContainer, this.tasksContainer],
@@ -1477,13 +1516,12 @@ var __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; 
           domStyle.set(this.asyncResultsContainer.domNode, "display", "block");
         }
         _ref1 = [this.rt_moveButton, this.rt_scaleButton, this.rt_rotateButton];
+        _results = [];
         for (_j = 0, _len1 = _ref1.length; _j < _len1; _j++) {
           button = _ref1[_j];
-          button.set("checked", false);
+          _results.push(button.set("checked", false));
         }
-        return this.loadRastersList(function() {
-          return _this.refreshMosaicRule();
-        });
+        return _results;
       },
       projectIfReq: function(_arg1, callback) {
         var geometries, outSR,
@@ -2312,11 +2350,12 @@ var __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; 
         }
         query(selectedMenuItem.domNode).addClass("bold");
         this.georefStatusDropButton.set("label", selectedMenuItem.label);
-        this.markGeoreferencedButton.set("disabled", selectedMenuItem === this.georefStatus_CompleteButton || selectedMenuItem === this.georefStatus_WIPButton);
+        this.markGeoreferencedButton.set("disabled", selectedMenuItem === this.georefStatus_WIPButton);
+        this.markGeoreferencedButton.set("label", "Mark as " + (selectedMenuItem === this.georefStatus_CompleteButton ? "Partially " : "") + "Georeferenced");
         _ref = [this.openRoughTransformButton, this.startEditTiepointsButton];
         for (_j = 0, _len1 = _ref.length; _j < _len1; _j++) {
           button = _ref[_j];
-          button.set("disabled", selectedMenuItem === this.georefStatus_WIPButton);
+          button.set("disabled", selectedMenuItem === this.georefStatus_WIPButton || selectedMenuItem === this.georefStatus_CompleteButton);
         }
         return this.loadRastersList(function() {
           return _this.refreshMosaicRule();
@@ -2346,7 +2385,7 @@ var __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; 
             f: "json",
             rasterId: this.currentId,
             attributes: JSON.stringify({
-              GeoRefStatus: 0
+              GeoRefStatus: this.georefStatus_CompleteButton.domNode.classList.contains("bold") ? 2 : 0
             })
           },
           handleAs: "json",

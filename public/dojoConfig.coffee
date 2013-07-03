@@ -7,6 +7,6 @@ dojoConfig =
 		{name: "put-selector", location: "//dojofoundation.org/packages/dgrid/js/put-selector"}
 		{name: "dgrid", location: "//dojofoundation.org/packages/dgrid/js/dgrid"}
 		{name: "eligrey", location: "/eligrey"}
-		{name: "socket.io", location: "/socket.io"}
+		{name: "LearnBoost", location: "/LearnBoost"}
 	]
 	async: true

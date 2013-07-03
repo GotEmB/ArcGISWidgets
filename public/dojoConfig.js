@@ -21,8 +21,8 @@ dojoConfig = {
       name: "eligrey",
       location: "/eligrey"
     }, {
-      name: "socket.io",
-      location: "/socket.io"
+      name: "LearnBoost",
+      location: "/LearnBoost"
     }
   ],
   async: true
