@@ -232,9 +232,10 @@ var __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; 
             if (_this.rastersGrid.cell(e).row == null) {
               return;
             }
-            if (_this.currentGeorefStatus() !== 1) {
-              _this.map.setExtent(_this.rastersGrid.cell(e).row.data.footprint.geometry.getExtent());
+            if (_this.currentGeorefStatus() === 1) {
+              _this.toggleSelectionOnlyButton.set("checked", true);
             }
+            _this.map.setExtent(_this.rastersGrid.cell(e).row.data.footprint.geometry.getExtent());
             if (_this.currentGeorefStatus() === 3) {
               return;
             }
@@ -1011,6 +1012,9 @@ var __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; 
 
         if (this.currentId == null) {
           return this.toggleSelectionOnlyButton.set("checked", false);
+        }
+        if (this.currentGeorefStatus() === 1) {
+          return this.toggleSelectionOnlyButton.set("checked", true);
         }
         return this.loadRastersList(function() {
           return _this.refreshMosaicRule();

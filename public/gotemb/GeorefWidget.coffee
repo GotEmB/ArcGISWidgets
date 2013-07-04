@@ -344,7 +344,8 @@ do ->
 					@rastersArchive = []
 					@rastersGrid.on ".field-rasterId:click, .field-name:click", (e) =>
 						return unless @rastersGrid.cell(e).row?
-						@map.setExtent @rastersGrid.cell(e).row.data.footprint.geometry.getExtent() unless @currentGeorefStatus() is 1
+						@toggleSelectionOnlyButton.set("checked", true) if @currentGeorefStatus() is 1
+						@map.setExtent @rastersGrid.cell(e).row.data.footprint.geometry.getExtent()
 						return if @currentGeorefStatus() is 3
 						@rastersGrid.clearSelection()
 						@rastersGrid.select @rastersGrid.cell(e).row
@@ -721,6 +722,7 @@ do ->
 				@footprintsLayer.setOpacity if state then 1 else 0
 			toggleSelectionOnly: (state) ->
 				return @toggleSelectionOnlyButton.set("checked", false) unless @currentId?
+				return @toggleSelectionOnlyButton.set("checked", true) if @currentGeorefStatus() is 1
 				@loadRastersList =>
 					@refreshMosaicRule()
 			startEditTiepoints: ->
