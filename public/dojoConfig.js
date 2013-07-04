@@ -7,7 +7,7 @@ dojoConfig = {
   packages: [
     {
       name: "gotemb",
-      location: "/gotemb"
+      location: location.pathname.replace(/\/[^\/]+$/, "") + "/gotemb"
     }, {
       name: "xstyle",
       location: "//dojofoundation.org/packages/dgrid/js/xstyle"
@@ -19,10 +19,10 @@ dojoConfig = {
       location: "//dojofoundation.org/packages/dgrid/js/dgrid"
     }, {
       name: "eligrey",
-      location: "/eligrey"
+      location: location.pathname.replace(/\/[^\/]+$/, "") + "/eligrey"
     }, {
       name: "LearnBoost",
-      location: "/LearnBoost"
+      location: location.pathname.replace(/\/[^\/]+$/, "") + "/LearnBoost"
     }
   ],
   async: true

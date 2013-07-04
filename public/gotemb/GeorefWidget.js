@@ -145,11 +145,17 @@ var __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; 
       footprintSymbol: new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new Color([10, 240, 10]), 1),
       selectedFootprintSymbol: new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new Color([10, 240, 240]), 2),
       scrollToElement: function(element) {
-        var elemNL, prevNL;
+        var elemNL, prevNL, _ref, _ref1;
 
         elemNL = query(element).closest(".dgrid-row");
         if ((prevNL = elemNL.prev()).length === 0 || prevNL[0].classList.contains("dgrid-preload")) {
-          elemNL.parent().parent()[0].scrollTop = 0;
+          if (elemNL != null) {
+            if ((_ref = elemNL.parent()) != null) {
+              if ((_ref1 = _ref.parent()) != null) {
+                _ref1[0].scrollTop = 0;
+              }
+            }
+          }
         } else {
           win.scrollIntoView(prevNL[0]);
         }
@@ -621,14 +627,11 @@ var __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; 
               return;
             }
             if (e.which === 82) {
-              _this.toggleRasterLayerButton.set("checked", !_this.toggleRasterLayerButton.checked);
-              return _this.toggleRasterLayer(_this.toggleRasterLayerButton.checked);
+              return _this.toggleRasterLayerButton.set("checked", !_this.toggleRasterLayerButton.checked);
             } else if (e.which === 70) {
-              _this.toggleFootprintsButton.set("checked", !_this.toggleFootprintsButton.checked);
-              return _this.toggleFootprints(_this.toggleFootprintsButton.checked);
+              return _this.toggleFootprintsButton.set("checked", !_this.toggleFootprintsButton.checked);
             } else if (e.which === 83) {
-              _this.toggleSelectionOnlyButton.set("checked", !_this.toggleSelectionOnlyButton.checked);
-              return _this.toggleRasterLayer(_this.toggleSelectionOnlyButton.checked);
+              return _this.toggleSelectionOnlyButton.set("checked", !_this.toggleSelectionOnlyButton.checked);
             }
           });
           io.transports = ["xhr-polling", "jsonp-polling", "htmlfile"];
@@ -770,7 +773,7 @@ var __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; 
             where: (function() {
               var wipRs;
 
-              wipRs = _this.wipRasters.length > 0 ? _this.wipRasters : ["null"];
+              wipRs = _this.wipRasters.length > 0 ? _this.wipRasters : [0];
               if (georefStatus !== 3) {
                 return "georefStatus = " + georefStatus + (georefStatus === 0 ? " OR georefStatus IS NULL" : "") + " AND OBJECTID NOT IN (" + (wipRs.join(", ")) + ")";
               } else {
@@ -1118,7 +1121,7 @@ var __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; 
         popup.open({
           popup: this.confirmActionPopup,
           around: this.collectComputedTiepointsButton.domNode,
-          orient: ["before-centered", "after-centered", "above-centered"]
+          orient: ["below-centered", "before-centered", "after-centered"]
         });
         return this.confirmActionPopup.focus();
       },

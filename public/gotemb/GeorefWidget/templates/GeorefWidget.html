@@ -132,11 +132,12 @@
 				<span data-dojo-type="dijit/ToolbarSeparator"></span>
 				<div data-dojo-type="dijit/form/Button" data-dojo-attach-event="onClick: importTiepoints" data-dojo-props="iconClass: 'importIcon', showLabel: false" title="Import Tiepoints"></div>
 				<div data-dojo-type="dijit/form/Button" data-dojo-attach-event="onClick: exportTiepoints" data-dojo-props="iconClass: 'exportIcon', showLabel: false" title="Export Tiepoints"></div>
+				<span data-dojo-type="dijit/ToolbarSeparator"></span>
+				<div data-dojo-type="dijit/form/Button" data-dojo-attach-point="collectComputedTiepointsButton" data-dojo-attach-event="onClick: collectComputedTiepoints">AutoDetect Tiepoints</div>
 			</div>
 			<div data-dojo-attach-point="tiepointsGrid" style="height: 300px"></div>
 			<div class="dijitDialogPaneActionBar">
-				<button data-dojo-type="dijit/form/Button" data-dojo-attach-point="collectComputedTiepointsButton" data-dojo-attach-event="onClick: collectComputedTiepoints" style="float: left">AutoDetect Tiepoints</button>
-				<button data-dojo-type="dijit/form/Button" type="button" data-dojo-attach-event="onClick: closeEditTiepoints">Cancel</button>
+				<button data-dojo-type="dijit/form/Button" type="button" data-dojo-attach-event="onClick: closeEditTiepoints">Back to Rasters</button>
 				<button data-dojo-type="dijit/form/DropDownButton" type="button">
 					<span>Apply Transform</span>
 					<div data-dojo-type="dijit/Menu">
@@ -182,7 +183,7 @@
 				</tr>
 			</table>
 			<div class="dijitDialogPaneActionBar">
-				<button data-dojo-type="dijit/form/Button" type="button" data-dojo-attach-event="onClick: closeRoughTransform">Done</button>
+				<button data-dojo-type="dijit/form/Button" type="button" data-dojo-attach-event="onClick: closeRoughTransform">Back to Rasters</button>
 			</div>
 		</div>
 	</div>

@@ -287,7 +287,7 @@ do ->
 			scrollToElement: (element) ->
 				elemNL = query(element).closest(".dgrid-row")
 				if (prevNL = elemNL.prev()).length is 0 or prevNL[0].classList.contains "dgrid-preload"
-					elemNL.parent().parent()[0].scrollTop = 0
+					elemNL?.parent()?.parent()?[0].scrollTop = 0
 				else
 					win.scrollIntoView prevNL[0]
 				win.scrollIntoView element
@@ -555,13 +555,10 @@ do ->
 						return if document.activeElement.tagName.toLowerCase() is "input" and document.activeElement.type.toLowerCase() is "text"
 						if e.which == 82
 							@toggleRasterLayerButton.set "checked", not @toggleRasterLayerButton.checked
-							@toggleRasterLayer @toggleRasterLayerButton.checked
 						else if e.which == 70
 							@toggleFootprintsButton.set "checked", not @toggleFootprintsButton.checked
-							@toggleFootprints @toggleFootprintsButton.checked
 						else if e.which == 83
 							@toggleSelectionOnlyButton.set "checked", not @toggleSelectionOnlyButton.checked
-							@toggleRasterLayer @toggleSelectionOnlyButton.checked
 					io.transports = ["xhr-polling", "jsonp-polling", "htmlfile"]
 					@socket = io.connect("http://georefiserv1.herokuapp.com:80")
 					@socket.on "connect", =>
@@ -618,7 +615,7 @@ do ->
 					content:
 						f: "json"
 						where: do =>
-							wipRs = if @wipRasters.length > 0 then @wipRasters else ["null"]
+							wipRs = if @wipRasters.length > 0 then @wipRasters else [0]
 							if georefStatus isnt 3
 								"georefStatus = #{georefStatus}#{if georefStatus is 0 then " OR georefStatus IS NULL" else ""} AND OBJECTID NOT IN (#{wipRs.join ", "})"
 							else
@@ -778,7 +775,7 @@ do ->
 				popup.open
 					popup: @confirmActionPopup
 					around: @collectComputedTiepointsButton.domNode
-					orient: ["before-centered", "after-centered", "above-centered"]
+					orient: ["below-centered", "before-centered", "after-centered"]
 				@confirmActionPopup.focus()
 			closeEditTiepoints: ->
 				@tiepointsLayer.clear()
