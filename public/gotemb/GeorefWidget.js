@@ -874,6 +874,116 @@ var __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; 
           usePost: true
         });
       },
+      showAddRasterDialog: function() {
+        return this.addRasterDialog.show();
+      },
+      addRasterDialog_upload: function() {
+        var asyncTask,
+          _this = this;
+
+        if (this.imageFile.value.length === 0) {
+          return console.error("An image must be selected!");
+        }
+        this.rastertype = "Raster Dataset";
+        this.asyncResults.put(asyncTask = {
+          resultId: (Math.max.apply(Math, this.asyncResults.data.map(function(x) {
+            return x.resultId;
+          }).concat(0))) + 1,
+          task: "Add Raster",
+          status: "Pending",
+          startTime: (new Date).toLocaleString()
+        });
+        if (domStyle.get(this.selectRasterContainer.domNode, "display") === "block") {
+          domStyle.set(this.asyncResultsContainer.domNode, "display", "block");
+        }
+        this.addRasterDialog.hide().then(function() {
+          return _this.asyncResultsGrid.select(asyncTask);
+        });
+        return request({
+          url: this.imageServiceUrl + "/uploads/upload",
+          form: this.uploadForm,
+          content: {
+            f: "json"
+          },
+          handleAs: "json",
+          timeout: 600000,
+          load: function(response1) {
+            if (!response1.success) {
+              extend(asyncTask, {
+                status: "Failed",
+                endTime: (new Date).toLocaleString()
+              });
+              return _this.asyncResults.notify(asyncTask, asyncTask.resultId);
+            }
+            if (!response1.success) {
+              return console.error("Unsuccessful upload:\n" + response1);
+            }
+            console.info("Step 2/3: Uploaded, processing the image on server side...");
+            return request({
+              url: _this.imageServiceUrl + "/add",
+              content: {
+                itemIds: response1.item.itemID,
+                rasterType: _this.rastertype,
+                minimumCellSizeFactor: 0.1,
+                maximumCellSizeFactor: 10,
+                attributes: JSON.stringify({
+                  GeoRefStatus: 1
+                }),
+                f: "json"
+              },
+              handleAs: "json",
+              load: function(response2) {
+                var id;
+
+                if (!(id = response2.addResults[0].rasterId)) {
+                  extend(asyncTask, {
+                    status: "Failed",
+                    endTime: (new Date).toLocaleString()
+                  });
+                  return _this.asyncResults.notify(asyncTask, asyncTask.resultId);
+                }
+                _this.asyncResults.notify(asyncTask, asyncTask.resultId);
+                return _this.loadRastersList(function() {
+                  extend(asyncTask, {
+                    rasterId: id,
+                    status: "Completed",
+                    endTime: (new Date).toLocaleString(),
+                    callback: function() {},
+                    callbackLabel: "View Raster"
+                  });
+                  return _this.asyncResults.notify(asyncTask, asyncTask.resultId);
+                });
+              },
+              error: function(_arg1) {
+                var message;
+
+                message = _arg1.message;
+                extend(asyncTask, {
+                  status: "Failed",
+                  endTime: (new Date).toLocaleString()
+                });
+                _this.asyncResults.notify(asyncTask, asyncTask.resultId);
+                return console.error(message);
+              }
+            }, {
+              usePost: true
+            });
+          },
+          error: function(_arg1) {
+            var message;
+
+            message = _arg1.message;
+            extend(asyncTask, {
+              status: "Failed",
+              endTime: (new Date).toLocaleString()
+            });
+            _this.asyncResults.notify(asyncTask, asyncTask.resultId);
+            return console.error(message);
+          }
+        }, {
+          usePost: true
+        });
+      },
       applyTransform: function(_arg1, callback) {
         var geodataTransform, gotoLocation, point, polynomialOrder, tiePoints,
           _this = this;
@@ -2338,7 +2448,7 @@ var __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; 
         }
       },
       setGeorefStatus: function(num) {
-        switch (num) {
+        switch (num != null ? num : 0) {
           case 0:
             return this.georefStatus_Complete();
           case 1:
