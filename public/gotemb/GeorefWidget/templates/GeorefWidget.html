@@ -115,6 +115,16 @@
 				</div>
 			</div>
 			<div data-dojo-attach-point="rastersGrid" style="height: 150px"></div>
+			<form style="padding: 8px">
+				<label>Notes:</label>
+				<div data-dojo-type="dijit/form/Textarea" style="margin-top: 2px; margin-bottom: 8px"></div>
+				<label style="display: inline-block; margin-top: 3px">Author Name:</label>
+				<input type="text" data-dojo-type="dijit/form/TextBox" style="float: right">
+				<div style="clear: both"></div>
+			</form>
+			<div class="dijitDialogPaneActionBar yesTopBorder">
+				<button data-dojo-type="dijit/form/Button" type="button" data-dojo-attach-point="markGeoreferencedButton" data-dojo-attach-event="onClick: markGeoreferenced">Mark as Georeferenced</button>
+			</div>
 		</div>
 	</div>
 	<div data-dojo-type="dijit/layout/AccordionContainer" data-dojo-attach-point="tasksContainer">
@@ -131,9 +141,6 @@
 					</td>
 				</tr>
 			</table>
-			<div class="dijitDialogPaneActionBar">
-				<button data-dojo-type="dijit/form/Button" type="button" data-dojo-attach-point="markGeoreferencedButton" data-dojo-attach-event="onClick: markGeoreferenced">Mark as Georeferenced</button>
-			</div>
 		</div>
 	</div>
 	<div data-dojo-type="dijit/layout/AccordionContainer" data-dojo-attach-point="editTiepointsContainer" style="display: none">
