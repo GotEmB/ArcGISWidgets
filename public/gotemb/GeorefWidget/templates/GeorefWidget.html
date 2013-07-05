@@ -109,8 +109,7 @@
 						<div data-dojo-type="dijit/MenuItem" data-dojo-attach-point="georefStatus_CompleteButton" data-dojo-attach-event="onClick: georefStatus_Complete">Georeferenced</div>
 						<div data-dojo-type="dijit/MenuItem" data-dojo-attach-point="georefStatus_FalseButton" data-dojo-attach-event="onClick: georefStatus_False">Not Georeferenced</div>
 						<div data-dojo-type="dijit/MenuItem" data-dojo-attach-point="georefStatus_PartialButton" data-dojo-attach-event="onClick: georefStatus_Partial" class="bold">Partially Georeferenced</div>
-						<div id="${id}_georefStatus_WIPButton" data-dojo-type="dijit/MenuItem" data-dojo-attach-point="georefStatus_WIPButton" data-dojo-attach-event="onClick: georefStatus_WIP">Locked Rasters</div>
-						<div data-dojo-type="dijit/Tooltip" data-dojo-props="connectId: '${id}_georefStatus_WIPButton', position: ['before-centered', 'after-centered'], showDelay: 0">These rasters are currently being worked on by others.</div>
+						<div data-dojo-type="dijit/MenuItem" data-dojo-attach-point="georefStatus_WIPButton" data-dojo-attach-event="onClick: georefStatus_WIP">Being Georeferenced</div>
 					</div>
 				</div>
 			</div>
@@ -132,7 +131,15 @@
 				</tr>
 			</table>
 			<div class="dijitDialogPaneActionBar">
-				<button data-dojo-type="dijit/form/Button" type="button" data-dojo-attach-point="markGeoreferencedButton" data-dojo-attach-event="onClick: markGeoreferenced">Mark as Georeferenced</button>
+				<div data-dojo-type="dijit/form/DropDownButton">
+					<span>Mark as ...</span>
+					<div data-dojo-type="dijit/Menu">
+						<div data-dojo-type="dijit/MenuItem" data-dojo-attach-event="onClick: markGeoreferenced">Georeferenced</div>
+						<div data-dojo-type="dijit/MenuItem" data-dojo-attach-event="onClick: markNotGeoreferenced">Not Georeferenced</div>
+						<div data-dojo-type="dijit/MenuItem" data-dojo-attach-event="onClick: markPartiallyGeoreferenced">Partially Georeferenced</div>
+						<div data-dojo-type="dijit/MenuItem" data-dojo-attach-event="onClick: markBeingGeoreferenced">Being Georeferenced</div>
+					</div>
+				</div>
 			</div>
 		</div>
 	</div>

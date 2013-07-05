@@ -43,7 +43,6 @@ do ->
 		"dojo/aspect"
 		"esri/layers/ImageServiceParameters"
 		"esri/layers/RasterFunction"
-		"LearnBoost/socket.io"
 		# ---
 		"dojox/form/FileInput"
 		"dijit/form/Button"
@@ -69,7 +68,7 @@ do ->
 			map: null # should be bound to a `Map` instance before using the widget
 			imageFile: null
 			uploadForm: null
-			imageServiceUrl: "http://eg1109.uae.esri.com:6080/arcgis/rest/services/ISERV/ImageServer"
+			imageServiceUrl: "http://imagery10.arcgisonline.com/arcgis/rest/services/georef/ImageServer"
 			imageServiceLayer: null
 			geometryServiceUrl: "http://tasks.arcgisonline.com/arcgis/rest/services/Geometry/GeometryServer"
 			geometryService: null
@@ -155,11 +154,9 @@ do ->
 			georefStatus_PartialButton: null
 			georefStatus_WIPButton: null
 			georefStatusDropButton: null
-			markGeoreferencedButton: null
 			openRoughTransformButton: null
 			startEditTiepointsButton: null
 			socket: null
-			wipRasters: null
 			sourceSymbol: do ->
 				symbol = new SimpleMarkerSymbol(
 					SimpleMarkerSymbol.STYLE_X
@@ -356,10 +353,6 @@ do ->
 						raster.footprint.setSymbol @footprintSymbol for raster in @rasters.data
 						rows[0].data.footprint.setSymbol @selectedFootprintSymbol
 						@refreshMosaicRule() if @toggleSelectionOnlyButton.checked and oldId isnt @currentId
-						if oldId isnt @currentId
-							if oldId? and not @rastersArchive[oldId].tiepoints?.data.length > 0 and not @asyncResults.data.some((x) => x.rasterId is oldId and x.status is "Pending")
-								@socket.emit "removeWIP", oldId, ({success}) =>
-							@socket.emit "addWIP", @currentId, ({success}) =>
 					@rastersGrid.on "dgrid-datachange", ({cell, value}) =>
 						cell.row.data.display = value
 						@refreshMosaicRule()
@@ -473,7 +466,6 @@ do ->
 								break
 					connect @map, "onExtentChange", (e) =>
 						return if @georefStatus_FalseButton.domNode.classList.contains "bold"
-						return unless @wipRasters?
 						@loadRastersList =>
 							@refreshMosaicRule() unless @toggleSelectionOnlyButton.checked
 					@asyncResults = new Observable new Memory idProperty: "resultId"
@@ -560,25 +552,9 @@ do ->
 							@toggleFootprintsButton.set "checked", not @toggleFootprintsButton.checked
 						else if e.which == 83
 							@toggleSelectionOnlyButton.set "checked", not @toggleSelectionOnlyButton.checked
-					io.transports = ["xhr-polling", "jsonp-polling", "htmlfile"]
-					@socket = io.connect("http://georefiserv1.herokuapp.com:80")
-					@socket.on "connect", =>
-						@socket.emit "getWIPs", (wips) =>
-							@wipRasters = wips
-							@loadRastersList =>
-								@refreshMosaicRule()
-								domStyle.set @loadingGif, "display", "none"
-					@socket.on "addedWIP", (rasterId) =>
-						@wipRasters.push rasterId
-						@refreshRasterMeta rasterId, =>
-							@refreshMosaicRule() unless @toggleSelectionOnlyButton.checked
-					@socket.on "removedWIP", (rasterId) =>
-						@wipRasters = @wipRasters.filter (x) => x isnt rasterId
-						@refreshRasterMeta rasterId, =>
-							@refreshMosaicRule() unless @toggleSelectionOnlyButton.checked
-					@socket.on "modifiedRaster", (rasterId) =>
-						@refreshRasterMeta rasterId, =>
-							@refreshMosaicRule() unless @toggleSelectionOnlyButton.checked
+					@loadRastersList =>
+						@refreshMosaicRule()
+						domStyle.set @loadingGif, "display", "none"
 					window.self = @
 			refreshMosaicRule: (callback) ->
 				newLockIds =
@@ -615,12 +591,7 @@ do ->
 					url: @imageServiceUrl + "/query"
 					content:
 						f: "json"
-						where: do =>
-							wipRs = if @wipRasters.length > 0 then @wipRasters else [0]
-							if georefStatus isnt 3
-								"georefStatus = #{georefStatus}#{if georefStatus is 0 then " OR georefStatus IS NULL" else ""} AND OBJECTID NOT IN (#{wipRs.join ", "})"
-							else
-								"OBJECTID IN (#{wipRs.join ", "})"
+						where: "georefStatus = #{georefStatus}#{if georefStatus is 0 then " OR georefStatus IS NULL" else ""}"
 						outFields: "OBJECTID, Name, GeoRefStatus"
 						geometry: JSON.stringify @map.extent.toJson() if georefStatus isnt 1 and @map.extent?
 						geometryType: "esriGeometryEnvelope"
@@ -652,16 +623,14 @@ do ->
 						else
 							@footprintsLayer.add raster.footprint for raster in @rasters.data when raster.footprint.symbol is @selectedFootprintSymbol
 						@rastersGrid.set "store", @rasters
-						callback?()
 						@rastersGrid.clearSelection()
 						if @currentId?
 							if @rasters.get(@currentId)?
 								@rastersGrid.select @currentId
 							else
-								if @currentId? and not @rastersArchive[@currentId]?.tiepoints?.data.length > 0 and not @asyncResults.data.some((x) => x.rasterId is @currentId and x.status is "Pending")
-									@socket.emit "removeWIP", @currentId, ({success}) =>
 								delete @currentId
 								@toggleSelectionOnlyButton.set "checked", false
+						callback?()
 					error: ({message}) => console.error message
 					(usePost: true)
 			showAddRasterDialog: ->
@@ -748,15 +717,12 @@ do ->
 								polynomialOrder: polynomialOrder if geodataTransform is "Polynomial"
 								spatialReference: tiePoints.sourcePoints[0].spatialReference
 						]
-						attributes: JSON.stringify
-							GeoRefStatus: 2
 					handleAs: "json"
 					load: =>
 						for task in @asyncResults.data.filter((x) => x.rasterId is @currentId and x.task in ["Compute Tiepoints", "Apply Transform (Tiepoints)"])
 							delete task.callback
 						selectedRow = @rasters.get @currentId
 						@map.setExtent if gotoLocation then selectedRow.footprint.geometry.getExtent() else @map.extent
-						@socket.emit "modifiedRaster", @currentId
 						callback?()
 					error: ({message}) => console.error message
 					(usePost: true)
@@ -993,7 +959,6 @@ do ->
 											delete asyncTask.callback
 											@startEditTiepoints()
 											domStyle.set @loadingGif, "display", "none"
-											@socket.emit "modifiedRaster", @currentId
 										error: ({message}) => console.error message
 										(usePost: true)
 								callbackLabel: "Redo Edit Tiepoints"
@@ -1406,7 +1371,6 @@ do ->
 					load: ({features: [feature]}) =>
 						georefStatus = @currentGeorefStatus()
 						footprintGeometry = new Polygon feature.geometry
-						feature.attributes.GeoRefStatus = 3 if rasterId in @wipRasters
 						return callback?() unless @rastersArchive[rasterId]? or (georefStatus is feature.attributes.GeoRefStatus and (georefStatus is 1 or @map.extent.intersects footprintGeometry))
 						if @rastersArchive[rasterId]?
 							@rastersArchive[rasterId].footprint.setGeometry footprintGeometry
@@ -1454,10 +1418,7 @@ do ->
 					query(menuItem.domNode).removeClass "bold"
 				query(selectedMenuItem.domNode).addClass "bold"
 				@georefStatusDropButton.set "label", selectedMenuItem.label
-				@markGeoreferencedButton.set "disabled", selectedMenuItem is @georefStatus_WIPButton
-				@markGeoreferencedButton.set "label", "Mark as #{if selectedMenuItem is @georefStatus_CompleteButton then "Partially " else ""}Georeferenced"
 				button.set "disabled", selectedMenuItem in [
-					@georefStatus_WIPButton
 					@georefStatus_CompleteButton
 				] for button in [
 					@openRoughTransformButton
@@ -1473,7 +1434,7 @@ do ->
 				@georefStatus @georefStatus_PartialButton
 			georefStatus_WIP: ->
 				@georefStatus @georefStatus_WIPButton
-			markGeoreferenced: ->
+			markAs: (status) ->
 				return @showRasterNotSelectedDialog() unless @currentId?
 				request
 					url: @imageServiceUrl + "/update"
@@ -1481,11 +1442,18 @@ do ->
 						f: "json"
 						rasterId: @currentId
 						attributes: JSON.stringify
-							GeoRefStatus: if @georefStatus_CompleteButton.domNode.classList.contains "bold" then 2 else 0
+							GeoRefStatus: status
 					handleAs: "json"
 					load: =>
 						@loadRastersList =>
 							@refreshMosaicRule()
-						@socket.emit "modifiedRaster", @currentId
 					error: ({message}) => console.error message
 					(usePost: true)
+			markGeoreferenced: ->
+				@markAs 0
+			markNotGeoreferenced: ->
+				@markAs 1
+			markPartiallyGeoreferenced: ->
+				@markAs 2
+			markBeingGeoreferenced: ->
+				@markAs 3
