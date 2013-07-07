@@ -292,20 +292,7 @@ do ->
 				imageServiceAuthority = new Url(@imageServiceUrl).authority
 				corsEnabledServers = esri.config.defaults.io.corsEnabledServers
 				corsEnabledServers.push imageServiceAuthority unless corsEnabledServers.some (x) => x is imageServiceAuthority
-				@imageServiceLayer = new ArcGISImageServiceLayer @imageServiceUrl,
-					imageServiceParameters: extend(
-						new ImageServiceParameters
-						renderingRule: extend(
-							new RasterFunction
-							functionName: "Stretch"
-							arguments:
-								StretchType: 6
-								DRA: true
-								MinPercent: 0
-								MaxPercent: 2
-							variableName: "Raster"
-						)
-					)
+				@imageServiceLayer = new ArcGISImageServiceLayer @imageServiceUrl
 				@imageServiceLayer.setDisableClientCaching true
 				@geometryService = new GeometryService @geometryServiceUrl
 				onceDone = false
@@ -466,6 +453,8 @@ do ->
 								break
 					connect @map, "onExtentChange", (e) =>
 						return if @georefStatus_FalseButton.domNode.classList.contains "bold"
+						unless @toggleRasterLayerButton.checked
+							@imageServiceLayer.suspend()
 						@loadRastersList =>
 							@refreshMosaicRule() unless @toggleSelectionOnlyButton.checked
 					@asyncResults = new Observable new Memory idProperty: "resultId"
@@ -669,6 +658,8 @@ do ->
 								maximumCellSizeFactor: 10
 								attributes: JSON.stringify
 									GeoRefStatus: 1
+									MinPS: 0
+									MaxPS: 50
 								f: "json"
 							handleAs: "json"
 							load: (response2) =>
@@ -717,6 +708,9 @@ do ->
 								polynomialOrder: polynomialOrder if geodataTransform is "Polynomial"
 								spatialReference: tiePoints.sourcePoints[0].spatialReference
 						]
+						attributes: JSON.stringify
+							MinPS: 0
+							MaxPS: 50
 					handleAs: "json"
 					load: =>
 						for task in @asyncResults.data.filter((x) => x.rasterId is @currentId and x.task in ["Compute Tiepoints", "Apply Transform (Tiepoints)"])
@@ -747,10 +741,7 @@ do ->
 					(usePost: true)
 			toggleRasterLayer: (state) ->
 				@imageServiceLayer.setOpacity if state then 1 else 0
-				if state
-					@imageServiceLayer.resume()
-				else
-					@imageServiceLayer.suspend()
+				@imageServiceLayer.resume() if state
 			toggleFootprints: (state) ->
 				@footprintsLayer.setOpacity if state then 1 else 0
 			toggleSelectionOnly: (state) ->
@@ -950,6 +941,9 @@ do ->
 													spatialReference: selectedRow.spatialReference
 											]
 											geodataTransformApplyMethod: "esriGeodataTransformApplyReplace"
+											attributes: JSON.stringify
+												MinPS: 0
+												MaxPS: 50
 										handleAs: "json"
 										load: =>
 											for task in @asyncResults.data.filter((x) => x.rasterId is @currentId and x.task in ["Compute Tiepoints", "Apply Transform (Tiepoints)"])
@@ -1457,3 +1451,21 @@ do ->
 				@markAs 2
 			markBeingGeoreferenced: ->
 				@markAs 3
+			setDRARule: (state) ->
+				domStyle.set @loadingGif, "display", "block"
+				if state
+					@imageServiceLayer.setRenderingRule extend(
+						new RasterFunction
+						functionName: "Stretch"
+						arguments:
+							StretchType: 6
+							DRA: true
+							MinPercent: 0
+							MaxPercent: 2
+						variableName: "Raster"
+					)
+				else
+					@imageServiceLayer.setRenderingRule new RasterFunction
+				updateEvent = connect @imageServiceLayer, "onUpdateEnd", =>
+					disconnect updateEvent
+					domStyle.set @loadingGif, "display", "none"

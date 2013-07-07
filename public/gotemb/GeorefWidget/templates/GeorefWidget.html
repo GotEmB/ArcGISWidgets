@@ -90,6 +90,7 @@
 		<span data-dojo-type="dijit/ToolbarSeparator"></span>
 		<div data-dojo-type="dijit/form/ToggleButton" data-dojo-attach-point="setImageFormat_JPGPNGButton" data-dojo-attach-event="onClick: setImageFormat_JPGPNG" data-dojo-props="iconClass: 'pngIcon', showLabel: false, checked: true" title="Set Image Format to JPGPNG"></div>
 		<div data-dojo-type="dijit/form/ToggleButton" data-dojo-attach-point="setImageFormat_JPGButton" data-dojo-attach-event="onClick: setImageFormat_JPG" data-dojo-props="iconClass: 'jpgIcon', showLabel: false" title="Set Image Format to JPG"></div>
+		<div data-dojo-type="dijit/form/ToggleButton" data-dojo-attach-event="onChange: setDRARule" data-dojo-props="iconClass: 'colorsIcon', showLabel: false" title="Toggle 2% DRA Stretch"></div>
 		<span data-dojo-type="dijit/ToolbarSeparator"></span>
 		<div data-dojo-type="dijit/form/ToggleButton" data-dojo-attach-point="toggleRasterLayerButton" data-dojo-attach-event="onChange: toggleRasterLayer" data-dojo-props="checked: true, iconClass: 'toggleImagesIcon', showLabel: false" title="Show Imagery (Keyboard Shortcut: R)"></div>
 		<div data-dojo-type="dijit/form/ToggleButton" data-dojo-attach-point="toggleFootprintsButton" data-dojo-attach-event="onChange: toggleFootprints" data-dojo-props="checked: true, iconClass: 'toggleFootprintsIcon', showLabel: false" title="Show Footprints (Keyboard Shortcut: F)"></div>
@@ -132,7 +133,7 @@
 			</table>
 			<div class="dijitDialogPaneActionBar">
 				<div data-dojo-type="dijit/form/DropDownButton">
-					<span>Mark as ...</span>
+					<span>Mark raster as ...</span>
 					<div data-dojo-type="dijit/Menu">
 						<div data-dojo-type="dijit/MenuItem" data-dojo-attach-event="onClick: markGeoreferenced">Georeferenced</div>
 						<div data-dojo-type="dijit/MenuItem" data-dojo-attach-event="onClick: markNotGeoreferenced">Not Georeferenced</div>
@@ -144,7 +145,7 @@
 		</div>
 	</div>
 	<div data-dojo-type="dijit/layout/AccordionContainer" data-dojo-attach-point="editTiepointsContainer" style="display: none">
-		<div data-dojo-type="dijit/layout/ContentPane" title="Edit Tiepoints" style="padding: 0">
+		<div data-dojo-type="dijit/layout/ContentPane" title="Tiepoints" style="padding: 0">
 			<div data-dojo-type="dijit/Toolbar">
 				<div data-dojo-type="dijit/form/ToggleButton" data-dojo-attach-point="addTiepointButton" data-dojo-attach-event="onChange: addTiepoint" data-dojo-props="iconClass: 'plusIcon', showLabel: false" title="Add Points"></div>
 				<div data-dojo-type="dijit/form/DropDownButton" data-dojo-props="iconClass: 'selectionIcon'" style="padding-left: 0">
@@ -185,7 +186,7 @@
 		</div>
 	</div>
 	<div data-dojo-type="dijit/layout/AccordionContainer" data-dojo-attach-point="manualTransformContainer" style="display: none">
-		<div data-dojo-type="dijit/layout/ContentPane" title="Manual Transform">
+		<div data-dojo-type="dijit/layout/ContentPane" title="Affine Transform">
 			<table style="width: 100%">
 				<tr>
 					<td style="height: 25px; vertical-align: middle; text-align: center">
