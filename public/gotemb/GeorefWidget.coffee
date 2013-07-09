@@ -938,6 +938,7 @@ do ->
 			applyManualTransform: ({geodataTransform, polynomialOrder} = {}) ->
 				domStyle.set @loadingGif, "display", "block"
 				selectedRow = @rasters.get @currentId
+				previousFootprintGeometry = selectedRow.footprint.geometry
 				@applyTransform
 					tiePoints:
 						sourcePoints: selectedRow.tiepoints.data.map (x) => x.sourcePoint.geometry
@@ -968,6 +969,7 @@ do ->
 													spatialReference: selectedRow.spatialReference
 											]
 											geodataTransformApplyMethod: "esriGeodataTransformApplyReplace"
+											footprint: JSON.stringify previousFootprintGeometry.toJson()
 											attributes: JSON.stringify
 												MinPS: 0
 												MaxPS: 50

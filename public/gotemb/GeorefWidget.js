@@ -1404,12 +1404,13 @@
         return this.applyManualTransform_3rdOrderTooltip.set("connectId", (selectedRow.tiepoints.data.length < 10 ? this.applyManualTransform_3rdOrderButton.domNode : void 0));
       },
       applyManualTransform: function(_arg1) {
-        var geodataTransform, polynomialOrder, selectedRow, _ref,
+        var geodataTransform, polynomialOrder, previousFootprintGeometry, selectedRow, _ref,
           _this = this;
 
         _ref = _arg1 != null ? _arg1 : {}, geodataTransform = _ref.geodataTransform, polynomialOrder = _ref.polynomialOrder;
         domStyle.set(this.loadingGif, "display", "block");
         selectedRow = this.rasters.get(this.currentId);
+        previousFootprintGeometry = selectedRow.footprint.geometry;
         return this.applyTransform({
           tiePoints: {
             sourcePoints: selectedRow.tiepoints.data.map(function(x) {
@@ -1458,6 +1459,7 @@
                       }
                     ]),
                     geodataTransformApplyMethod: "esriGeodataTransformApplyReplace",
+                    footprint: JSON.stringify(previousFootprintGeometry.toJson()),
                     attributes: JSON.stringify({
                       MinPS: 0,
                       MaxPS: 50
