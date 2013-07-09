@@ -29,6 +29,11 @@
 			<button data-dojo-type="dijit/form/Button" type="button" data-dojo-attach-event="onClick: hideRasterNotSelectedDialog">OK</button>
 		</div>
 	</div>
+	<div data-dojo-type="dijit/Dialog" data-dojo-attach-point="errorDialog" title="Error">
+		<div class="dijitDialogPaneContentArea">
+			An unhandled exception has occured. Please refresh your browser.
+		</div>
+	</div>
 	<div data-dojo-type="dijit/TooltipDialog" data-dojo-attach-point="asyncTaskDetailsPopup" data-dojo-attach-event="onBlur: atdpClose" style="display: none; width: 350px">
 		<table style="width: 100%">
 			<tr>
@@ -218,8 +223,8 @@
 		<div data-dojo-type="dijit/layout/ContentPane" title="Shift Raster" style="padding: 0">
 			<table style="width: 100%; text-align: center; border-collapse: collapse; border: 1px solid #DDD">
 				<tr>
-					<th style="border: 1px solid #DDD; background-color: #EEE; padding: 5px">Source Point</th>
-					<th style="border: 1px solid #DDD; background-color: #EEE; padding: 5px">Target Point</th>
+					<th style="border: 1px solid #DDD; background-color: #EEE; padding: 5px; color: rgb(20, 20, 180)">Source Point</th>
+					<th style="border: 1px solid #DDD; background-color: #EEE; padding: 5px; color: rgb(180, 20, 20)">Target Point</th>
 				</tr>
 				<tr>
 					<td style="padding: 0; border: 1px solid #DDD"><div data-dojo-type="gotemb/GeorefWidget/PointGrid" data-dojo-attach-point="rtMoveFromGrid"></div></td>

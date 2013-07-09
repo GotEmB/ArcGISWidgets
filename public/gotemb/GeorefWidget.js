@@ -109,7 +109,7 @@
       georefStatusDropButton: null,
       openRoughTransformButton: null,
       startEditTiepointsButton: null,
-      socket: null,
+      errorDialog: null,
       sourceSymbol: (function() {
         var symbol;
 
@@ -141,14 +141,16 @@
       footprintSymbol: new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new Color([10, 240, 10]), 1),
       selectedFootprintSymbol: new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, new Color([10, 240, 240]), 2),
       scrollToElement: function(element) {
-        var elemNL, prevNL, _ref, _ref1;
+        var elemNL, prevNL, _ref, _ref1, _ref2;
 
         elemNL = query(element).closest(".dgrid-row");
         if ((prevNL = elemNL.prev()).length === 0 || prevNL[0].classList.contains("dgrid-preload")) {
           if (elemNL != null) {
             if ((_ref = elemNL.parent()) != null) {
               if ((_ref1 = _ref.parent()) != null) {
-                _ref1[0].scrollTop = 0;
+                if ((_ref2 = _ref1[0]) != null) {
+                  _ref2.scrollTop = 0;
+                }
               }
             }
           }
@@ -223,7 +225,8 @@
               return;
             }
             _this.rastersGrid.clearSelection();
-            return _this.rastersGrid.select(_this.rastersGrid.cell(e).row);
+            _this.rastersGrid.select(_this.rastersGrid.cell(e).row);
+            return e.stopPropagation();
           });
           _this.rastersGrid.on("dgrid-select", function(_arg1) {
             var oldId, raster, rows, _i, _len, _ref;
@@ -248,6 +251,18 @@
             cell = _arg1.cell, value = _arg1.value;
             cell.row.data.display = value;
             return _this.refreshMosaicRule();
+          });
+          _this.rastersGrid.on(".dgrid-scroller:click", function(e) {
+            var _ref, _ref1;
+
+            if (!e.target.classList.contains("dgrid-scroller")) {
+              return;
+            }
+            if ((_ref = _this.rasters.get((_ref1 = _this.currentId) != null ? _ref1 : 0)) != null) {
+              _ref.footprint.setSymbol(_this.footprintSymbol);
+            }
+            delete _this.currentId;
+            return _this.rastersGrid.clearSelection();
           });
           _this.tiepoints = new Observable(new Memory({
             idProperty: "id"
@@ -285,15 +300,12 @@
                     });
                   };
                   value.gotoPointGrid = function() {
-                    var mouseUpEvent, rowNL;
+                    var rowNL;
 
                     _this.scrollToElement(pointGrid.domNode);
                     rowNL = query(pointGrid.domNode).closest(".dgrid-row");
-                    rowNL.addClass("yellow");
-                    return mouseUpEvent = connect(_this.tiepointsLayer, "onMouseUp", function() {
-                      rowNL.removeClass("yellow");
-                      return disconnect(mouseUpEvent);
-                    });
+                    _this.tiepointsGrid.clearSelection();
+                    return _this.tiepointsGrid.select(rowNL[0]);
                   };
                   return pointGrid.domNode;
                 }
@@ -324,15 +336,12 @@
                     });
                   };
                   value.gotoPointGrid = function() {
-                    var mouseUpEvent, rowNL;
+                    var rowNL;
 
                     _this.scrollToElement(pointGrid.domNode);
                     rowNL = query(pointGrid.domNode).closest(".dgrid-row");
-                    rowNL.addClass("yellow");
-                    return mouseUpEvent = connect(_this.tiepointsLayer, "onMouseUp", function() {
-                      rowNL.removeClass("yellow");
-                      return disconnect(mouseUpEvent);
-                    });
+                    _this.tiepointsGrid.clearSelection();
+                    return _this.tiepointsGrid.select(rowNL[0]);
                   };
                   return pointGrid.domNode;
                 }
@@ -433,7 +442,7 @@
             return _this.map.enablePan();
           });
           connect(_this.map, "onClick", function(e) {
-            var raster, _i, _ref, _results;
+            var raster, _i, _ref, _ref1, _ref2;
 
             if (!(domStyle.get(_this.selectRasterContainer.domNode, "display") === "block" && !_this.toggleSelectionOnlyButton.checked)) {
               return;
@@ -442,20 +451,20 @@
               return;
             }
             _ref = _this.rasters.data;
-            _results = [];
             for (_i = _ref.length - 1; _i >= 0; _i += -1) {
               raster = _ref[_i];
               if (raster.display) {
                 if (raster.footprint.geometry.contains(e.mapPoint)) {
                   _this.rastersGrid.clearSelection();
-                  _this.rastersGrid.select(raster);
-                  break;
-                } else {
-                  _results.push(void 0);
+                  return _this.rastersGrid.select(raster);
                 }
               }
             }
-            return _results;
+            if ((_ref1 = _this.rasters.get((_ref2 = _this.currentId) != null ? _ref2 : 0)) != null) {
+              _ref1.footprint.setSymbol(_this.footprintSymbol);
+            }
+            delete _this.currentId;
+            return _this.rastersGrid.clearSelection();
           });
           connect(_this.map, "onExtentChange", function(e) {
             if (_this.georefStatus_FalseButton.domNode.classList.contains("bold")) {
@@ -541,9 +550,13 @@
                   },
                   handlesAs: "json",
                   load: function(_arg2) {
-                    var feature, mosaicRefreshedAspect;
+                    var error, feature, mosaicRefreshedAspect, _ref3;
 
-                    feature = _arg2.features[0];
+                    (_ref3 = _arg2.features, feature = _ref3[0]), error = _arg2.error;
+                    if (error != null) {
+                      console.error(error);
+                      return _this.showError("ImageService query error. Please refresh your browser.");
+                    }
                     _this.setGeorefStatus(feature.attributes.GeoRefStatus);
                     _this.map.setExtent(new Polygon(feature.geometry).getExtent());
                     return mosaicRefreshedAspect = aspect.after(_this, "refreshMosaicRule", function() {
@@ -570,11 +583,9 @@
                       }));
                     });
                   },
-                  error: function(_arg2) {
-                    var message;
-
-                    message = _arg2.message;
-                    return console.error(message);
+                  error: function(error) {
+                    console.error(error);
+                    return _this.showError("ImageService query error. Please refresh your browser.");
                   }
                 }, {
                   usePost: true
@@ -714,9 +725,13 @@
           },
           handlesAs: "json",
           load: function(_arg1) {
-            var feature, features, raster, thisRaster, _i, _j, _k, _l, _len, _len1, _len2, _len3, _ref, _ref1, _ref2;
+            var error, feature, features, raster, thisRaster, _i, _j, _k, _l, _len, _len1, _len2, _len3, _ref, _ref1, _ref2;
 
-            features = _arg1.features;
+            features = _arg1.features, error = _arg1.error;
+            if (error != null) {
+              console.error(error);
+              return _this.showError("Could not load rasters list. Please refresh your browser.");
+            }
             _this.footprintsLayer.clear();
             _ref = (function(func, args, ctor) {
               ctor.prototype = func.prototype;
@@ -777,13 +792,14 @@
                 _this.toggleSelectionOnlyButton.set("checked", false);
               }
             }
+            if (_this.rasters.data.length === 1) {
+              _this.rastersGrid.select(_this.rasters.data[0]);
+            }
             return typeof callback === "function" ? callback() : void 0;
           },
-          error: function(_arg1) {
-            var message;
-
-            message = _arg1.message;
-            return console.error(message);
+          error: function(error) {
+            console.error(error);
+            return _this.showError("Could not load rasters list. Please refresh your browser.");
           }
         }, {
           usePost: true
@@ -871,31 +887,27 @@
                   return _this.asyncResults.notify(asyncTask, asyncTask.resultId);
                 });
               },
-              error: function(_arg1) {
-                var message;
-
-                message = _arg1.message;
+              error: function(error) {
+                console.error(error);
+                return _this.showError("Could not add raster. Please refresh your browser.");
                 extend(asyncTask, {
                   status: "Failed",
                   endTime: (new Date).toLocaleString()
                 });
-                _this.asyncResults.notify(asyncTask, asyncTask.resultId);
-                return console.error(message);
+                return _this.asyncResults.notify(asyncTask, asyncTask.resultId);
               }
             }, {
               usePost: true
             });
           },
-          error: function(_arg1) {
-            var message;
-
-            message = _arg1.message;
+          error: function(error) {
+            console.error(error);
+            return _this.showError("Could not add raster. Please refresh your browser.");
             extend(asyncTask, {
               status: "Failed",
               endTime: (new Date).toLocaleString()
             });
-            _this.asyncResults.notify(asyncTask, asyncTask.resultId);
-            return console.error(message);
+            return _this.asyncResults.notify(asyncTask, asyncTask.resultId);
           }
         }, {
           usePost: true
@@ -963,9 +975,16 @@
             })
           },
           handleAs: "json",
-          load: function() {
-            var selectedRow, task, _i, _len, _ref;
+          load: function(_arg2) {
+            var error, selectedRow, task, updateResults, _i, _len, _ref;
 
+            updateResults = _arg2.updateResults, error = _arg2.error;
+            if ((error != null) || updateResults.some(function(x) {
+              return !x.success;
+            })) {
+              console.error(error);
+              return _this.showError("Could not apply transform. Please refresh your browser.");
+            }
             _ref = _this.asyncResults.data.filter(function(x) {
               var _ref;
 
@@ -977,13 +996,14 @@
             }
             selectedRow = _this.rasters.get(_this.currentId);
             _this.map.setExtent(gotoLocation ? selectedRow.footprint.geometry.getExtent() : _this.map.extent);
-            return typeof callback === "function" ? callback() : void 0;
+            _this.toggleRasterLayerButton.set("checked", true);
+            return _this.refreshRasterMeta(_this.currentId, function() {
+              return typeof callback === "function" ? callback() : void 0;
+            });
           },
-          error: function(_arg2) {
-            var message;
-
-            message = _arg2.message;
-            return console.error(message);
+          error: function(error) {
+            console.error(error);
+            return _this.showError("Could not apply transform. Please refresh your browser.");
           }
         }, {
           usePost: true
@@ -1014,6 +1034,7 @@
             return typeof callback === "function" ? callback(response) : void 0;
           },
           error: function(error) {
+            _this.showError("Error during computeTiePoints. Please refresh your browser.");
             console.error(error.message);
             return typeof callback === "function" ? callback({
               error: error
@@ -1399,7 +1420,8 @@
             })
           },
           geodataTransform: geodataTransform,
-          polynomialOrder: polynomialOrder
+          polynomialOrder: polynomialOrder,
+          gotoLocation: false
         }, function() {
           var updateEndEvent;
 
@@ -1442,32 +1464,41 @@
                     })
                   },
                   handleAs: "json",
-                  load: function() {
-                    var task, tiepoint, _i, _j, _len, _len1, _ref1;
+                  load: function(_arg2) {
+                    var error, updateResults;
 
-                    _ref1 = _this.asyncResults.data.filter(function(x) {
-                      var _ref1;
+                    updateResults = _arg2.updateResults, error = _arg2.error;
+                    if ((error != null) || updateResults.some(function(x) {
+                      return !x.success;
+                    })) {
+                      console.error(error);
+                      return _this.showError("Could not redo transform. Please refresh your browser.");
+                    }
+                    return _this.refreshRasterMeta(_this.currentId, function() {
+                      var task, tiepoint, _i, _j, _len, _len1, _ref1;
 
-                      return x.rasterId === _this.currentId && ((_ref1 = x.task) === "Compute Tiepoints" || _ref1 === "Apply Transform (Tiepoints)");
+                      _ref1 = _this.asyncResults.data.filter(function(x) {
+                        var _ref1;
+
+                        return x.rasterId === _this.currentId && ((_ref1 = x.task) === "Compute Tiepoints" || _ref1 === "Apply Transform (Tiepoints)");
+                      });
+                      for (_i = 0, _len = _ref1.length; _i < _len; _i++) {
+                        task = _ref1[_i];
+                        delete task.callback;
+                      }
+                      selectedRow = _this.rasters.get(_this.currentId);
+                      for (_j = 0, _len1 = appliedTiepoints.length; _j < _len1; _j++) {
+                        tiepoint = appliedTiepoints[_j];
+                        selectedRow.tiepoints.put(tiepoint);
+                      }
+                      delete asyncTask.callback;
+                      _this.startEditTiepoints();
+                      return domStyle.set(_this.loadingGif, "display", "none");
                     });
-                    for (_i = 0, _len = _ref1.length; _i < _len; _i++) {
-                      task = _ref1[_i];
-                      delete task.callback;
-                    }
-                    selectedRow = _this.rasters.get(_this.currentId);
-                    for (_j = 0, _len1 = appliedTiepoints.length; _j < _len1; _j++) {
-                      tiepoint = appliedTiepoints[_j];
-                      selectedRow.tiepoints.put(tiepoint);
-                    }
-                    delete asyncTask.callback;
-                    _this.startEditTiepoints();
-                    return domStyle.set(_this.loadingGif, "display", "none");
                   },
-                  error: function(_arg2) {
-                    var message;
-
-                    message = _arg2.message;
-                    return console.error(message);
+                  error: function(error) {
+                    console.error(error);
+                    return _this.showError("Could not redo transform. Please refresh your browser.");
                   }
                 }, {
                   usePost: true
@@ -1584,9 +1615,7 @@
         var _this = this;
 
         return this.applyTransform(argObj, function() {
-          return _this.refreshRasterMeta(_this.currentId, function() {
-            return typeof callback === "function" ? callback() : void 0;
-          });
+          return typeof callback === "function" ? callback() : void 0;
         });
       },
       rt_fit: function() {
@@ -1935,73 +1964,52 @@
         return this.rt_scaleButton.set("checked", false);
       },
       rt_scaleTransform: function() {
-        var _this = this;
+        var centerPoint, offsets, point, scaleFactor,
+          _this = this;
 
         domStyle.set(this.loadingGif, "display", "block");
-        return request({
-          url: this.imageServiceUrl + "/query",
-          content: {
-            objectIds: this.currentId,
-            returnGeometry: true,
-            outFields: "",
-            f: "json"
+        scaleFactor = !isNaN(this.rtScaleFactorInput.value) ? Number(this.rtScaleFactorInput.value) : 1;
+        centerPoint = this.rasters.get(this.currentId).footprint.geometry.getExtent().getCenter();
+        return this.applyRoughTransform({
+          tiePoints: {
+            sourcePoints: (function() {
+              var _i, _len, _ref, _results;
+
+              _ref = [[0, 0], [10, 0], [0, 10]];
+              _results = [];
+              for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+                offsets = _ref[_i];
+                point = new Point(centerPoint);
+                point.x += offsets[0];
+                point.y += offsets[1];
+                _results.push(point);
+              }
+              return _results;
+            })(),
+            targetPoints: (function() {
+              var _i, _len, _ref, _results;
+
+              _ref = [[0, 0], [10 * scaleFactor, 0], [0, 10 * scaleFactor]];
+              _results = [];
+              for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+                offsets = _ref[_i];
+                point = new Point(centerPoint);
+                point.x += offsets[0];
+                point.y += offsets[1];
+                _results.push(point);
+              }
+              return _results;
+            })()
           },
-          handleAs: "json",
-          load: function(response) {
-            var centerPoint, offsets, point, scaleFactor;
+          gotoLocation: false
+        }, function() {
+          var updateEndEvent;
 
-            scaleFactor = !isNaN(_this.rtScaleFactorInput.value) ? Number(_this.rtScaleFactorInput.value) : 1;
-            centerPoint = new Polygon(response.features[0].geometry).getExtent().getCenter();
-            return _this.applyRoughTransform({
-              tiePoints: {
-                sourcePoints: (function() {
-                  var _i, _len, _ref, _results;
-
-                  _ref = [[0, 0], [10, 0], [0, 10]];
-                  _results = [];
-                  for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-                    offsets = _ref[_i];
-                    point = new Point(centerPoint);
-                    point.x += offsets[0];
-                    point.y += offsets[1];
-                    _results.push(point);
-                  }
-                  return _results;
-                })(),
-                targetPoints: (function() {
-                  var _i, _len, _ref, _results;
-
-                  _ref = [[0, 0], [10 * scaleFactor, 0], [0, 10 * scaleFactor]];
-                  _results = [];
-                  for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-                    offsets = _ref[_i];
-                    point = new Point(centerPoint);
-                    point.x += offsets[0];
-                    point.y += offsets[1];
-                    _results.push(point);
-                  }
-                  return _results;
-                })()
-              },
-              gotoLocation: false
-            }, function() {
-              var updateEndEvent;
-
-              return updateEndEvent = connect(_this.imageServiceLayer, "onUpdateEnd", function() {
-                disconnect(updateEndEvent);
-                _this.rt_scaleClose();
-                return domStyle.set(_this.loadingGif, "display", "none");
-              });
-            });
-          },
-          error: function(_arg1) {
-            var message;
-
-            message = _arg1.message;
-            return console.error(message);
-          }
-        }, {
-          usePost: true
+          return updateEndEvent = connect(_this.imageServiceLayer, "onUpdateEnd", function() {
+            disconnect(updateEndEvent);
+            _this.rt_scaleClose();
+            return domStyle.set(_this.loadingGif, "display", "none");
+          });
         });
       },
       rt_rotate: function(state) {
@@ -2025,74 +2033,53 @@
         return this.rt_rotateButton.set("checked", false);
       },
       rt_rotateTransform: function() {
-        var _this = this;
+        var PI, centerPoint, cos, offsets, point, sin, theta,
+          _this = this;
 
         domStyle.set(this.loadingGif, "display", "block");
-        return request({
-          url: this.imageServiceUrl + "/query",
-          content: {
-            objectIds: this.currentId,
-            returnGeometry: true,
-            outFields: "",
-            f: "json"
+        sin = Math.sin, cos = Math.cos, PI = Math.PI;
+        theta = !isNaN(this.rtRotateDegreesInput.value) ? PI / 180 * Number(this.rtRotateDegreesInput.value) : 0;
+        centerPoint = this.rasters.get(this.currentId).footprint.geometry.getExtent().getCenter();
+        return this.applyRoughTransform({
+          tiePoints: {
+            sourcePoints: (function() {
+              var _i, _len, _ref, _results;
+
+              _ref = [[0, 0], [10, 0], [0, 10]];
+              _results = [];
+              for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+                offsets = _ref[_i];
+                point = new Point(centerPoint);
+                point.x += offsets[0];
+                point.y += offsets[1];
+                _results.push(point);
+              }
+              return _results;
+            })(),
+            targetPoints: (function() {
+              var _i, _len, _ref, _results;
+
+              _ref = [[0, 0], [10 * cos(theta), 10 * -sin(theta)], [10 * sin(theta), 10 * cos(theta)]];
+              _results = [];
+              for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+                offsets = _ref[_i];
+                point = new Point(centerPoint);
+                point.x += offsets[0];
+                point.y += offsets[1];
+                _results.push(point);
+              }
+              return _results;
+            })()
           },
-          handleAs: "json",
-          load: function(response) {
-            var PI, centerPoint, cos, offsets, point, sin, theta;
+          gotoLocation: false
+        }, function() {
+          var updateEndEvent;
 
-            sin = Math.sin, cos = Math.cos, PI = Math.PI;
-            theta = !isNaN(_this.rtRotateDegreesInput.value) ? PI / 180 * Number(_this.rtRotateDegreesInput.value) : 0;
-            centerPoint = new Polygon(response.features[0].geometry).getExtent().getCenter();
-            return _this.applyRoughTransform({
-              tiePoints: {
-                sourcePoints: (function() {
-                  var _i, _len, _ref, _results;
-
-                  _ref = [[0, 0], [10, 0], [0, 10]];
-                  _results = [];
-                  for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-                    offsets = _ref[_i];
-                    point = new Point(centerPoint);
-                    point.x += offsets[0];
-                    point.y += offsets[1];
-                    _results.push(point);
-                  }
-                  return _results;
-                })(),
-                targetPoints: (function() {
-                  var _i, _len, _ref, _results;
-
-                  _ref = [[0, 0], [10 * cos(theta), 10 * -sin(theta)], [10 * sin(theta), 10 * cos(theta)]];
-                  _results = [];
-                  for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-                    offsets = _ref[_i];
-                    point = new Point(centerPoint);
-                    point.x += offsets[0];
-                    point.y += offsets[1];
-                    _results.push(point);
-                  }
-                  return _results;
-                })()
-              },
-              gotoLocation: false
-            }, function() {
-              var updateEndEvent;
-
-              return updateEndEvent = connect(_this.imageServiceLayer, "onUpdateEnd", function() {
-                disconnect(updateEndEvent);
-                _this.rt_rotateClose();
-                return domStyle.set(_this.loadingGif, "display", "none");
-              });
-            });
-          },
-          error: function(_arg1) {
-            var message;
-
-            message = _arg1.message;
-            return console.error(message);
-          }
-        }, {
-          usePost: true
+          return updateEndEvent = connect(_this.imageServiceLayer, "onUpdateEnd", function() {
+            disconnect(updateEndEvent);
+            _this.rt_rotateClose();
+            return domStyle.set(_this.loadingGif, "display", "none");
+          });
         });
       },
       showRasterNotSelectedDialog: function() {
@@ -2314,9 +2301,13 @@
           },
           handlesAs: "json",
           load: function(_arg1) {
-            var feature, footprintGeometry, georefStatus;
+            var error, feature, footprintGeometry, georefStatus, _ref;
 
-            feature = _arg1.features[0];
+            (_ref = _arg1.features, feature = _ref[0]), error = _arg1.error;
+            if (error != null) {
+              console.error(error);
+              return _this.showError("Error while refreshing Metadata. Please refresh your browser.");
+            }
             georefStatus = _this.currentGeorefStatus();
             footprintGeometry = new Polygon(feature.geometry);
             if (!((_this.rastersArchive[rasterId] != null) || (georefStatus === feature.attributes.GeoRefStatus && (georefStatus === 1 || _this.map.extent.intersects(footprintGeometry))))) {
@@ -2341,11 +2332,9 @@
             }
             return typeof callback === "function" ? callback() : void 0;
           },
-          error: function(_arg1) {
-            var message;
-
-            message = _arg1.message;
-            return console.error(message);
+          error: function(error) {
+            console.error(error);
+            return _this.showError("Error while refreshing Metadata. Please refresh your browser.");
           }
         }, {
           usePost: true
@@ -2424,7 +2413,16 @@
             })
           },
           handleAs: "json",
-          load: function() {
+          load: function(_arg1) {
+            var error, updateResults;
+
+            updateResults = _arg1.updateResults, error = _arg1.error;
+            if ((error != null) || updateResults.some(function(x) {
+              return !x.success;
+            })) {
+              console.error(error);
+              return _this.showError("Error updating raster. Please refresh your browser.");
+            }
             return _this.loadRastersList(function() {
               return _this.refreshMosaicRule();
             });
@@ -2433,7 +2431,8 @@
             var message;
 
             message = _arg1.message;
-            return console.error(message);
+            console.error(error);
+            return _this.showError("Error updating raster. Please refresh your browser.");
           }
         }, {
           usePost: true
@@ -2474,6 +2473,13 @@
           disconnect(updateEvent);
           return domStyle.set(_this.loadingGif, "display", "none");
         });
+      },
+      showError: function(message) {
+        if (message == null) {
+          message = "An unhandled exception has occured. Please refresh your browser.";
+        }
+        this.errorDialog.set("content", message);
+        return this.errorDialog.show();
       }
     });
   });

@@ -50,8 +50,8 @@ th.dgrid-cell {
   text-align: center;
 }
 .dgrid-content {
-  margin-top: 23px;
-  height: auto;
+  margin-top: 23px !important;
+  height: auto !important;
 }
 .field-display {
   width: 25px;
@@ -71,11 +71,17 @@ td.field-sourcePoint,
 td.field-targetPoint {
   padding: 0;
 }
+th.field-sourcePoint {
+  color: #1414b4;
+}
+th.field-targetPoint {
+  color: #b41414;
+}
 .field-id {
-  width: 25px;
-  padding: 0;
-  vertical-align: middle;
-  text-align: center;
+  width: 25px !important;
+  padding: 0 !important;
+  vertical-align: middle !important;
+  text-align: center !important;
   background-color: #eee;
 }
 .dgrid-selected .field-id {
@@ -234,7 +240,7 @@ td.field-resultId {
   background-repeat: no-repeat;
 }
 .claro .dijitToolbar .dijitToggleButtonChecked .dijitButtonNode {
-  background-color: #add8e6;
+  background-color: #add8e6 !important;
 }
 .displayAllIcon {
   background-image: url("resources/select_by_adding_to_selection.png");
@@ -285,6 +291,9 @@ td.field-resultId {
   background-size: 16px;
   background-position: center;
   background-repeat: no-repeat;
+}
+.dgrid-row {
+  cursor: pointer;
 }
 @-moz-keyframes yellowAnimate {
   0% {

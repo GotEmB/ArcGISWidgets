@@ -156,7 +156,7 @@ do ->
 			georefStatusDropButton: null
 			openRoughTransformButton: null
 			startEditTiepointsButton: null
-			socket: null
+			errorDialog: null
 			sourceSymbol: do ->
 				symbol = new SimpleMarkerSymbol(
 					SimpleMarkerSymbol.STYLE_X
@@ -284,7 +284,7 @@ do ->
 			scrollToElement: (element) ->
 				elemNL = query(element).closest(".dgrid-row")
 				if (prevNL = elemNL.prev()).length is 0 or prevNL[0].classList.contains "dgrid-preload"
-					elemNL?.parent()?.parent()?[0].scrollTop = 0
+					elemNL?.parent()?.parent()?[0]?.scrollTop = 0
 				else
 					win.scrollIntoView prevNL[0]
 				win.scrollIntoView element
@@ -333,6 +333,7 @@ do ->
 						return if @currentGeorefStatus() is 3
 						@rastersGrid.clearSelection()
 						@rastersGrid.select @rastersGrid.cell(e).row
+						e.stopPropagation()
 					@rastersGrid.on "dgrid-select", ({rows}) =>
 						oldId = @currentId
 						@currentId = rows[0].data.rasterId
@@ -343,6 +344,11 @@ do ->
 					@rastersGrid.on "dgrid-datachange", ({cell, value}) =>
 						cell.row.data.display = value
 						@refreshMosaicRule()
+					@rastersGrid.on ".dgrid-scroller:click", (e) =>
+						return unless e.target.classList.contains "dgrid-scroller"
+						@rasters.get(@currentId ? 0)?.footprint.setSymbol @footprintSymbol
+						delete @currentId
+						@rastersGrid.clearSelection()
 					@tiepoints = new Observable new Memory idProperty: "id"
 					@tiepointsGrid = new TiepointsGrid
 						columns: [
@@ -367,10 +373,8 @@ do ->
 								value.gotoPointGrid = =>
 									@scrollToElement pointGrid.domNode
 									rowNL = query(pointGrid.domNode).closest(".dgrid-row")
-									rowNL.addClass "yellow"
-									mouseUpEvent = connect @tiepointsLayer, "onMouseUp", =>
-										rowNL.removeClass "yellow"
-										disconnect mouseUpEvent
+									@tiepointsGrid.clearSelection()
+									@tiepointsGrid.select rowNL[0]
 								pointGrid.domNode
 						,
 							label: "Target Point"
@@ -390,10 +394,8 @@ do ->
 								value.gotoPointGrid = =>
 									@scrollToElement pointGrid.domNode
 									rowNL = query(pointGrid.domNode).closest(".dgrid-row")
-									rowNL.addClass "yellow"
-									mouseUpEvent = connect @tiepointsLayer, "onMouseUp", =>
-										rowNL.removeClass "yellow"
-										disconnect mouseUpEvent
+									@tiepointsGrid.clearSelection()
+									@tiepointsGrid.select rowNL[0]
 								pointGrid.domNode
 						]
 						@tiepointsGrid
@@ -449,8 +451,10 @@ do ->
 						for raster in @rasters.data by -1 when raster.display
 							if raster.footprint.geometry.contains e.mapPoint
 								@rastersGrid.clearSelection()
-								@rastersGrid.select raster
-								break
+								return @rastersGrid.select raster
+						@rasters.get(@currentId ? 0)?.footprint.setSymbol @footprintSymbol
+						delete @currentId
+						@rastersGrid.clearSelection()
 					connect @map, "onExtentChange", (e) =>
 						return if @georefStatus_FalseButton.domNode.classList.contains "bold"
 						unless @toggleRasterLayerButton.checked
@@ -512,7 +516,10 @@ do ->
 										returnGeometry: true
 										outFields: "OBJECTID, Name, GeoRefStatus"
 									handlesAs: "json"
-									load: ({features: [feature]}) =>
+									load: ({features: [feature], error}) =>
+										if error?
+											console.error error
+											return @showError "ImageService query error. Please refresh your browser."
 										@setGeorefStatus feature.attributes.GeoRefStatus
 										@map.setExtent new Polygon(feature.geometry).getExtent()
 										mosaicRefreshedAspect = aspect.after @, "refreshMosaicRule", =>
@@ -524,7 +531,9 @@ do ->
 												if selectAspect.done then return else selectAspect.done = true
 												selectAspect.remove()
 												row.data.callback?()
-									error: ({message}) => console.error message
+									error: (error) =>
+										console.error error
+										return @showError "ImageService query error. Please refresh your browser."
 									(usePost: true)
 							else
 								row.data.callback?()
@@ -586,7 +595,10 @@ do ->
 						geometryType: "esriGeometryEnvelope"
 						spatialRel: "esriSpatialRelIntersects"
 					handlesAs: "json"
-					load: ({features}) =>
+					load: ({features, error}) =>
+						if error?
+							console.error error
+							return @showError "Could not load rasters list. Please refresh your browser."
 						@footprintsLayer.clear()
 						for raster in new Array @rasters.data...
 							delete @rastersArchive[raster.rasterId]
@@ -619,8 +631,12 @@ do ->
 							else
 								delete @currentId
 								@toggleSelectionOnlyButton.set "checked", false
+						if @rasters.data.length is 1
+							@rastersGrid.select @rasters.data[0]
 						callback?()
-					error: ({message}) => console.error message
+					error: (error) =>
+						console.error error
+						return @showError "Could not load rasters list. Please refresh your browser."
 					(usePost: true)
 			showAddRasterDialog: ->
 				@addRasterDialog.show()
@@ -677,19 +693,21 @@ do ->
 										callback: =>
 										callbackLabel: "View Raster"
 									@asyncResults.notify asyncTask, asyncTask.resultId
-							error: ({message}) =>
+							error: (error) =>
+								console.error error
+								return @showError "Could not add raster. Please refresh your browser."
 								extend asyncTask,
 									status: "Failed"
 									endTime: (new Date).toLocaleString()
 								@asyncResults.notify asyncTask, asyncTask.resultId
-								console.error message
 							(usePost: true)
-					error: ({message}) =>
+					error: (error) =>
+						console.error error
+						return @showError "Could not add raster. Please refresh your browser."
 						extend asyncTask,
 							status: "Failed"
 							endTime: (new Date).toLocaleString()
 						@asyncResults.notify asyncTask, asyncTask.resultId
-						console.error message
 					(usePost: true)
 			applyTransform: ({tiePoints, gotoLocation, geodataTransform, polynomialOrder}, callback) ->
 				gotoLocation ?= true
@@ -712,13 +730,20 @@ do ->
 							MinPS: 0
 							MaxPS: 50
 					handleAs: "json"
-					load: =>
+					load: ({updateResults, error}) =>
+						if error? or updateResults.some((x) => not x.success)
+							console.error error
+							return @showError "Could not apply transform. Please refresh your browser."
 						for task in @asyncResults.data.filter((x) => x.rasterId is @currentId and x.task in ["Compute Tiepoints", "Apply Transform (Tiepoints)"])
 							delete task.callback
 						selectedRow = @rasters.get @currentId
 						@map.setExtent if gotoLocation then selectedRow.footprint.geometry.getExtent() else @map.extent
-						callback?()
-					error: ({message}) => console.error message
+						@toggleRasterLayerButton.set "checked", true
+						@refreshRasterMeta @currentId, =>
+							callback?()
+					error: (error) =>
+						console.error error
+						return @showError "Could not apply transform. Please refresh your browser."
 					(usePost: true)
 			computeTiePoints: (callback) ->
 				request
@@ -736,6 +761,7 @@ do ->
 					load: (response) ->
 						callback? response
 					error: (error) =>
+						@showError "Error during computeTiePoints. Please refresh your browser."
 						console.error error.message
 						callback? error: error
 					(usePost: true)
@@ -918,6 +944,7 @@ do ->
 						targetPoints: selectedRow.tiepoints.data.map (x) => x.targetPoint.geometry
 					geodataTransform: geodataTransform
 					polynomialOrder: polynomialOrder
+					gotoLocation: false
 					=>
 						updateEndEvent = connect @imageServiceLayer, "onUpdateEnd", =>
 							disconnect updateEndEvent
@@ -945,15 +972,21 @@ do ->
 												MinPS: 0
 												MaxPS: 50
 										handleAs: "json"
-										load: =>
-											for task in @asyncResults.data.filter((x) => x.rasterId is @currentId and x.task in ["Compute Tiepoints", "Apply Transform (Tiepoints)"])
-												delete task.callback
-											selectedRow = @rasters.get @currentId
-											selectedRow.tiepoints.put tiepoint for tiepoint in appliedTiepoints
-											delete asyncTask.callback
-											@startEditTiepoints()
-											domStyle.set @loadingGif, "display", "none"
-										error: ({message}) => console.error message
+										load: ({updateResults, error}) =>
+											if error? or updateResults.some((x) => not x.success)
+												console.error error
+												return @showError "Could not redo transform. Please refresh your browser."
+											@refreshRasterMeta @currentId, =>
+												for task in @asyncResults.data.filter((x) => x.rasterId is @currentId and x.task in ["Compute Tiepoints", "Apply Transform (Tiepoints)"])
+													delete task.callback
+												selectedRow = @rasters.get @currentId
+												selectedRow.tiepoints.put tiepoint for tiepoint in appliedTiepoints
+												delete asyncTask.callback
+												@startEditTiepoints()
+												domStyle.set @loadingGif, "display", "none"
+										error: (error) =>
+											console.error error
+											return @showError "Could not redo transform. Please refresh your browser."
 										(usePost: true)
 								callbackLabel: "Redo Edit Tiepoints"
 							domStyle.set @asyncResultsContainer.domNode, "display", "block" if domStyle.get(@selectRasterContainer.domNode, "display") is "block"
@@ -992,8 +1025,7 @@ do ->
 				)
 			applyRoughTransform: (argObj, callback) ->
 				@applyTransform argObj, =>
-					@refreshRasterMeta @currentId, =>
-						callback?()
+					callback?()
 			rt_fit: ->
 				domStyle.set @loadingGif, "display", "block"
 				@projectIfReq
@@ -1160,37 +1192,26 @@ do ->
 				@rt_scaleButton.set "checked", false
 			rt_scaleTransform: ->
 				domStyle.set @loadingGif, "display", "block"
-				request
-					url: @imageServiceUrl + "/query"
-					content:
-						objectIds: @currentId
-						returnGeometry: true
-						outFields: ""
-						f: "json"
-					handleAs: "json"
-					load: (response) =>
-						scaleFactor = unless isNaN @rtScaleFactorInput.value then Number @rtScaleFactorInput.value else 1
-						centerPoint = new Polygon(response.features[0].geometry).getExtent().getCenter()
-						@applyRoughTransform
-							tiePoints:
-								sourcePoints: for offsets in [[0, 0], [10, 0], [0, 10]]
-									point = new Point centerPoint
-									point.x += offsets[0]
-									point.y += offsets[1]
-									point
-								targetPoints: for offsets in [[0, 0], [10 * scaleFactor, 0], [0, 10 * scaleFactor]]
-									point = new Point centerPoint
-									point.x += offsets[0]
-									point.y += offsets[1]
-									point
-							gotoLocation: false
-							=>
-								updateEndEvent = connect @imageServiceLayer, "onUpdateEnd", =>
-									disconnect updateEndEvent
-									@rt_scaleClose()
-									domStyle.set @loadingGif, "display", "none"
-					error: ({message}) => console.error message
-					(usePost: true)
+				scaleFactor = unless isNaN @rtScaleFactorInput.value then Number @rtScaleFactorInput.value else 1
+				centerPoint = @rasters.get(@currentId).footprint.geometry.getExtent().getCenter()
+				@applyRoughTransform
+					tiePoints:
+						sourcePoints: for offsets in [[0, 0], [10, 0], [0, 10]]
+							point = new Point centerPoint
+							point.x += offsets[0]
+							point.y += offsets[1]
+							point
+						targetPoints: for offsets in [[0, 0], [10 * scaleFactor, 0], [0, 10 * scaleFactor]]
+							point = new Point centerPoint
+							point.x += offsets[0]
+							point.y += offsets[1]
+							point
+					gotoLocation: false
+					=>
+						updateEndEvent = connect @imageServiceLayer, "onUpdateEnd", =>
+							disconnect updateEndEvent
+							@rt_scaleClose()
+							domStyle.set @loadingGif, "display", "none"
 			rt_rotate: (state) ->
 				if state
 					domStyle.set @rtRotateContainer.domNode, "display", "block"
@@ -1203,38 +1224,27 @@ do ->
 				@rt_rotateButton.set "checked", false
 			rt_rotateTransform: ->
 				domStyle.set @loadingGif, "display", "block"
-				request
-					url: @imageServiceUrl + "/query"
-					content:
-						objectIds: @currentId
-						returnGeometry: true
-						outFields: ""
-						f: "json"
-					handleAs: "json"
-					load: (response) =>
-						{sin, cos, PI} = Math
-						theta = unless isNaN @rtRotateDegreesInput.value then PI / 180 * Number @rtRotateDegreesInput.value else 0
-						centerPoint = new Polygon(response.features[0].geometry).getExtent().getCenter()
-						@applyRoughTransform
-							tiePoints:
-								sourcePoints: for offsets in [[0, 0], [10, 0], [0, 10]]
-									point = new Point centerPoint
-									point.x += offsets[0]
-									point.y += offsets[1]
-									point
-								targetPoints: for offsets in [[0, 0], [10 * cos(theta), 10 * -sin(theta)], [10 * sin(theta), 10 * cos(theta)]]
-									point = new Point centerPoint
-									point.x += offsets[0]
-									point.y += offsets[1]
-									point
-							gotoLocation: false
-							=>
-								updateEndEvent = connect @imageServiceLayer, "onUpdateEnd", =>
-									disconnect updateEndEvent
-									@rt_rotateClose()
-									domStyle.set @loadingGif, "display", "none"
-					error: ({message}) => console.error message
-					(usePost: true)
+				{sin, cos, PI} = Math
+				theta = unless isNaN @rtRotateDegreesInput.value then PI / 180 * Number @rtRotateDegreesInput.value else 0
+				centerPoint = @rasters.get(@currentId).footprint.geometry.getExtent().getCenter()
+				@applyRoughTransform
+					tiePoints:
+						sourcePoints: for offsets in [[0, 0], [10, 0], [0, 10]]
+							point = new Point centerPoint
+							point.x += offsets[0]
+							point.y += offsets[1]
+							point
+						targetPoints: for offsets in [[0, 0], [10 * cos(theta), 10 * -sin(theta)], [10 * sin(theta), 10 * cos(theta)]]
+							point = new Point centerPoint
+							point.x += offsets[0]
+							point.y += offsets[1]
+							point
+					gotoLocation: false
+					=>
+						updateEndEvent = connect @imageServiceLayer, "onUpdateEnd", =>
+							disconnect updateEndEvent
+							@rt_rotateClose()
+							domStyle.set @loadingGif, "display", "none"
 			showRasterNotSelectedDialog: ->
 				@rasterNotSelectedDialog.show()
 			hideRasterNotSelectedDialog: ->
@@ -1362,7 +1372,10 @@ do ->
 						where: "OBJECTID = #{rasterId}"
 						outFields: "OBJECTID, Name, GeoRefStatus"
 					handlesAs: "json"
-					load: ({features: [feature]}) =>
+					load: ({features: [feature], error}) =>
+						if error?
+							console.error error
+							return @showError "Error while refreshing Metadata. Please refresh your browser."
 						georefStatus = @currentGeorefStatus()
 						footprintGeometry = new Polygon feature.geometry
 						return callback?() unless @rastersArchive[rasterId]? or (georefStatus is feature.attributes.GeoRefStatus and (georefStatus is 1 or @map.extent.intersects footprintGeometry))
@@ -1384,7 +1397,9 @@ do ->
 						else
 							@rasters.remove rasterId
 						callback?()
-					error: ({message}) => console.error message
+					error: (error) =>
+						console.error error
+						return @showError "Error while refreshing Metadata. Please refresh your browser."
 					(usePost: true)
 			currentGeorefStatus: ->
 				if @georefStatus_CompleteButton.domNode.classList.contains "bold"
@@ -1438,10 +1453,15 @@ do ->
 						attributes: JSON.stringify
 							GeoRefStatus: status
 					handleAs: "json"
-					load: =>
+					load: ({updateResults, error}) =>
+						if error? or updateResults.some((x) => not x.success)
+							console.error error
+							return @showError "Error updating raster. Please refresh your browser."
 						@loadRastersList =>
 							@refreshMosaicRule()
-					error: ({message}) => console.error message
+					error: ({message}) =>
+						console.error error
+						return @showError "Error updating raster. Please refresh your browser."
 					(usePost: true)
 			markGeoreferenced: ->
 				@markAs 0
@@ -1469,3 +1489,7 @@ do ->
 				updateEvent = connect @imageServiceLayer, "onUpdateEnd", =>
 					disconnect updateEvent
 					domStyle.set @loadingGif, "display", "none"
+			showError: (message) ->
+				message ?= "An unhandled exception has occured. Please refresh your browser."
+				@errorDialog.set "content", message
+				@errorDialog.show()
